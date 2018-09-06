@@ -2,11 +2,11 @@
 */.classpath
 */.settings
 */*.log
-*/*.iml
+**/*.iml
 .project
 .classpath
 .settings
 .idea
 target
 */target
-duniter4j.iml
+*.iml

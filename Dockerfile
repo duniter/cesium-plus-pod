@@ -2,17 +2,17 @@
 #
 #
 # Building this image:
-#   docker build . --network=host -t duniter/duniter4j-es
+#   docker build . --network=host -t duniter/cesium-plus-pod
 #
 # Test:
-#   docker run --net=host -t duniter/duniter4j-es
+#   docker run --net=host -t duniter/cesium-plus-pod
 # Test (interactive mode + bash mode):
-#   docker run -i --net=host -t duniter/duniter4j-es bash
+#   docker run -i --net=host -t duniter/cesium-plus-pod bash
 #
 # Pull base image.
 FROM airdock/oracle-jdk:1.8
 
-ARG DUNITER4J_VERSION=1.0.2
+ARG VERSION=1.0.2
 ARG LIBSODIUM_VERSION=1.0.13
 
 # Installing dependencies
@@ -28,28 +28,24 @@ RUN wget https://download.libsodium.org/libsodium/releases/libsodium-${LIBSODIUM
     make install
 
 # Create compiling user
-RUN mkdir /duniter4j && \
-	adduser --system --group --quiet --shell /bin/bash --home /duniter4j duniter4j && \
-	chown duniter4j:duniter4j /duniter4j
-WORKDIR /duniter4j
+RUN mkdir /cesium-plus-pod && \
+	adduser --system --group --quiet --shell /bin/bash --home /cesium-plus-pod cesium-plus-pod && \
+	chown cesium-plus-pod:cesium-plus-pod /cesium-plus-pod
+WORKDIR /cesium-plus-pod
 
-#RUN cd /duniter4j && \
-#	wget https://git.duniter.org/clients/cesium-grp/cesium/repository/v${CESIUM_VERSION}/archive.tar.gz
-#   tar -xzf archive.tar.gz && rm *.tar.gz && mv cesium-* src && \
+RUN cd /cesium-plus-pod && \
+    wget https://github.com/duniter/cesium-plus-pod/releases/download/cesium-plus-pod-${VERSION}/cesium-plus-pod-${VERSION}-standalone.zip && \
+    unzip *.zip && rm *.zip && mv cesium-plus-pod-* cesium-plus-pod && \
+    mkdir cesium-plus-pod/data && \
+    chown -R cesium-plus-pod:cesium-plus-pod cesium-plus-pod
 
-RUN cd /duniter4j && \
-    wget https://github.com/duniter/duniter4j/releases/download/duniter4j-${DUNITER4J_VERSION}/duniter4j-es-${DUNITER4J_VERSION}-standalone.zip && \
-    unzip *.zip && rm *.zip && mv duniter4j-es-* duniter4j-es && \
-    mkdir duniter4j-es/data && \
-    chown -R duniter4j:duniter4j duniter4j-es
+RUN ln -s /cesium-plus-pod/cesium-plus-pod/bin/elasticsearch /usr/bin/cesium-plus-pod
 
-RUN ln -s /duniter4j/duniter4j-es/bin/elasticsearch /usr/bin/duniter4j-es
-
-VOLUME /duniter4j/duniter4j-es
+VOLUME /cesium-plus-pod/cesium-plus-pod
 EXPOSE 9200 9400
 
-USER duniter4j
-WORKDIR /duniter4j
+USER cesium-plus-pod
+WORKDIR /cesium-plus-pod
 
-ENTRYPOINT ["/usr/bin/duniter4j-es"]
+ENTRYPOINT ["/usr/bin/cesium-plus-pod"]
 CMD []

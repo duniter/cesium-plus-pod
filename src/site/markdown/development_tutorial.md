@@ -7,27 +7,21 @@ A la fin de ce tutoriel, vous serez donc *capable de modifier le logiciel*.
 
 ## Rappel d'architecture
 
-Le projet Duniter4j est composé de plusieurs sous-modules :
+Le projet Cesium+ Pod est composé de plusieurs sous-modules, dont des plugins ElasticSearch :
 
-- `duniter4j-core-shared`: Classes utilitaires Java. Réutilisable dans d'autres projets Java autour de Duniter.
- 
-- `duniter4j-core-client`: Ensemble de services Java permettant d'accéder à un réseau Duniter (c'est à dire une API Java client Duniter) . Cette partie est **réutilisable dans d'autres applications Java**.
-   
-- `duniter4j-es-*`: Les plugins ElasticSearch, qui implémentent : 
- 
-   * `duniter4j-es-core`: Indexation de BlockChain  Duniter (ESA ou ES API);
+- `cesium-plus-pod-core`: Indexation de BlockChain Duniter;
 
-   * `duniter4j-es-user`: Indexation de données utilisateurs (profils, des messages privées, paramètres chiffrés) (ESUA ou ES USER API);
+- `cesium-plus-pod-user`: Indexation de données utilisateurs (profils, des messages privées, paramètres chiffrés);
 
-   * `duniter4j-es-subscription`: Indexation des abonnements en ligne (notifications par email);
+- `cesium-plus-pod-subscription`: Indexation des abonnements en ligne (notifications par email);
 
-   * `duniter4j-es-assembly`: gestion des livrables (packaging).
+- `cesium-plus-pod-assembly`: gestion des livrables (packaging).
 
 ## Niveau I : récupérer le code source
 
 Ce premier niveau consiste à créer *votre propre version* des sources du logiciel et de récupérer cette copie sur votre ordinateur. Vous y produirez : 
 
-- Votre propre compte *GitHub*
+- Votre propre compte *GitLab*
 
 - Votre propre version du logiciel, votre *fork*
 
@@ -37,7 +31,7 @@ Ce premier niveau consiste à créer *votre propre version* des sources du logic
 
 > Si vous disposez déjà d'un compte GitHub, vous pouvez passer cette étape.
 
-Rendez-vous sur https://github.com (site en anglais). Renseigner les 3 champs proposés :
+Rendez-vous sur https://git.duniter.org (site en anglais). Renseigner les 3 champs proposés :
 
 - Nom d'utilisateur
 
@@ -45,15 +39,11 @@ Rendez-vous sur https://github.com (site en anglais). Renseigner les 3 champs pr
 
 - Mot de passe
 
-<img src="https://forum.duniter.org/uploads/default/original/1X/13ade346327b73bbf1acc97027af147eeb4e9089.png" width="346" height="325"/>
-
 Vous recevrez probablement un e-mail de confirmation qu'il vous faudra valider. Une fois cette étape passée, vous devriez disposer d'un compte GitHub .
 
 ### Forkez le dépôt principal
 
-Rendez-vous à l'adresse https://github.com/duniter/duniter4j. Cliquez sur le bouton « Fork » en dans le coin supérieur droit de la page :
-
-<img src="https://forum.duniter.org/uploads/default/original/1X/3b9228c664520496d6a7e86e3f9c4c438f111914.png" width="388" height="98"/>
+Rendez-vous à l'adresse https://git.duniter.org/clients/cesium-grp/cesium-plus-pod. Cliquez sur le bouton « Fourcher » en haut de la page.
 
 ### Installer Git
 
@@ -85,7 +75,7 @@ Vous n'avez plus qu'à retourner dans votre console Git et saisir :
 ce qui donne dans mon cas : 
 
 ```
-git clone https://github.com/blavenie/duniter4j.git
+git clone git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git
 Cloning into 'duniter4j'...
  (...)
 Checking connectivity... done.
@@ -119,7 +109,7 @@ sudo apt-get install openjdk-8-jdk
 
 [libsodium](https://download.libsodium.org/doc/index.html) est une librairie de cryptographie.
 
-- Sous Windows : Aucune instalation nécessaire (fichier `sodium.dll` déjà présent dans `duniter4j-core-shared/lib`);
+- Sous Windows : Aucune instalation nécessaire (fichier `sodium.dll` déjà présent dans la librairie `duniter4j` incluse);
  
 - Sous Linux : suivre [les notes d'installation](https://download.libsodium.org/doc/installation/index.html) (anglais).
 
@@ -159,7 +149,7 @@ Ce troisième niveau permet de découvrir les quelques commandes que vous utilis
 
 ### Configurer le projet
 
-La configuration utilisée pour le développement est visible dans le fichier : `/duniter4j-es-assembly/src/test/es-home/config/elasticsearch.yml`
+La configuration utilisée pour le développement est visible dans le fichier : `/cesium-plus-pod-assembly/src/test/es-home/config/elasticsearch.yml`
 
 #### Configuration du noeud Duniter
 
@@ -185,10 +175,10 @@ duniter.port: 10901
 
 #### Désactivation de la couche de sécurité
 
-Duniter4j a une couche de sécurité, qui empêche l'appel à des URL non autorisées. 
+Cesium+ pod a une couche de sécurité, qui empêche l'appel à des URL non autorisées. 
 Nous allons **désactiver cette couche de sécurité** pour faciliter l'apprentissage qui va suivre.
 
-Modifiez comme suit, modifier le fichier de configuration `duniter4j-elasticsearch/src/main/assembly/config/elasticsearch.yml` :
+Modifiez comme suit, modifier le fichier de configuration `cesium-plus-pod-assembly/src/main/assembly/config/elasticsearch.yml` :
 
 ```bash
 duniter.security.enable: false
@@ -210,21 +200,18 @@ Si tout c'est bien passé, vous devriez obtenir quelque chose qui ressemble à c
 
 ```bash
 (...)
-[INFO] Building zip: /home/eis/git/duniter/duniter4j/duniter4j-es-assembly/target/duniter4j-es-0.3.5-SNAPSHOT-standalone.zip
+[INFO] Building zip: /home/user/git/cesium-plus-pod/cesium-plus-pod-assembly/target/cesium-plus-pod-0.3.5-SNAPSHOT-standalone.zip
 [INFO] 
-[INFO] --- maven-install-plugin:2.4:install (default-install) @ duniter4j-es-assembly ---
-[INFO] Installing /home/eis/git/duniter/duniter4j/duniter4j-es-assembly/pom.xml to /home/eis/.m2/repository/org/duniter/duniter4j-es-assembly/0.3.5-SNAPSHOT/duniter4j-es-assembly-0.3.5-SNAPSHOT.pom
-[INFO] Installing /home/eis/git/duniter/duniter4j/duniter4j-es-assembly/target/duniter4j-es-0.3.5-SNAPSHOT-standalone.zip to /home/eis/.m2/repository/org/duniter/duniter4j-es-assembly/0.3.5-SNAPSHOT/duniter4j-es-assembly-0.3.5-SNAPSHOT-standalone.zip
+[INFO] --- maven-install-plugin:2.4:install (default-install) @ cesium-plus-pod-assembly ---
+[INFO] Installing /home/user/git/cesium-plus-pod/cesium-plus-pod-assembly/pom.xml to /home/eis/.m2/repository/org/duniter/cesium-plus-pod-assembly/0.3.5-SNAPSHOT/cesium-plus-pod-assembly-0.3.5-SNAPSHOT.pom
+[INFO] Installing /home/user/git/cesium-plus-pod/cesium-plus-pod-assembly/target/cesium-plus-pod-0.3.5-SNAPSHOT-standalone.zip to /home/eis/.m2/repository/org/duniter/cesium-plus-pod-assembly/0.3.5-SNAPSHOT/cesium-plus-pod-assembly-0.3.5-SNAPSHOT-standalone.zip
 [INFO] ------------------------------------------------------------------------
 [INFO] Reactor Summary:
 [INFO] 
-[INFO] Duniter4j : a Duniter Java Client API ............. SUCCESS [0.476s]
-[INFO] Duniter4j :: Core Shared .......................... SUCCESS [4.152s]
-[INFO] Duniter4j :: Core Client API ...................... SUCCESS [5.633s]
-[INFO] Duniter4j :: ElasticSearch Core plugin ............ SUCCESS [8.954s]
-[INFO] Duniter4j :: ElasticSearch User plugin ............ SUCCESS [1.039s]
-[INFO] Duniter4j :: ElasticSearch Subscription plugin .... SUCCESS [0.804s]
-[INFO] Duniter4j :: ElasticSearch Assembly ............... SUCCESS [4.747s]
+[INFO] Cesium+ pod :: Core plugin ........................ SUCCESS [8.954s]
+[INFO] Cesium+ pod :: User plugin ........................ SUCCESS [1.039s]
+[INFO] Cesium+ pod :: Subscription plugin ................ SUCCESS [0.804s]
+[INFO] Cesium+ pod :: ElasticSearch Assembly ............. SUCCESS [4.747s]
 
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
@@ -250,12 +237,12 @@ Cela permet une compilation plus rapide.
  
 ### Lancer un noeud ElasticSearch
 
-Il ne vous reste plus qu'à lancer un noeud local ElasticSearch, intégrant les plugins Duniter4j.
+Il ne vous reste plus qu'à lancer votre pod local.
 
 Lancez la commande suivante : 
 
 ```bash
-mvn install -Prun -pl duniter4j-es-assembly
+mvn install -Prun -pl cesium-plus-pod-assembly
 ```
 
 Vous devriez avoir maintenant :
@@ -280,7 +267,7 @@ Pour vérifier le bon fonctionnement de votre noeud ES, ouvrez un navigateur à 
 Vous devriez voir le contenu suivant : 
 <img src="https://forum.duniter.org/uploads/default/original/2X/f/fb3d42bb463334b4223d40c1a45a16caa8f589a2.png" width="506" height="260"/>
 
-Bravo, votre noeud ElasticSearch Duniter4j est fonctionnel !
+Bravo, votre pod Cesium+ est fonctionnel !
 
 ### En cas de problème au lancement
 
@@ -288,7 +275,7 @@ Bravo, votre noeud ElasticSearch Duniter4j est fonctionnel !
 
 Cette erreur indique qu'ElasticSearch n'a pas pu démarrer sur le port demandé.
 
-Vous pouvez changer de port (ou l'IP), en éditant les propriétés suivantes du fichier `/duniter4j-elasticsearch/src/test/es-home/config/elasticsearch.yml` : 
+Vous pouvez changer de port (ou l'IP), en éditant les propriétés suivantes du fichier `/cesium-plus-pod-assembly/src/test/es-home/config/elasticsearch.yml` : 
 
 ```bash
 # ---------------------------------- Network -----------------------------------
@@ -308,7 +295,7 @@ http.port: 9200   <-- Remplacez par un port libre de votre machine (plage 9200-9
 
 Ouvrir votre IDE, et ouvrir le projet Duniter4j.
 
-Dans le répertoire `duniter4j-es-core/src/main/java`, cherchez et répérez dans le code : 
+Dans le répertoire `cesium-plus-pod-core/src/main/java`, cherchez et répérez dans le code : 
 
 - les controlleurs REST : package `org.duniter.elasticsearch.rest`
 

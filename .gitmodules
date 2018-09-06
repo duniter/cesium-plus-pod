@@ -1,3 +1,0 @@
-[submodule "duniter4j-elasticsearch/src/main/resources/cities"]
-	path = duniter4j-elasticsearch/src/main/resources/cities
-	url = git://github.com/David-Haim/CountriesToCitiesJSON.git

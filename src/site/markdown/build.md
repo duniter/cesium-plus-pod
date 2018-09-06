@@ -17,15 +17,13 @@ sudo apt-get install openjdk-8-jdk
 ### Install LibSodium
 
  
-- Linux : follow [this instructions](https://download.libsodium.org/doc/installation/index.html) (anglais).
+- Linux: follow [this instructions](https://download.libsodium.org/doc/installation/index.html) (anglais).
 
    * After install, check that the file `libsodium.so` exists inside directory `/usr/local/lib` or `/opt/local/lib`.
 
    * If not exists, but at another location, please create a symbolic link under directory `/usr/local/lib` or `/opt/local/lib`.
 
-- Windows : Aucune instalation nécessaire (fichier `sodium.dll` déjà présent dans `duniter4j-core-shared/lib`);
-
-   * Windows: copy the file 'sodium.dll' into directory 'duniter4j-core/lib/'
+- Windows: Nothing to do (the lib `sodium.dll` is already include in the included library `duniter4j`);
 
 
 ### Installer Apache Maven 3
@@ -48,8 +46,8 @@ Install [Apache Maven 3](http://maven.apache.org):
 - Get the source code, then compile using Maven:
 
 ```
-git clone https://github.com/duniter/duniter4j.git
-cd duniter4j
+git clone git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git
+cd cesium-plus-pod
 git submodule init
 git submodule sync
 git submodule update

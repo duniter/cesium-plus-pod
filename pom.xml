@@ -1,18 +1,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.duniter</groupId>
-  <artifactId>duniter4j</artifactId>
+  <groupId>org.duniter.cesium</groupId>
+  <artifactId>cesium-plus-pod</artifactId>
   <version>1.0.4-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>Duniter4j</name>
-  <description>a Duniter Java Client API</description>
+  <name>Cesium+ pod</name>
+  <description>Cesium+ pod :: An ElasticSearch cluster for Duniter network</description>
 
-  <url>http://doc.e-is.pro/duniter4j/</url>
+  <url>http://doc.e-is.pro/cesium-plus-pod/</url>
   <inceptionYear>2014</inceptionYear>
   <organization>
     <name>Duniter Team</name>
-    <url>http://www.duniter.fr</url>
+    <url>http://www.duniter.org</url>
   </organization>
 
   <prerequisites>
@@ -29,6 +29,7 @@
     <signatureVersion>1.0</signatureVersion>
 
     <!-- Commons versions -->
+    <duniter4j.version>1.0.4-SNAPSHOT</duniter4j.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.5</slf4j.version>
     <guava.version>22.0</guava.version>
@@ -119,7 +120,7 @@
     <projectId>${project.artifactId}</projectId>
     <site.server>eis-public-reports</site.server>
     <site.host>doc.e-is.pro</site.host>
-    <site.path>/var/www/doc.e-is.pro/duniter4j</site.path>
+    <site.path>/var/www/doc.e-is.pro/cesium-plus-pod</site.path>
     <site.repository>scpexe://${site.host}${site.path}</site.repository>
     <release.server>eis-nexus-deploy</release.server>
     <release.repository>http://nexus.e-is.pro/nexus/content/repositories/duniter4j-releases</release.repository>
@@ -141,13 +142,10 @@
   </licenses>
 
   <modules>
-    <module>duniter4j-core-shared</module>
-    <module>duniter4j-core-client</module>
-    <module>duniter4j-client</module>
-    <module>duniter4j-es-core</module>
-    <module>duniter4j-es-user</module>
-    <module>duniter4j-es-subscription</module>
-    <module>duniter4j-es-assembly</module>
+    <module>cesium-plus-pod-core</module>
+    <module>cesium-plus-pod-user</module>
+    <module>cesium-plus-pod-subscription</module>
+    <module>cesium-plus-pod-assembly</module>
   </modules>
 
   <scm>
@@ -164,6 +162,17 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.duniter</groupId>
+        <artifactId>duniter4j-core-shared</artifactId>
+        <version>${duniter4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.duniter</groupId>
+        <artifactId>duniter4j-core-client</artifactId>
+        <version>${duniter4j.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
@@ -930,8 +939,8 @@
               </reportSet>
             </reportSets>
             <configuration>
-              <include>duniter4j</include>
-              <i18nBundleName>duniter4j-client-i18n</i18nBundleName>
+              <include>cesium-plus-pod</include>
+              <i18nBundleName>cesium-plus-pod-subscription-i18n</i18nBundleName>
               <verbose>true</verbose>
               <outputEncoding>UTF-8</outputEncoding>
             </configuration>
