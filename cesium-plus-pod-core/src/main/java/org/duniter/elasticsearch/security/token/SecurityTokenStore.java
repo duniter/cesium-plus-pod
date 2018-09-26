@@ -64,7 +64,7 @@ public class SecurityTokenStore {
 
     public String createNewToken(String challenge, String signature, String pubkey) {
         String token = newToken(challenge, signature, pubkey);
-        tokenCache.put(challenge, challenge);
+        tokenCache.put(token, token);
         return token;
     }
 

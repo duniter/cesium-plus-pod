@@ -24,8 +24,7 @@ package org.duniter.elasticsearch.security.challenge;
 
 import org.duniter.core.util.Preconditions;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.cache.Cache;
 import org.duniter.core.util.ObjectUtils;
 import org.duniter.core.util.StringUtils;
 import org.elasticsearch.common.inject.Inject;
@@ -45,19 +44,19 @@ public class ChallengeMessageStore {
 
     private String prefix;
     private long validityDurationInSeconds;
-    private LoadingCache<String, String> chalengeMessageCache;
+    private Cache<String, String> store;
 
     @Inject
     public ChallengeMessageStore(Settings settings) {
         this.prefix = settings.get("duniter4j.auth.challenge.prefix", "duniter4j-challenge-");
         this.validityDurationInSeconds = settings.getAsInt("duniter4j.auth.challengeValidityDuration", 10);
-        this.chalengeMessageCache = initGeneratedMessageCache();
+        this.store = initGeneratedMessageCache();
     }
 
     public boolean validateChallenge(String challenge) {
         Preconditions.checkArgument(StringUtils.isNotBlank(challenge));
 
-        String storedChallenge = chalengeMessageCache.getIfPresent(challenge);
+        String storedChallenge = store.getIfPresent(challenge);
 
         // if no value in cache => maybe challenge expired
         return ObjectUtils.equals(storedChallenge, challenge);
@@ -65,8 +64,8 @@ public class ChallengeMessageStore {
 
     public String createNewChallenge() {
         String challenge = newChallenge();
-        chalengeMessageCache.put(challenge, challenge);
-        return newChallenge();
+        store.put(challenge, challenge);
+        return challenge;
     }
 
     /* -- internal methods -- */
@@ -75,16 +74,9 @@ public class ChallengeMessageStore {
         return String.valueOf(prefix + System.currentTimeMillis() * System.currentTimeMillis());
     }
 
-
-    protected LoadingCache<String, String> initGeneratedMessageCache() {
+    protected Cache<String, String> initGeneratedMessageCache() {
         return CacheBuilder.newBuilder()
                 .expireAfterWrite(validityDurationInSeconds, TimeUnit.SECONDS)
-                .build(new CacheLoader<String, String>() {
-                    @Override
-                    public String load(String challenge) throws Exception {
-                        // not used. Filled manually
-                        return null;
-                    }
-                });
+                .build();
     }
 }
