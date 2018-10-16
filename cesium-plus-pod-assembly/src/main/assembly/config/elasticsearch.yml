@@ -107,9 +107,9 @@ security.manager.enabled: false
 #
 # ---------------------------------- Duniter4j ---------------------------------
 #
-# Enable duniter4j plugins
+# Enable duniter4j plugin (default: true)
 #
-# duniter.enabled: false
+# duniter.enable: false
 #
 # Delete then create all indices at startup - /!\ WARNING: DO NOT set to true in production
 #

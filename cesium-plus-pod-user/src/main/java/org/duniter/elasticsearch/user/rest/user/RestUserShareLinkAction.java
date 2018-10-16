@@ -83,7 +83,7 @@ public class RestUserShareLinkAction extends AbstractRestShareLinkAction impleme
                 if (profile.getAvatar() != null && StringUtils.isNotBlank(profile.getAvatar().getContentType())) {
                     String baseUrl = pluginSettings.getClusterRemoteUrlOrNull();
                     data.image = StringUtils.isBlank(baseUrl) ? "" : baseUrl;
-                    data.image += RestImageAttachmentAction.computeImageUrl(UserService.INDEX, UserService.PROFILE_TYPE, pubkeyMessage, UserProfile.PROPERTY_AVATAR, profile.getAvatar().getContentType());
+                    data.image += RestImageAttachmentAction.computeImageUrl(UserService.INDEX, UserService.PROFILE_TYPE, id, UserProfile.PROPERTY_AVATAR, profile.getAvatar().getContentType());
                     data.imageHeight = 200; // min size for Facebook
                     data.imageWidth = 200;
                 }
