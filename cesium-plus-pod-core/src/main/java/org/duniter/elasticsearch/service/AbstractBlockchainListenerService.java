@@ -60,16 +60,18 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
     protected BulkRequestBuilder bulkRequest;
     protected boolean flushing;
 
+
     @Inject
     public AbstractBlockchainListenerService(String loggerName,
                                              Duniter4jClient client,
                                              PluginSettings settings,
                                              CryptoService cryptoService,
                                              ThreadPool threadPool,
-                                             TimeValue processingInterval) {
+                                             TimeValue processingInterval,
+                                             boolean enable) {
         super(loggerName, client, settings, cryptoService);
         this.listenerId = loggerName;
-        this.enable = pluginSettings.enableBlockchainSync();
+        this.enable = enable;
         this.threadPool = threadPool;
 
         this.bulkSize = pluginSettings.getIndexBulkSize();

@@ -292,7 +292,12 @@ public class SynchroService extends AbstractService {
                 }
 
             } catch (IOException e) {
-                logger.warn(String.format("Unable to parse P2P endpoint [%s]: %s", endpoint, e.getMessage()));
+                if (logger.isDebugEnabled()) {
+                    logger.warn(String.format("Unable to parse P2P endpoint [%s]: %s", endpoint, e.getMessage()), e);
+                }
+                else {
+                    logger.warn(String.format("Unable to parse P2P endpoint [%s]: %s", endpoint, e.getMessage()));
+                }
             }
         }
         return peers;

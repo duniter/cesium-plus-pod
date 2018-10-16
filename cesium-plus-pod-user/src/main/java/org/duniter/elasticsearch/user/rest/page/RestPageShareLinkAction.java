@@ -15,98 +15,93 @@ import org.duniter.elasticsearch.user.service.PageService;
 import org.duniter.elasticsearch.util.opengraph.OGData;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestController;
 import org.nuiton.i18n.I18n;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
-public class RestPageShareLinkAction extends AbstractRestShareLinkAction {
+public class RestPageShareLinkAction extends AbstractRestShareLinkAction implements AbstractRestShareLinkAction.OGDataResolver {
+
+    private final PluginSettings pluginSettings;
+    private final PageService service;
+
 
     @Inject
-    public RestPageShareLinkAction(final Settings settings, final RestController controller, final Client client,
-                                   final PluginSettings pluginSettings,
+    public RestPageShareLinkAction(final PluginSettings pluginSettings, final RestController controller, final Client client,
                                    final PageService service) {
-        super(settings, controller, client, PageIndexDao.INDEX, PageRecordDao.TYPE,
-                pluginSettings.getShareBaseUrl(),
-                createResolver(pluginSettings, service));
+        super(pluginSettings.getDelegate(), controller, client, PageIndexDao.INDEX, PageRecordDao.TYPE);
+        setResolver(this);
+        this.pluginSettings = pluginSettings;
+        this.service = service;
     }
 
-    protected static OGDataResolver createResolver(
-            final PluginSettings pluginSettings,
-            final PageService service) throws DuniterElasticsearchException, BusinessException {
+    @Override
+    public OGData resolve(final String id) throws DuniterElasticsearchException, BusinessException {
+        try {
+            RegistryRecord record = service.getPageForSharing(id);
 
-        return (id) -> {
-            try {
-                RegistryRecord record = service.getPageForSharing(id);
+            OGData data = new OGData();
 
-                OGData data = new OGData();
+            if (record != null) {
 
-                if (record != null) {
-
-                    // og:title
-                    if (StringUtils.isNotBlank(record.getTitle())) {
-                        data.title = record.getTitle();
-                    }
-                    else {
-                        data.title = pluginSettings.getShareSiteName();
-                    }
-
-                    // og:description
-                    data.description = HtmlEscapers.htmlEscaper().escape(record.getDescription());
-
-                    // og:image
-                    if (record.getThumbnail() != null && StringUtils.isNotBlank(record.getThumbnail().get("_content_type"))) {
-                        String baseUrl = pluginSettings.getShareBaseUrl();
-                        data.image = StringUtils.isBlank(baseUrl) ? "" : baseUrl;
-                        data.image += RestImageAttachmentAction.computeImageUrl(PageIndexDao.INDEX, PageRecordDao.TYPE, id, RegistryRecord.PROPERTY_THUMBNAIL, record.getThumbnail().get("_content_type"));
-
-                        // FIXME : use a greater image ? at least 200px x 200px for FaceBook
-                        data.imageHeight = 100;
-                        data.imageWidth = 100;
-                    }
-
-                    // og:url
-                    data.url = String.format("%s/#/app/page/view/%s/%s",
-                            pluginSettings.getCesiumUrl(),
-                            id,
-                            URLEncoder.encode(record.getTitle(), "UTF-8"));
+                // og:title
+                if (StringUtils.isNotBlank(record.getTitle())) {
+                    data.title = record.getTitle();
                 }
                 else {
-
-                    // og:title
                     data.title = pluginSettings.getShareSiteName();
-
-                    // og:description
-                    data.description = I18n.t("duniter.user.share.description");
-
-                    // og:url
-                    data.url = String.format("%s/#/app/page/view/%s/%s",
-                            pluginSettings.getCesiumUrl(),
-                            id,
-                            "");
                 }
 
-                // og:type
-                data.type = "website";
+                // og:description
+                data.description = HtmlEscapers.htmlEscaper().escape(record.getDescription());
 
-                // og:site_name
-                data.siteName = pluginSettings.getShareSiteName();
-
-                // default og:image
-                if (StringUtils.isBlank(data.image)) {
-                    data.image = pluginSettings.getCesiumUrl() + "/img/logo_200px.png";
-                    data.imageType = "image/png";
+                // og:image
+                if (record.getThumbnail() != null && StringUtils.isNotBlank(record.getThumbnail().get("_content_type"))) {
+                    String baseUrl = pluginSettings.getClusterRemoteUrlOrNull();
+                    data.image = StringUtils.isBlank(baseUrl) ? "" : baseUrl;
+                    data.image += RestImageAttachmentAction.computeImageUrl(PageIndexDao.INDEX, PageRecordDao.TYPE, id, RegistryRecord.PROPERTY_THUMBNAIL, record.getThumbnail().get("_content_type"));
                     data.imageHeight = 200;
                     data.imageWidth = 200;
                 }
 
-                return data;
+                // og:url
+                data.url = pluginSettings.getSharePageLinkUrl()
+                                .replace("{id}", id)
+                                .replace("{title}", URLEncoder.encode(record.getTitle(), "UTF-8"));
             }
-            catch(UnsupportedEncodingException e) {
-                throw new TechnicalException(e);
+            else {
+
+                // og:title
+                data.title = pluginSettings.getShareSiteName();
+
+                // og:description
+                data.description = I18n.t("duniter.user.share.description");
+
+                // og:url
+                data.url = pluginSettings.getSharePageLinkUrl()
+                        .replace("{id}", id)
+                        .replace("{title}", "");
             }
-        };
+
+            // og:type
+            data.type = "website";
+
+            // og:site_name
+            data.siteName = pluginSettings.getShareSiteName();
+
+            // default og:image
+            if (StringUtils.isBlank(data.image)) {
+                data.image = pluginSettings.getShareDefaultImageUrl();
+                data.imageType = "image/png";
+                data.imageHeight = 200;
+                data.imageWidth = 200;
+            }
+
+            return data;
+        }
+        catch(UnsupportedEncodingException e) {
+            throw new TechnicalException(e);
+        }
     }
 }

@@ -107,9 +107,9 @@ security.manager.enabled: false
 #
 # ---------------------------------- Duniter4j ---------------------------------
 #
-# Disbale duniter4j plugin
+# Enable duniter4j plugin (default: true)
 #
-# duniter.enabled: false
+# duniter.enable: false
 #
 # Reset and reload all Duniter4j data at startup - DO SET to true in production
 #

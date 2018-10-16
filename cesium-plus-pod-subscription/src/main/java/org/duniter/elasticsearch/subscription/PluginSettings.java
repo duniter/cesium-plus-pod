@@ -78,8 +78,17 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.subscription.enable", Boolean.TRUE);
     }
 
+    /**
+     * @deprecated use getEmailLinkUrl instead
+     * @return
+     */
+    @Deprecated
     public String getCesiumUrl() {
         return this.settings.get("duniter.subscription.email.cesium.url", "https://g1.duniter.fr");
+    }
+
+    public String getEmailLinkUrl() {
+        return this.settings.get("duniter.subscription.email.link.url", getCesiumUrl());
     }
 
     /**

@@ -58,19 +58,21 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
     private final AdminService adminService;
 
     @Inject
-    public BlockchainUserEventService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService,
+    public BlockchainUserEventService(Duniter4jClient client, PluginSettings pluginSettings, CryptoService cryptoService,
                                       ThreadPool threadPool,
                                       BlockchainService blockchainService,
                                       UserService userService,
                                       AdminService adminService,
                                       UserEventService userEventService) {
-        super("duniter.user.event.blockchain", client, settings.getDelegate(), cryptoService, threadPool,
-                new TimeValue(500, TimeUnit.MILLISECONDS));
+        super("duniter.user.event.blockchain", client, pluginSettings.getDelegate(), cryptoService, threadPool,
+                new TimeValue(500, TimeUnit.MILLISECONDS),
+                pluginSettings.enableBlockchainUserEventIndexation());
         this.userService = userService;
         this.adminService = adminService;
         this.userEventService = userEventService;
 
-        if (this.enable) {
+        // Should notify admin when connection to node is DOWN ?
+        if (pluginSettings.enableBlockchainAdminEventIndexation()) {
             blockchainService.registerConnectionListener(createConnectionListeners());
         }
     }

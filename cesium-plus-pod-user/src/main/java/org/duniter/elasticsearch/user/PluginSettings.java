@@ -153,6 +153,22 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.getClusterName();
     }
 
+    public String getClusterRemoteHost() {
+        return delegate.getClusterRemoteHost();
+    }
+
+    public int getClusterRemotePort() {
+        return delegate.getClusterRemotePort();
+    }
+
+    public boolean getClusterRemoteUseSsl() {
+        return delegate.getClusterRemoteUseSsl();
+    }
+
+    public String getClusterRemoteUrlOrNull() {
+        return delegate.getClusterRemoteUrlOrNull();
+    }
+
     public String getNodeBmaHost() {
         return delegate.getNodeBmaHost();
     }
@@ -166,7 +182,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public boolean enableBlockchainSync() {
-        return delegate.enableBlockchainSync();
+        return delegate.enableBlockchainIndexation();
     }
 
     public String getKeyringSalt() {
@@ -212,16 +228,40 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return this.nodePubkey;
     }
 
+    /**
+     * @deprecated
+     * @return
+     */
+    @Deprecated
     public String getCesiumUrl() {
         return this.settings.get("duniter.share.cesium.url", "https://g1.duniter.fr");
     }
 
+    public String getSharePageLinkUrl() {
+        return this.settings.get("duniter.share.page.link.url", getCesiumUrl() + "#/app/page/view/{id}/{title}");
+    }
+    public String getShareUserLinkUrl() {
+        return this.settings.get("duniter.share.user.link.url", getCesiumUrl() + "#/app/wot/{pubkey}/{title}");
+    }
+
+    public String getShareDefaultImageUrl() {
+        return this.settings.get("duniter.share.image.default.url", getCesiumUrl() + "/img/logo_200px.png");
+    }
+
     public String getShareSiteName() {
-        return this.settings.get("duniter.user.share.site.name", "Cesium");
+        return this.settings.get("duniter.share.site.name", "Cesium");
     }
 
     public String getShareBaseUrl() {
         return settings.get("duniter.share.base.url");
+    }
+
+    public boolean enableBlockchainUserEventIndexation() {
+        return delegate.enableBlockchainIndexation() && settings.getAsBoolean("duniter.blockchain.event.user.enable", true);
+    }
+
+    public boolean enableBlockchainAdminEventIndexation() {
+        return delegate.enableBlockchainIndexation() && settings.getAsBoolean("duniter.blockchain.event.admin.enable", true);
     }
 
     /* -- protected methods -- */

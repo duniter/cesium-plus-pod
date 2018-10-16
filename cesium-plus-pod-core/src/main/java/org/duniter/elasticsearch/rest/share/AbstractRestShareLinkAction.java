@@ -1,9 +1,11 @@
 package org.duniter.elasticsearch.rest.share;
 
 import org.apache.http.entity.ContentType;
+import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.BusinessException;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
+import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.exception.DuniterElasticsearchException;
 import org.duniter.elasticsearch.rest.XContentThrowableRestResponse;
 import org.duniter.elasticsearch.util.opengraph.OGData;
@@ -34,25 +36,36 @@ public abstract class AbstractRestShareLinkAction extends BaseRestHandler {
     private STGroup templates;
     private String urlPattern;
 
-    public AbstractRestShareLinkAction(Settings settings, RestController controller, Client client,
+    public AbstractRestShareLinkAction(PluginSettings pluginSettings,
+                                       RestController controller, Client client,
+                                       String indexName,
+                                       String typeName
+    ) {
+        this(pluginSettings, controller, client, indexName, typeName,null);
+    }
+
+    public AbstractRestShareLinkAction(PluginSettings pluginSettings,
+                                       RestController controller, Client client,
                                        String indexName,
                                        String typeName,
-                                       String shareBaseUrl,
                                        OGDataResolver resolver
                                         ) {
-        super(settings, controller, client);
+        super(pluginSettings.getSettings(), controller, client);
         log = Loggers.getLogger("duniter.rest." + indexName, settings, String.format("[%s]", indexName));
+
+        String clusterUrl = pluginSettings.getClusterRemoteUrlOrNull();
 
         String pathPattern = String.format("/%s/%s/%s/_share", indexName, typeName, "%s");
         controller.registerHandler(GET,
                 String.format(pathPattern, "{id}"),
                 this);
-        this.urlPattern = (shareBaseUrl != null ? shareBaseUrl : "") + pathPattern;
-        this.resolver = resolver;
+
+        this.urlPattern = (clusterUrl != null ? clusterUrl : "") + pathPattern;
 
         // Configure springtemplate engine
         this.templates = STUtils.newSTGroup("org/duniter/elasticsearch/templates");
         Preconditions.checkNotNull(this.templates.getInstanceOf("html_share"), "Unable to load ST template for share page");
+        this.resolver = resolver;
     }
 
     @Override
@@ -96,4 +109,7 @@ public abstract class AbstractRestShareLinkAction extends BaseRestHandler {
         }
     }
 
+    public void setResolver(OGDataResolver resolver) {
+        this.resolver = resolver;
+    }
 }

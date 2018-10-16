@@ -56,7 +56,8 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
                                      BlockStatDao blockStatDao,
                                      MovementDao movementDao) {
         super("duniter.blockchain.listener", client, settings, cryptoService, threadPool,
-                new TimeValue(500, TimeUnit.MILLISECONDS));
+                new TimeValue(500, TimeUnit.MILLISECONDS),
+                settings.enableBlockchainIndexation());
         this.blockStatDao = blockStatDao;
         this.movementDao = movementDao;
     }

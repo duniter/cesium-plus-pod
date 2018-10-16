@@ -149,15 +149,15 @@
   </modules>
 
   <scm>
-    <url>https://github.com/duniter/duniter4j.git</url>
-    <connection>scm:git:https://github.com/duniter/duniter4j.git</connection>
-    <developerConnection>scm:git:https://github.com/duniter/duniter4j.git</developerConnection>
+    <url>https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</url>
+    <connection>scm:git:https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</connection>
+    <developerConnection>scm:git:https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
 
   <issueManagement>
-    <system>GitHub</system>
-    <url>https://github.com/duniter/duniter4j/issues</url>
+    <system>Gitlab</system>
+    <url>https://git.duniter.org/clients/cesium-grp/cesium-plus-pod/issues</url>
   </issueManagement>
 
   <dependencyManagement>

@@ -47,12 +47,9 @@ html_share(type, title, summary, description, image, imageHeight, imageWidth, si
     $endif$
 
     $if(redirectUrl)$
-
         <script type="text/javascript">
-            window.location.href = "$redirectUrl$"
+            setTimeout("window.location.href=\"$redirectUrl$\";", 2000);
         </script>
-        <!--<META HTTP-EQUIV="Refresh" CONTENT="0; URL=$redirectUrl$">
-        -->
     $endif$
     </head>
     <body>

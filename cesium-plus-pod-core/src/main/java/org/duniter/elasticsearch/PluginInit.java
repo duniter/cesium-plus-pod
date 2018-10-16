@@ -103,7 +103,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             }
         }
 
-        else if (pluginSettings.enableBlockchainSync() && pluginSettings.reloadBlockchainIndices() && pluginSettings.reloadBlockchainIndicesFrom() <= 0) {
+        else if (pluginSettings.enableBlockchainIndexation() && pluginSettings.reloadBlockchainIndices() && pluginSettings.reloadBlockchainIndicesFrom() <= 0) {
             if (logger.isWarnEnabled()) {
                 logger.warn("/!\\ Reloading blockchain indices...");
             }
@@ -140,7 +140,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     protected void doAfterStart() {
 
         // Synchronize blockchain
-        if (pluginSettings.enableBlockchainSync()) {
+        if (pluginSettings.enableBlockchainIndexation()) {
 
             Peer peer = pluginSettings.checkAndGetPeer();
 

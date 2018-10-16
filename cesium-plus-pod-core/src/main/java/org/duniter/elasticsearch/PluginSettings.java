@@ -61,6 +61,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private List<String> i18nBundleNames = new ArrayList<>(); // Default
 
+    private String clusterRemoteUrl;
+
     /**
      * Delegate application config.
      */
@@ -154,9 +156,41 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings;
     }
 
+    /* -- settings on cluster -- */
+
     public String getClusterName() {
         return settings.get("cluster.name", "?");
     }
+
+    public String getClusterRemoteHost() {
+        return settings.get("cluster.remote.host");
+    }
+
+    public int getClusterRemotePort() {
+        return settings.getAsInt("cluster.remote.port", 80);
+    }
+
+    public boolean getClusterRemoteUseSsl() {
+        return settings.getAsBoolean("cluster.remote.useSsl", getClusterRemotePort() == 443);
+    }
+
+    public String getClusterRemoteUrlOrNull() {
+        if (StringUtils.isBlank(getClusterRemoteHost())) return null;
+
+        if (clusterRemoteUrl == null) {
+
+            clusterRemoteUrl = Peer.newBuilder().setHost(getClusterRemoteHost())
+                    .setPort(getClusterRemotePort())
+                    .setUseSsl(getClusterRemoteUseSsl())
+                    .build()
+                    .getUrl();
+        }
+
+        return clusterRemoteUrl;
+    }
+
+
+    /* -- Settings on Duniter node (with BMA API) -- */
 
     public String getNodeBmaHost() {
         return settings.get("duniter.host", "g1.duniter.org");
@@ -169,6 +203,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     public boolean getNodeBmaUseSsl() {
         return settings.getAsBoolean("duniter.useSsl", getNodeBmaPort() == 443);
     }
+
+    /* -- Other settings -- */
 
     public boolean isIndexBulkEnable() {
         return settings.getAsBoolean("duniter.bulk.enable", true);
@@ -190,7 +226,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.indices.reload", false);
     }
 
-    public boolean enableBlockchainSync()  {
+    public boolean enableBlockchainIndexation()  {
         return settings.getAsBoolean("duniter.blockchain.enable", false);
     }
 

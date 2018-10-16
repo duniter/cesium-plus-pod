@@ -122,6 +122,8 @@ duniter.string.analyzer: french
 # Enabling blockchain synchronization
 #
 duniter.blockchain.enable: true
+#duniter.blockchain.event.user.enable: true
+#duniter.blockchain.event.admin.enable: true
 #
 # Force blockchain full synchronization - /!\ WARNING: all user events will be reset to 'unread'
 #
@@ -191,6 +193,20 @@ duniter.p2p.includes.endpoints: [
 #]
 #duniter.p2p.fullResyncAtStartup: true
 #
+# ---------------------------------- Duniter4j document moderation ---------------
+#
+# Filter too old document, if time older that 'maxPastDelta' (in seconds). (default: 7200 =2h)
+#
+# duniter.document.time.maxPastDelta: 7200
+#
+# Filter document in the futur, if time greater that 'maxFutureDelta' (in seconds). (default: 600 =10min)
+#
+# duniter.document.time.maxFutureDelta: 600
+#
+# Allow admin (define in duniter.keyring) to delete documents ? (default: true)
+#
+# duniter.document.allowAdminDeletion: true
+#
 # ---------------------------------- Duniter4j Mail module -----------------------
 #
 # Enable mail module ?
@@ -251,19 +267,25 @@ duniter.subscription.enable: true
 #
 # Email subscription: URL to a Cesium site, for links in the email content (default: https://g1.duniter.fr)
 #
-#duniter.subscription.email.cesium.url: 'https://domain.com/cesium'
+#duniter.subscription.email.link.url: 'https://domain.com/cesium'
 #
-# ---------------------------------- Duniter4j User (profile, message) module -------------------
+# ---------------------------------- Duniter4j Share module -------------------
 #
 #
 # Share link: og:site_name (default: 'Cesium')
 #
-# duniter.user.share.site.name: 'Cesium - Ğ1'
+# duniter.share.site.name: 'Cesium - Ğ1'
 #
-# Share link : URL to a Cesium site, for links in the email content (default: https://g1.duniter.fr)
+# Share page link : URL to a web site, for links to a page (default: https://g1.duniter.fr/#/app/page/view/{id}/{title} )
+#                   Usable variables are: {id} and {title}
 #
-#duniter.share.cesium.url: 'https://domain.com/cesium'
+# duniter.share.page.link.url: 'https://domain.com/cesium/#/app/page/view/{id}/{title}'
 #
-# Share link : Base URL of cluster, to resolve image (default: none => /!\ Will use relative image path)
+# Share user link : URL to a web site, for links to a user (default: https://g1.duniter.fr/#https://g1.duniter.fr/#/app/wot/{pubkey}/{title} )
+#                   Usable variables are: {pubkey} and {title}
 #
-#duniter.share.base.url: 'http://localhost:9200'
+# duniter.share.user.link.url: 'https://domain.com/cesium/#/app/wot/{pubkey}/{title}'
+#
+# Share default image: URL of an image (min size of 200x200px) to use as default image for `og:image` (default: https://g1.duniter.fr/img/logo_200px.png)
+#
+# duniter.share.image.default.url: https://g1.duniter.fr/img/logo_200px.png
