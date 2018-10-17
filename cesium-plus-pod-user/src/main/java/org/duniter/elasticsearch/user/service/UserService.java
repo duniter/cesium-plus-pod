@@ -28,6 +28,7 @@ import org.apache.lucene.queryparser.flexible.core.util.StringUtils;
 import org.duniter.core.util.Preconditions;
 import org.apache.commons.collections4.MapUtils;
 import org.duniter.core.client.model.ModelUtils;
+import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.user.model.Attachment;
 import org.duniter.elasticsearch.user.model.UserProfile;
 import org.duniter.core.service.CryptoService;
@@ -100,7 +101,7 @@ public class UserService extends AbstractService {
     /**
      *
      * Index an user profile
-     * @param profileJson
+     * @param json
      * @return the profile id
      */
     public String indexProfileFromJson(String json) {
@@ -184,7 +185,14 @@ public class UserService extends AbstractService {
         }
 
         // Check time is valid - fix #27
-        verifyTimeForUpdate(INDEX, SETTINGS_TYPE, id, actualObj);
+        try {
+            verifyTimeForUpdate(INDEX, SETTINGS_TYPE, id, actualObj);
+        }
+        catch (NotFoundException e) {
+          // Settings not exists yet (can occur when user change node in the app settings)
+          indexSettingsFromJson(json);
+          return;
+        }
 
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("Indexing a user settings from issuer [%s]", issuer.substring(0, 8)));

@@ -23,7 +23,8 @@ package org.duniter.elasticsearch.rest;
  */
 
 import org.duniter.elasticsearch.rest.attachment.RestImageAttachmentAction;
-import org.duniter.elasticsearch.rest.currency.RestCurrencyIndexAction;
+import org.duniter.elasticsearch.rest.network.RestNetworkPeeringGetAction;
+import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPostAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityAuthAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -50,6 +51,11 @@ public class RestModule extends AbstractModule implements Module {
 
         // Currency
         //bind(RestCurrencyIndexAction.class).asEagerSingleton();
+
+        // Network
+        bind(RestNetworkPeeringGetAction.class).asEagerSingleton();
+        bind(RestNetworkPeeringPostAction.class).asEagerSingleton();
+
 
     }
 }

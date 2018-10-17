@@ -104,7 +104,7 @@ public abstract class AbstractService implements Bean {
     protected void waitReady() {
         try {
             while (!ready) {
-                Thread.sleep(500);
+                Thread.sleep(1000 /*1sec*/);
             }
         } catch (InterruptedException e){
             // Silent

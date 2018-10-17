@@ -23,14 +23,13 @@ package org.duniter.elasticsearch.user;
  */
 
 
-import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.StringUtils;
-import org.duniter.core.util.crypto.CryptoUtils;
+import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.util.crypto.KeyPair;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -41,19 +40,12 @@ import java.util.Locale;
 public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.PluginSettings delegate;
-    private CryptoService cryptoService;
-
-    private KeyPair nodeKeyPair;
-    private boolean isRandomNodeKeyPair;
-    private String nodePubkey;
 
     @Inject
     public PluginSettings(Settings settings,
-                          org.duniter.elasticsearch.PluginSettings delegate,
-                          CryptoService cryptoService) {
+                          org.duniter.elasticsearch.PluginSettings delegate) {
         super(settings);
         this.delegate = delegate;
-        this.cryptoService = cryptoService;
 
         // Add i18n bundle name
         delegate.addI18nBundleName(getI18nBundleName());
@@ -100,6 +92,18 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     public boolean enableSynchro() {
         return delegate.enableSynchro();
+    }
+
+    public boolean enablePeering() {
+        return this.delegate.enablePeering();
+    }
+
+    public List<EndpointApi> getPeeringTargetedApis() {
+        return this.delegate.getPeeringTargetedApis();
+    }
+
+    public List<EndpointApi> getPeeringPublishedApis() {
+        return this.delegate.getPeeringPublishedApis();
     }
 
     public int getSynchroTimeOffset() {
@@ -214,18 +218,15 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public KeyPair getNodeKeypair() {
-        initNodeKeyring();
-        return this.nodeKeyPair;
+        return delegate.getNodeKeypair();
     }
 
     public boolean isRandomNodeKeypair() {
-        initNodeKeyring();
-        return this.isRandomNodeKeyPair;
+        return delegate.isRandomNodeKeypair();
     }
 
     public String getNodePubkey() {
-        initNodeKeyring();
-        return this.nodePubkey;
+        return delegate.getNodePubkey();
     }
 
     /**
@@ -270,26 +271,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return "cesium-plus-pod-user-i18n";
     }
 
-    protected synchronized void initNodeKeyring() {
-        if (this.nodeKeyPair != null) return;
-        if (StringUtils.isNotBlank(getKeyringSalt()) &&
-                StringUtils.isNotBlank(getKeyringPassword())) {
-            this.nodeKeyPair = cryptoService.getKeyPair(getKeyringSalt(), getKeyringPassword());
-            this.nodePubkey = CryptoUtils.encodeBase58(this.nodeKeyPair.getPubKey());
-            this.isRandomNodeKeyPair = false;
-        }
-        else {
-            // Use a ramdom keypair
-            this.nodeKeyPair = cryptoService.getRandomKeypair();
-            this.nodePubkey = CryptoUtils.encodeBase58(this.nodeKeyPair.getPubKey());
-            this.isRandomNodeKeyPair = true;
 
-            logger.warn(String.format("No keyring in config. salt/password (or keyring) is need to signed user event documents. Will use a generated key [%s]", this.nodePubkey));
-            if (logger.isDebugEnabled()) {
-                logger.debug(String.format("    salt: " + getKeyringSalt().replaceAll(".", "*")));
-                logger.debug(String.format("password: " + getKeyringPassword().replaceAll(".", "*")));
-            }
-        }
-    }
 
 }

@@ -28,9 +28,14 @@ import org.apache.commons.io.FileUtils;
 import org.duniter.core.client.config.Configuration;
 import org.duniter.core.client.config.ConfigurationOption;
 import org.duniter.core.client.config.ConfigurationProvider;
+import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
+import org.duniter.core.service.CryptoService;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.StringUtils;
+import org.duniter.core.util.crypto.CryptoUtils;
+import org.duniter.core.util.crypto.KeyPair;
 import org.duniter.elasticsearch.i18n.I18nInitializer;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -43,10 +48,8 @@ import org.nuiton.i18n.I18n;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.nuiton.i18n.I18n.t;
 
@@ -57,11 +60,14 @@ import static org.nuiton.i18n.I18n.t;
  */
 public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
+    private static KeyPair nodeKeyPair;
+    private static boolean isRandomNodeKeyPair;
+    private static  String nodePubkey;
+
     protected final Settings settings;
-
     private List<String> i18nBundleNames = new ArrayList<>(); // Default
-
     private String clusterRemoteUrl;
+    private final CryptoService cryptoService;
 
     /**
      * Delegate application config.
@@ -70,10 +76,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     protected final org.duniter.core.client.config.Configuration clientConfig;
 
     @Inject
-    public PluginSettings(org.elasticsearch.common.settings.Settings settings) {
+    public PluginSettings(org.elasticsearch.common.settings.Settings settings,
+                          CryptoService cryptoService) {
         super(settings);
 
         this.settings = settings;
+        this.cryptoService = cryptoService;
         this.applicationConfig = new ApplicationConfig();
 
         // Cascade the application config to the client module
@@ -265,6 +273,44 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.p2p.ws.enable", true);
     }
 
+    public boolean enablePeering() {
+        return this.settings.getAsBoolean("duniter.p2p.peering.enable", enableSynchro());
+    }
+
+    /**
+     * Endpoint API to publish, in the emitted peer document. By default, plugins will defined their own API
+     * @return
+     */
+    public List<EndpointApi> getPeeringPublishedApis() {
+        String[] targetedApis = settings.getAsArray("duniter.p2p.peering.publishedApis");
+        if (CollectionUtils.isEmpty(targetedApis)) return null;
+
+        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+    }
+
+    /**
+     * Targeted API where to send the peer document.
+     * This API should accept a POST request to '/network/peering' (like Duniter node, but can also be a pod)
+     * @return
+     */
+    public List<EndpointApi> getPeeringTargetedApis() {
+        String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
+                EndpointApi.BASIC_MERKLED_API.name(),
+                EndpointApi.BMAS.name()
+        });
+        if (CollectionUtils.isEmpty(targetedApis)) return null;
+
+        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+    }
+
+    /**
+     * Interval (in seconds) between publications of the peer document
+     * @return
+     */
+    public int getPeeringInterval() {
+        return this.settings.getAsInt("duniter.p2p.peering.interval", 7200 /*=2h*/);
+    }
+
     public boolean fullResyncAtStartup()  {
         return settings.getAsBoolean("duniter.p2p.fullResyncAtStartup", false);
     }
@@ -293,6 +339,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsInt("duniter.retry.count", 5);
     }
 
+    /**
+     * Time before retry (in millis)
+     * @return
+     */
     public int getNodeRetryWaitDuration() {
         return settings.getAsInt("duniter.retry.waitDuration", 5000);
     }
@@ -430,6 +480,44 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
             applicationConfig.setDefaultOption(
                     ConfigurationOption.VERSION.getKey(),
                     implementationVersion);
+        }
+    }
+
+
+    public KeyPair getNodeKeypair() {
+        initNodeKeyring();
+        return this.nodeKeyPair;
+    }
+
+    public boolean isRandomNodeKeypair() {
+        initNodeKeyring();
+        return this.isRandomNodeKeyPair;
+    }
+
+    public String getNodePubkey() {
+        initNodeKeyring();
+        return this.nodePubkey;
+    }
+
+    protected synchronized void initNodeKeyring() {
+        if (this.nodeKeyPair != null) return;
+        if (StringUtils.isNotBlank(getKeyringSalt()) &&
+                StringUtils.isNotBlank(getKeyringPassword())) {
+            this.nodeKeyPair = cryptoService.getKeyPair(getKeyringSalt(), getKeyringPassword());
+            this.nodePubkey = CryptoUtils.encodeBase58(this.nodeKeyPair.getPubKey());
+            this.isRandomNodeKeyPair = false;
+        }
+        else {
+            // Use a ramdom keypair
+            this.nodeKeyPair = cryptoService.getRandomKeypair();
+            this.nodePubkey = CryptoUtils.encodeBase58(this.nodeKeyPair.getPubKey());
+            this.isRandomNodeKeyPair = true;
+
+            logger.warn(String.format("No keyring in config. salt/password (or keyring) is need to signed user event documents. Will use a generated key [%s]", this.nodePubkey));
+            if (logger.isDebugEnabled()) {
+                logger.debug(String.format("    salt: " + getKeyringSalt().replaceAll(".", "*")));
+                logger.debug(String.format("password: " + getKeyringPassword().replaceAll(".", "*")));
+            }
         }
     }
 }

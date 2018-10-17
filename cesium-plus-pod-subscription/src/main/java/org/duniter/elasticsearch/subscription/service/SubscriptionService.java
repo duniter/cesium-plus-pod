@@ -325,7 +325,7 @@ public class SubscriptionService extends AbstractService {
                 senderName,
                 profileTitles,
                 userEvents,
-                pluginSettings.getCesiumUrl())
+                pluginSettings.getEmailLinkUrl())
                 .render(issuerLocale);
 
         // Compute HTML content
@@ -336,7 +336,7 @@ public class SubscriptionService extends AbstractService {
                 senderName,
                 profileTitles,
                 userEvents,
-                pluginSettings.getCesiumUrl())
+                pluginSettings.getEmailLinkUrl())
                 .render(issuerLocale);
 
         final String object = emailSubjectPrefix + I18n.t("duniter4j.es.subscription.email.subject", userEvents.size());

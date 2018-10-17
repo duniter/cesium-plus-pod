@@ -26,10 +26,7 @@ import org.duniter.core.client.model.elasticsearch.Currency;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
-import org.duniter.elasticsearch.service.BlockchainService;
-import org.duniter.elasticsearch.service.CurrencyService;
-import org.duniter.elasticsearch.service.DocStatService;
-import org.duniter.elasticsearch.service.PeerService;
+import org.duniter.elasticsearch.service.*;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -255,10 +252,15 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                             .indexLastBlocks(peer)
                             .listenAndIndexNewBlock(peer);
 
-                    // Index peers (and listen if new peer appear)
-                    injector.getInstance(PeerService.class)
-                            .listenAndIndexPeers(peer);
+                    if (logger.isInfoEnabled()) {
+                        logger.info(String.format("[%s] Indexing blockchain [OK]", currencyName));
+                    }
 
+                    // Index peers (and listen if new peer appear)
+                    if (pluginSettings.enableSynchroDiscovery()) {
+                        injector.getInstance(PeerService.class)
+                                .listenAndIndexPeers(peer);
+                    }
 
                     // Start synchro
                     if (pluginSettings.enableSynchro()) {
@@ -266,8 +268,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                                 .startScheduling();
                     }
 
-                    if (logger.isInfoEnabled()) {
-                        logger.info(String.format("[%s] Indexing blockchain [OK]", currencyName));
+                    // Start publish peering
+                    if (pluginSettings.enablePeering()) {
+                        injector.getInstance(NetworkService.class)
+                                .startPublishingPeerDocumentToNetwork();
                     }
 
                 } catch(Throwable e){

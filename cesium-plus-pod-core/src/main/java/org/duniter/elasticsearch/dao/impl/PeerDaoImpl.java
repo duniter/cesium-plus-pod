@@ -219,10 +219,10 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
-    public void updatePeersAsDown(String currencyName, long upTimeLimit) {
+    public void updatePeersAsDown(String currencyName, long upTimeLimitInSec) {
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] Setting peers as DOWN, if older than [%s]...", currencyName, new Date(upTimeLimit*1000)));
+            logger.debug(String.format("[%s] Setting peers as DOWN, if older than [%s]...", currencyName, new Date(upTimeLimitInSec*1000)));
         }
 
         SearchRequestBuilder searchRequest = client.prepareSearch(currencyName)
@@ -232,7 +232,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         // Query = filter on lastUpTime
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
                 // where lastUpTime < upTimeLimit
-                .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimit))
+                .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
                 // AND status = UP
                 .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name()));
         searchRequest.setQuery(QueryBuilders.nestedQuery(Peer.PROPERTY_STATS, QueryBuilders.constantScoreQuery(boolQuery)));

@@ -53,7 +53,7 @@ public class PeerService extends AbstractService  {
     private ThreadPool threadPool;
 
     // Define endpoint API to include
-    private List<String> includeEndpointApis = Lists.newArrayList(
+    private static List<String> includeEndpointApis = Lists.newArrayList(
             EndpointApi.BASIC_MERKLED_API.name(),
             EndpointApi.BMAS.name(),
             EndpointApi.WS2P.name());
@@ -131,6 +131,14 @@ public class PeerService extends AbstractService  {
         }
 
         return this;
+    }
+
+    public void save(final Peer peer) {
+        delegate.save(peer);
+    }
+
+    public void save(final String currencyId, final List<Peer> peers, boolean isFullList) {
+        delegate.save(currencyId, peers, isFullList);
     }
 
     public void listenAndIndexPeers(final Peer mainPeer) {

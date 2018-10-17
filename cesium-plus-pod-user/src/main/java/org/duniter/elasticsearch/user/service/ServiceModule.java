@@ -44,7 +44,8 @@ public class ServiceModule extends AbstractModule implements Module {
 
         bind(BlockchainUserEventService.class).asEagerSingleton();
 
-        //bind(SynchroService.class).asEagerSingleton();
+        // Configure the P2P network
+        bind(NetworkServiceConfiguration.class).asEagerSingleton();
     }
 
     /* protected methods */

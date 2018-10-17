@@ -23,9 +23,12 @@ package org.duniter.elasticsearch.subscription;
  */
 
 
+import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.util.crypto.KeyPair;
 import org.elasticsearch.common.component.*;
 import org.elasticsearch.common.inject.Inject;
+
+import java.util.List;
 
 /**
  * Access to configuration options
@@ -133,6 +136,18 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     public boolean enableSynchro() {
         return delegate.enableSynchro();
+    }
+
+    public boolean enablePeering() {
+        return delegate.enablePeering();
+    }
+
+    public List<EndpointApi> getPeeringTargetedApis() {
+        return this.delegate.getPeeringTargetedApis();
+    }
+
+    public List<EndpointApi> getPeeringPublishedApis() {
+        return this.delegate.getPeeringPublishedApis();
     }
 
     public int getSynchroTimeOffset() {
