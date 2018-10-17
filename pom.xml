@@ -150,8 +150,8 @@
 
   <scm>
     <url>https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</url>
-    <connection>scm:git:https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</connection>
-    <developerConnection>scm:git:https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</developerConnection>
+    <connection>scm:git:git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git</connection>
+    <developerConnection>scm:git:git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
 
