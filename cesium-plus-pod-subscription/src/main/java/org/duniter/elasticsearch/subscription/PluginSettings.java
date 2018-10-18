@@ -81,6 +81,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.subscription.enable", Boolean.TRUE);
     }
 
+    public boolean enableDocStats() {
+        return delegate.enableDocStats();
+    }
+
     /**
      * @deprecated use getEmailLinkUrl instead
      * @return
