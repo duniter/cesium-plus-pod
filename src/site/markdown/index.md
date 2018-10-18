@@ -1,19 +1,18 @@
 # Home
 
-Welcome to Duniter4j web site !
+Welcome to **Cesium+ pod** web site !
 
-Duniter4j is a Java Toolkit for [Duniter](http://duniter.org).
+Cesium+ pod is used by [Duniter](http://duniter.org)'s client applications ([Cesium](https://github.com/duniter/cesium), [WotMap](https://duniter.normandie-libre.fr/wotmap/)) to store additional data **outside the blockchain** of the crypto-currency (Ğ1, Ğ1-test).
 
-<img src="./images/logos/logo_duniter.png"/>
+<img src="./images/logos/logo_200px.png"/>
+
+Cesium+ pod can store: user profiles, private & encrypted messages, invitations to certify, subscription to online services (Notification by email), but also statistics on the blockchain.  
 
 ## What is Cesium+ pod ?
 
-Cesium+ pod is [an ElastiSearch node](./ES.html), used to store (with full-text capabilities) all blockchain data, and additional user data. 
+Cesium+ pod use an [ElastiSearch](./ES.html) for storage and full-text capabilities. 
 
-- It comes with a public [HTTP API](./ES_API.html) to store and retrieve all this data.
-   
-- The RESTfull API is used by [Cesium+](https://www.github.com/duniter/cesium) (a Duniter wallet).
-     
+It comes with a public RESTfull [HTTP API](./REST_API.html) to store and retrieve all this data.
 
-The pod is divided in several ElasticSearch plugins: `core`, `user` and `subscription`.
+The pod source code is divided in several ElasticSearch plugins: `core`, `user` and `subscription`.
 

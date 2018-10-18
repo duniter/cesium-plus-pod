@@ -47,7 +47,7 @@
 
   <bannerRight>
       <name>${project.name}</name>
-      <src>http://doc.e-is.pro/cesium-plus-pod/images/logos/logo_duniter.png</src>
+      <src>http://doc.e-is.pro/cesium-plus-pod/images/logos/logo_96px.png</src>
       <href>./index.html</href>
   </bannerRight>
 
@@ -62,7 +62,7 @@
   <body>
     <head><![CDATA[
       <link rel="stylesheet" type="text/css" href="http://doc.e-is.pro/cesium-plus-pod/css/site.css"></link>
-      <link rel="icon" href="https://duniter.org/fr/images/duniter-logo.png"></link>
+      <link rel="icon" href="http://doc.e-is.pro/cesium-plus-pod/images/favicon.ico">
       ]]>
     </head>
 

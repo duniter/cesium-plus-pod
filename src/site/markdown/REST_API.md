@@ -1,5 +1,5 @@
 
-# ES HTTP API
+# HTTP API
 
 ## Contents
 
@@ -10,7 +10,7 @@
       * [currency/block](#acurrencyblock)
       * [currency/blockstat](#acurrencyblockstat)
       * [currency/peer](#acurrencypeer)
-      * [currency/tx](#acurrencytx)
+      * [currency/movement](#acurrencymovement)
 - [ES USER API](#es_user_api)
    * [user](#user)
       * [user/event](#userevent)
@@ -22,14 +22,16 @@
    * [invitation](#invitation)
       * [invitation/certification](#invitationcertification)
 - [ES SUBSCRIPTION API](#ES SUBSCRIPTION API)
+   * [subscription](#subscription)
+      * [subscription/record](#subscriptionrecord)
 
 ## Overview
 
-Duniter4j Elasticsearch offer HTTP access to this sub-API:
+Cesium+ Pod offer RESTfull HTTP access:
 
-- `ES CORE API`: BlockChain indexation;
-- `ES USER API`: User data indexation, such as: profiles, private messages, settings (crypted);
-- `ES SUBSCRIPTION API`: User service configuration, such as: email notification service;
+- `ES CORE API`: BlockChain indexation and statistics;
+- `ES USER API`: User data indexation, such as: profiles, private messages, encrypted settings;
+- `ES SUBSCRIPTION API`: User service subscription, such as: email notification service;
 
 Data is made accessible through an HTTP API :
 
@@ -39,15 +41,18 @@ Data is made accessible through an HTTP API :
     |   |-- block
     |   |-- blockstat
     |   |-- peer
-    |   `-- tx
+    |   `-- movement
     |-- user/
+    |   |-- event
     |   |-- profile
     |   `-- settings
     |-- message/
     |   |-- inbox
     |   `-- outbox
-    `-- invitation/
-        `-- certification
+    |-- invitation/
+    |   `-- certification
+    `-- subscription/
+        `-- record
 ```
 
 ### Document format
@@ -103,7 +108,7 @@ For instance, a deletion on `message/inbox` should send this document:
 
 #### `<currency>/peer`
 
-#### `<currency>/tx`
+#### `<currency>/movement`
 
 ## ES USER API
 
@@ -171,11 +176,51 @@ Some additional fields are `description`, `socials`, `tags` and `avatar` :
 
 #### `user/settings`
 
+ - Get an settings, by wallet pubkey: `user/settings/<pubkey>`
+ - Add a new settings: `user/settings` (POST)
+ - Delete an existing settings: `user/settings/_delete` (POST)
+ - Search on settings: `user/settings/_search` (POST or GET)
+
+Some additional fields are `content` (the settings content, but encrypted) and `nonce` (required for an optimal encryption security level) :
+
+```json
+{
+    "hash" : "58ECD135719628AA6DCE6DEFE1C2B328B04047B836BC478D0CF9E6F5A515896EC",
+    "signature" : "3zP/mOgwnTj6EAfhb9vNfSUoPLZLqMwTP9QDk4wShTXlWnFPmPl2To3VTAoS3aHbLQAKDAWZa6EeVfsYCDVoDg==",
+    "issuer" : "EtmXYFdh6WjgKyX3D6s2fXphCDv7jRPRnqnkKFTdMwNr",
+    "nonce" : "Lfv5wXbLKF3RY9qbQVgv914ZKbsVi1sAm",
+    "time" : 1516311640,
+    "content" : "4bW4cL075bLWuTrHRuo69P0glmZJiVKF/AOtRt1e3trcm+Es/E77cYdAL00TCQw8N1kVU6fznCmZyVxtD8gfxpZwcoipWjWeTZTu21SxtPDxTxEvAV4gxbmOk/Li9oMy04WOmpkbsKawmdYW2oaKzz3psJXn4C4/jFQZIL/X863R9sQDGWPHm8MRvCaP7xQT+MMSpb8/1lIgf5443PKBixQbcY4fcqDRK3365xG2jDZEJ/uVZ/bRPJyjclKgBEd8xariJUV+zdh31f/qHhnQlcg/kLmdQ4sja2L/BWE5kTFlajRqOJDGrtuRafWTFamoUKZDE8C9YeivvFR7oGwY0zPE0uFnuZCGAvm3xC13ekpsqDv9YtBmZhou7AZAtw9JV81QuHoorWrka7C3LW12YuOSBKxkZNCi0tPHmF2ArI5WJl7W",
+    "version" : 2
+}
+```
+
 ### `message/*`
 
 #### `message/inbox`
 
+Some additional fields are `recipient` (the message recipient), `title` (the encrypted message's title), `content` (the encrypted message's body) and `nonce` (required for an optimal encryption security level) :
+
+```json
+{
+    "issuer" : "DMwEdBiWuCGkPvtfvGs7fAoyaqbiA3ZXeX5grcNsg5x8",
+    "recipient" : "FbvRnCM8gQdDig614qR1y1QY7x7sUN2RzXr3a9D9Rzw4",
+    "title" : "jBhFV2kDyUvDxmYtodsO1D9ZpbX+j2vyOjVuMkgWa4vTyvM6VCqZWhutwYpMmXr1vdA=",
+    "content" : "sX5/XOwcZe2RUIM2jd7Wlz9NoLTvgxPbNXZtNU8Qa4vT2qApB2rHFloNFdk+mHHo+NOfwk6RZjU3gnmUN0yi3eyUIOr2FYAoltdhx6C4Zmd9JQy5jVMzKg1HfD6K7daYbtN72ZTLfIxwlnAXG8z1+Rf9hZcmRNSIpFJ6lC2IUFcrFbulE8EsZuMPtrfuLlzNoW8HButmBlfbkMlALKcOcGYhVUCFhVAiL5FSgF+sHsUZe9CtubeGPlNT9m1y2joNZ8B4/rBn97XGV5odsaZZBO5gqcRQN4Y9SJSaNEbNFdaeWIFaO4NPT0r48eXKP4OGhYeQl4vCUQGG21U+GmcJiT4hiYJm41Xwp+qyjePlJ+om",
+    "time" : 1504199349,
+    "nonce" : "CWKAtBXqXu2ZuifeHnRBePw15e36gw3v9",
+    "hash" : "965E9C4693C0B63C6F4CC6924A93354F0CE2B16F91BF0243FB5A355B4222D502",
+    "signature" : "f0sPHFKukSbIahwkrYzPis9T5fP73QuH6UB76IdXN0JeWfg3Gh9A0oUc/YL78QmcKaM0FrD8JoK8BqYZNd1YAQ=="
+}
+```
+
+`content` and `title` are encrypted for the issuer _box_ public key.
+**Only the message issuer** will be able to decrypt this fields.  
+
 #### `message/outbox`
+
+`content` and `title` are encrypted for the recipient _box_ public key.
+**Only the message recipient** will be able to decrypt this fields.
 
 ### `invitation/*`
 
@@ -188,4 +233,11 @@ Some additional fields are `description`, `socials`, `tags` and `avatar` :
 
 ## ES SUBSCRIPTION API
 
-TODO
+### `subscription/*`
+
+#### `subscription/record`
+
+ - Get an subscription, by id: `subscription/record/<id>`
+ - Add a new subscription: `subscription/record` (POST)
+ - Delete an existing subscription: `subscription/record/_delete` (POST)
+ - Search on subscriptions: `subscription/record/_search` (POST or GET)
