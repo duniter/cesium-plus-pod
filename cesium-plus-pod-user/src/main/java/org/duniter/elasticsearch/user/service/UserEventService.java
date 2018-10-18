@@ -59,6 +59,7 @@ import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -76,7 +77,7 @@ public class UserEventService extends AbstractService implements ChangeService.C
     public static final String INDEX = "user";
     public static final String EVENT_TYPE = "event";
 
-    private static final Map<String, UserEventListener> LISTENERS = new HashMap<>();
+    private static final Map<String, UserEventListener> LISTENERS = new ConcurrentHashMap<>();
 
     private static final List<ChangeSource> CHANGE_LISTEN_SOURCES = ImmutableList.of(new ChangeSource(INDEX, EVENT_TYPE));
 

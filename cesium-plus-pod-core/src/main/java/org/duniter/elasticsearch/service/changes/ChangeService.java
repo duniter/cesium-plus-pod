@@ -52,6 +52,7 @@ import org.elasticsearch.indices.IndicesService;
 import org.joda.time.DateTime;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ChangeService {
 
@@ -65,10 +66,10 @@ public class ChangeService {
 
     private final ESLogger log = Loggers.getLogger(ChangeService.class);
 
-    private static final Map<String, ChangeListener> LISTENERS = new HashMap<>();
+    private static final Map<String, ChangeListener> LISTENERS = new ConcurrentHashMap<>();
 
-    private static Map<String, ChangeSource> LISTENERS_SOURCES = new HashMap<>();
-    private static Map<String, Integer> LISTENERS_SOURCES_USAGE_COUNT = new HashMap<>();
+    private static Map<String, ChangeSource> LISTENERS_SOURCES = new ConcurrentHashMap<>();
+    private static Map<String, Integer> LISTENERS_SOURCES_USAGE_COUNT = new ConcurrentHashMap<>();
 
     @Inject
     public ChangeService(final Settings settings, IndicesService indicesService) {
