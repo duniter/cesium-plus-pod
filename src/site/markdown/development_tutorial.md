@@ -1,3 +1,4 @@
+# Tutoriel : Contribuer à Cesium+ Pod
 ## Introduction
 
 Cet article est un tutoriel d'initiation au code source du logiciel Duniter4j.
@@ -76,7 +77,7 @@ ce qui donne dans mon cas :
 
 ```
 git clone git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git
-Cloning into 'duniter4j'...
+Cloning into 'cesium-plus-pod'...
  (...)
 Checking connectivity... done.
 ```
@@ -139,13 +140,13 @@ Pour développer en Java, vous pouvez utiliser l'IDE de votre choix, par exemple
 
 ## Niveau III : maîtriser les commandes usuelles
 
-Ce troisième niveau permet de découvrir les quelques commandes que vous utiliserez tout le temps si vous développez sur Duniter4j. Vous y apprendrez : 
+Ce troisième niveau permet de découvrir les quelques commandes que vous utiliserez tout le temps si vous développez sur Cesium+ Pod. Vous y apprendrez : 
 
 - à configurer le projet, notamment les paramètres réseau (du noeud ES, du noeud Duniter, etc.);
 
 - à compiler le projet;
 
-- à lancer votre noeud ElasticSearch avec le plugin Duniter4j;
+- à lancer votre noeud ElasticSearch avec les plugins Cesium+ Pod;
 
 ### Configurer le projet
 
@@ -249,7 +250,7 @@ Vous devriez avoir maintenant :
 
 ```bash
 [2016-11-17 13:29:35,874][INFO ][transport                ] [Att-Lass] publish_address {127.0.0.1:9300}, bound_addresses {[::1]:9300}, {127.0.0.1:9300}
-[2016-11-17 13:29:35,882][INFO ][discovery                ] [Att-Lass] duniter4j-elasticsearch-TEST/HjDNQrTTSuyfmzGEbY7qNQ
+[2016-11-17 13:29:35,882][INFO ][discovery                ] [Att-Lass] cesium-plus-pod-g1-TEST/HjDNQrTTSuyfmzGEbY7qNQ
 [2016-11-17 13:29:38,956][INFO ][cluster.service          ] [Att-Lass] new_master {Att-Lass}{HjDNQrTTSuyfmzGEbY7qNQ}{127.0.0.1}{127.0.0.1:9300}, reason: zen-disco-join(elected_as_master, [0] joins received)
 [2016-11-17 13:29:38,990][INFO ][http                     ] [Att-Lass] publish_address {127.0.0.1:9200}, bound_addresses {[::1]:9200}, {127.0.0.1:9200}
 [2016-11-17 13:29:38,991][INFO ][node                     ] [Att-Lass] started
@@ -303,13 +304,9 @@ Dans le répertoire `cesium-plus-pod-core/src/main/java`, cherchez et répérez 
 
   * Il existe un service d'indexation par type de stockage. Par exemple : `BlockchainService`, `UserService`, etc.
 
-Dans le répertoire `duniter4j-core-client/src/main/java`, cherchez et répérez dans le code : 
-
-* les services d'accès au réseau Duniter : package `org.duniter.core.client.service.bma`
-
 ### Aller plus loin dans le code
 
-Duniter4j s'appuie sur ElasticSearch **en version 2.4**. D'excellentes documentations sont présentes sur le web : https://www.elastic.co/guide/en/elasticsearch/reference/2.3/index.html.
+Cesium+ Pod s'appuie sur ElasticSearch **en version 2.4**. D'excellentes documentations sont présentes sur le web : https://www.elastic.co/guide/en/elasticsearch/reference/2.3/index.html.
 
 ## Niveau V : Requêtage sur ES API
 
@@ -423,7 +420,7 @@ Duniter4j permet aussi de stocker et d'indexer les données hors BlockChain, com
 - `/page/comment` : les commentaires sur les annonces
 - `/subscription/record` : les abonnements aux services en ligne (par exemple les notifications par email)
 
-> La document de l'API HTTP est disponible [ici](./ES_API.html).
+> La document de l'API HTTP est disponible [ici](./REST_API.html).
 
 ### Requêtes sur `g1-test.data.duniter.fr`
 

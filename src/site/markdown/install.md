@@ -1,10 +1,8 @@
-# ElastiSearch node
+# Install
 
-## Install
+## Prerequisites
 
-### Prerequisites
-
-#### Install Java 
+### Install Java 
 
  - Install Java JRE 8 or more.
  
@@ -37,9 +35,9 @@ sudo make && sudo make check
 sudo make install        
 ```
 
-### Install bundle (ElasticSearch + Duniter4j)  
+### Install bundle (ElasticSearch + Cesium+ Pod)  
 
-   - Download [lastest release](https://github.com/duniter/duniter4j/releases) of file cesium-plus-pod-X.Y-standalone.zip
+   - Download [lastest release](https://github.com/duniter/cesium-plus-pod/releases) of file cesium-plus-pod-X.Y-standalone.zip
  
  - Unzip
  
@@ -52,7 +50,7 @@ cd cesium-plus-pod-X.Y/config
 
 ```yml
 # Your ES cluster name
-cluster.name: duniter4j-elasticsearch
+cluster.name: cesium-plus-pod-g1-TEST
 
 # Use a descriptive name for the node:
 node.name: ES-NODE-1
@@ -61,7 +59,7 @@ node.name: ES-NODE-1
 network.host: 192.168.0.28
 
 # Set a custom port for HTTP:
-http.port: 9203
+http.port: 9200
 
 # Duniter node to connect with
 duniter.host: g1-test.duniter.org
@@ -87,17 +85,17 @@ Output example (on [G1-test](http://g1-test.duniter.fr) currency):
 
 ```bash
 $ ./elasticsearch
-[2016-09-24 00:16:45,803][INFO ][node                     ] [ES-NODE-1] version[2.3.3], pid[15365], build[218bdf1/2016-05-17T15:40:04Z]
+[2016-09-24 00:16:45,803][INFO ][node                     ] [ES-NODE-1] version[2.4.6], pid[15365], build[218bdf1/2016-05-17T15:40:04Z]
 [2016-09-24 00:16:45,804][INFO ][node                     ] [ES-NODE-1] initializing ...
-[2016-09-24 00:16:46,257][INFO ][plugins                  ] [ES-NODE-1] modules [reindex, lang-expression, lang-groovy], plugins [mapper-attachments, duniter4j-elasticsearch], sites [duniter4j-elasticsearch]
+[2016-09-24 00:16:46,257][INFO ][plugins                  ] [ES-NODE-1] modules [reindex, lang-expression, lang-groovy], plugins [mapper-attachments, cesium-plus-pod-g1-TEST], sites [cesium-plus-pod-g1-TEST]
 [2016-09-24 00:16:46,270][INFO ][env                      ] [ES-NODE-1] using [1] data paths, mounts [[/home (/dev/mapper/isw_defjaaicfj_Volume1p1)]], net usable_space [1tb], net total_space [1.7tb], spins? [possibly], types [ext4]
 [2016-09-24 00:16:46,270][INFO ][env                      ] [ES-NODE-1] heap size [989.8mb], compressed ordinary object pointers [true]
 [2016-09-24 00:16:47,757][INFO ][node                     ] [ES-NODE-1] initialized
 [2016-09-24 00:16:47,757][INFO ][node                     ] [ES-NODE-1] starting ...
 [2016-09-24 00:16:47,920][INFO ][transport                ] [ES-NODE-1] publish_address {192.168.0.5:9300}, bound_addresses {192.168.0.5:9300}
-[2016-09-24 00:16:47,924][INFO ][discovery                ] [ES-NODE-1] duniter4j-elasticsearch/jdzzh_jUTbuN26Enl-9whQ
+[2016-09-24 00:16:47,924][INFO ][discovery                ] [ES-NODE-1] cesium-plus-pod-g1-TEST/jdzzh_jUTbuN26Enl-9whQ
 [2016-09-24 00:16:50,982][INFO ][cluster.service          ] [ES-NODE-1] detected_master {EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}, added {{EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300},}, reason: zen-disco-receive(from master [{EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}])
-[2016-09-24 00:16:53,570][INFO ][http                     ] [ES-NODE-1] publish_address {192.168.0.5:9203}, bound_addresses {192.168.0.5:9203}
+[2016-09-24 00:16:53,570][INFO ][http                     ] [ES-NODE-1] publish_address {192.168.0.5:9200}, bound_addresses {192.168.0.5:9200}
 [2016-09-24 00:16:53,570][INFO ][node                     ] [ES-NODE-1] started
 [2016-09-24 00:16:57,850][INFO ][node                     ] Checking Duniter indices...
 [2016-09-24 00:16:57,859][INFO ][node                     ] Checking Duniter indices... [OK]
@@ -110,21 +108,21 @@ $ ./elasticsearch
 [2016-09-24 00:17:11,026][INFO ][duniter.blockchain       ] [g1-gtest] [g1-test.duniter.org:10900] Indexing block #41282 - hash [00000AAD73B0E76B870E6779CD7ACCCE175802D7867C13B5C8ED077F380548C5]
 ```
 
-### Test your node
+## Test your node
 
-#### Using a web browser 
+### Using a web browser 
 
 The following web address should works: http://localhost:9200/node/summary
 
-#### Using Cesium
+### Using Cesium
 
-You should also be able to use your node in the [Cesium](https://github.com/duniter/cesium) application:
+You should also be able to use your node in the [Cesium](https://git.duniter.org/clients/cesium-grp/cesium) application:
  
- - in the Cesium+ settings, replace the data node address;
+ - in the Cesium+ extension settings, replace the data node address;
  - check if graph and profile avatar are display correctly.  
 
 
-## Request the ES node
+### Request the ES node
 
 When a blockchain currency has been indexed, you can test some fun queries :
 
@@ -158,10 +156,13 @@ curl -XGET 'http://localhost:9200/gtest/block/_search' -d '{
  }'
 ```
 
+## More documentation
 
-More documentation here :
+More documentation can be found here :
 
-- [a development tutorial](./development_tutorial.html) (french);
+- Cesium+ Pod [development tutorial](./development_tutorial.html) (french);
+
+- Cesium+ Pod [RESTfull HTTP API](./REST_API.md);
   
 - [ElasticSearch official web site](http://www.elastic.co/guide/en/elasticsearch/reference/1.3/docs-get.html#get-source-filtering)
   
