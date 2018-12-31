@@ -1074,25 +1074,26 @@ public class Duniter4jClientImpl implements Duniter4jClient {
 
     public void safeExecuteRequest(ActionRequestBuilder<?, ?, ?> request, boolean wait) {
         // Execute in a pool
-        if (!wait) {
-            boolean acceptedInPool = false;
-            while(!acceptedInPool)
+        ListenableActionFuture<?> actionFuture = null;
+        boolean acceptedInPool = false;
+        while(!acceptedInPool) {
+            try {
+                actionFuture = request.execute();
+                acceptedInPool = true;
+            }
+            catch(EsRejectedExecutionException e) {
+                // not accepted, so wait
                 try {
-                    request.execute();
-                    acceptedInPool = true;
+                    Thread.sleep(1000); // 1s
                 }
-                catch(EsRejectedExecutionException e) {
-                    // not accepted, so wait
-                    try {
-                        Thread.sleep(1000); // 1s
-                    }
-                    catch(InterruptedException e2) {
-                        // silent
-                    }
+                catch(InterruptedException e2) {
+                    // silent
                 }
-
-        } else {
-            request.execute().actionGet();
+            }
+        }
+        // Wait end of action, if need
+        if (wait && actionFuture != null) {
+            actionFuture.actionGet();
         }
     }
 }
