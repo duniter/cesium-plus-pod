@@ -12,8 +12,8 @@
 # Pull base image.
 FROM airdock/oracle-jdk:1.8
 
-ARG VERSION=1.0.2
-ARG LIBSODIUM_VERSION=1.0.13
+ARG VERSION=1.1.3
+ARG LIBSODIUM_VERSION=1.0.14
 
 # Installing dependencies
 RUN apt-get update && \
