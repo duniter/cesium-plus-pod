@@ -12,7 +12,7 @@ if [[ ! "_$failure" = "_" ]]; then
 fi
 
 mvn release:prepare -Darguments="-DskipTests -DperformFullRelease"
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
@@ -20,7 +20,7 @@ echo "**********************************"
 echo "* Performing release..."
 echo "**********************************"
 mvn release:perform --quiet -Darguments="-DskipTests -DperformFullRelease"
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
@@ -29,7 +29,7 @@ echo "* Uploading artifacts to Github..."
 echo "**********************************"
 cd target/checkout
 ./github.sh pre
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
