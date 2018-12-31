@@ -78,7 +78,7 @@
     <menu name="${project.name}" inherit="top">
       <item name="Home" href="./index.html"/>
       <item name="Downloads"
-            href="https://github.com/duniter/duniter4j/releases"/>
+            href="https://github.com/duniter/cesium-plus-pod/releases"/>
     </menu>
 
     <menu name="User manual" inherit="top">
