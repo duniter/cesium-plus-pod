@@ -1,5 +1,5 @@
 stages:
-    - github-sync
+#    - github-sync
 
 push_to_github:
     stage: github-sync

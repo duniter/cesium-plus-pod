@@ -27,7 +27,7 @@ fi
 echo "**********************************"
 echo "* Uploading artifacts to Github..."
 echo "**********************************"
-cd $dirname/target/checkout
+cd target/checkout
 ./github.sh pre
 if [ $? -ne 0 ]; then
     exit 1
