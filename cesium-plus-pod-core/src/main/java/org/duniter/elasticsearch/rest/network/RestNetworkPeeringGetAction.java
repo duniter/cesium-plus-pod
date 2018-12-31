@@ -54,7 +54,7 @@ public class RestNetworkPeeringGetAction extends BaseRestHandler {
         super(settings, controller, client);
 
         if (StringUtils.isBlank(pluginSettings.getClusterRemoteHost())) {
-            logger.warn(I18n.t("duniter.p2p.error.noRemoteUrl"));
+            logger.warn(String.format("The cluster address can not be published on the network. /\\!\\\\ Fill in the options [cluster.remote.xxx] in the configuration (recommended)."));
         }
         else {
             securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/network/peering");

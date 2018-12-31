@@ -32,7 +32,7 @@ public class RestUserShareLinkAction extends AbstractRestShareLinkAction impleme
         setResolver(this);
 
         if (StringUtils.isBlank(pluginSettings.getClusterRemoteUrlOrNull())) {
-            log.warn(I18n.t("duniter4j.es.share.error.noRemoteUrl"));
+            log.warn(String.format("The cluster address can not be published on the network. /\\!\\\\ Fill in the options [cluster.remote.xxx] in the configuration (recommended)."));
         }
         this.pluginSettings = pluginSettings;
         this.userService = userService;
