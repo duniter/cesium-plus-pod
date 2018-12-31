@@ -49,6 +49,7 @@ import org.nuiton.i18n.I18n;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import static org.nuiton.i18n.I18n.t;
@@ -63,9 +64,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static KeyPair nodeKeyPair;
     private static boolean isRandomNodeKeyPair;
     private static  String nodePubkey;
+    private static List<String> i18nBundleNames = new CopyOnWriteArrayList<>(); // Default
+    private static boolean isI18nStarted = false;
 
     protected final Settings settings;
-    private List<String> i18nBundleNames = new ArrayList<>(); // Default
     private String clusterRemoteUrl;
     private final CryptoService cryptoService;
 
@@ -104,8 +106,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         ApplicationConfigHelper.loadAllDefaultOption(applicationConfig,
                 providers);
 
-        // Ovverides defaults
+        // Overrides defaults Duniter4j options
         String baseDir = settings.get("path.home");
+        applicationConfig.setConfigFileName("duniter4j.config");
         applicationConfig.setDefaultOption(ConfigurationOption.BASEDIR.getKey(), baseDir);
         applicationConfig.setDefaultOption(ConfigurationOption.NODE_HOST.getKey(), getNodeBmaHost());
         applicationConfig.setDefaultOption(ConfigurationOption.NODE_PORT.getKey(), String.valueOf(getNodeBmaPort()));
@@ -162,6 +165,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     public Settings getSettings() {
         return settings;
+    }
+
+    /* -- settings on App -- */
+
+    public String getSoftwareName() {
+        return settings.get("duniter.software.name", "cesium-plus-pod");
     }
 
     /* -- settings on cluster -- */
@@ -447,8 +456,25 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
                     i18nLocale, i18nDirectory));
         }
 
+        if (logger.isDebugEnabled()) {
+            logger.debug(String.format("Using I18n Bundles: %s",getI18nBundleNames()));
+        }
+
         I18n.init(new I18nInitializer(i18nDirectory, getI18nBundleNames()),
                 i18nLocale);
+
+        isI18nStarted = true;
+    }
+
+    protected void reloadI18n() {
+
+        try {
+            I18n.close();
+            initI18n();
+        }
+        catch(IOException e) {
+            logger.error("Could not reload I18n");
+        }
     }
 
     protected String getI18nBundleName() {
@@ -462,6 +488,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     public void addI18nBundleName(String i18nBundleName) {
         if (!this.i18nBundleNames.contains(i18nBundleName)) {
             this.i18nBundleNames.add(i18nBundleName);
+
+            if (isI18nStarted) {
+                reloadI18n();
+            }
+
         }
     }
 

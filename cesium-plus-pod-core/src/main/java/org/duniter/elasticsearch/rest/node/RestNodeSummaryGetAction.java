@@ -24,11 +24,9 @@ package org.duniter.elasticsearch.rest.node;
 
 import org.duniter.core.client.config.Configuration;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.elasticsearch.rest.AbstractRestPostIndexAction;
+import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
-import org.duniter.elasticsearch.rest.XContentThrowableRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
-import org.duniter.elasticsearch.service.CurrencyService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
@@ -44,9 +42,16 @@ import java.io.IOException;
  */
 public class RestNodeSummaryGetAction extends BaseRestHandler {
 
+    private final String software;
+    private final String version;
+
     @Inject
-    public RestNodeSummaryGetAction(Settings settings, RestController controller, Client client, RestSecurityController securityController) {
+    public RestNodeSummaryGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
         super(settings, controller, client);
+
+        this.software = pluginSettings.getSoftwareName();
+        this.version = Configuration.instance().getVersion().toString();
+
         securityController.allow(RestRequest.Method.GET, "/node/summary");
         controller.registerHandler(RestRequest.Method.GET, "/node/summary", this);
     }
@@ -64,10 +69,10 @@ public class RestNodeSummaryGetAction extends BaseRestHandler {
                     .startObject("duniter")
 
                     // software
-                    .field("software", "duniter4j-elasticsearch")
+                    .field("software", software)
 
                     // version
-                    .field("version", Configuration.instance().getVersion().toString())
+                    .field("version", version)
 
                     // status
                     .field("status", RestStatus.OK.getStatus())

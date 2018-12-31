@@ -104,13 +104,13 @@ http.cors.enabled: true
 #
 # action.destructive_requires_name: true
 #
-# Security to isolate plugin classpath - /!\ WARNING: should be DISABLE for Duniter4j
+# Security to isolate plugin classpath - /!\ WARNING: should be DISABLE for Cesium+ Pod
 #
 security.manager.enabled: false
 #
-# ---------------------------------- Duniter4j ---------------------------------
+# ---------------------------------- Cesium+ Pod ---------------------------------
 #
-# Enable duniter4j plugin (default: true)
+# Enable Cesium+ pod plugins (default: true)
 #
 # duniter.enable: false
 #
@@ -144,7 +144,11 @@ duniter.useSsl: true
 #
 # duniter.stats.enable: false
 #
-# ---------------------------------- Duniter4j security module -------------------
+# Software name (used when calling GET request on /node/summary) (default: 'cesium-plus-pod')
+#
+# duniter.software.name: cesium-plus-pod
+#
+# ---------------------------------- Cesium+ Pod >  security module -------------------
 #
 # Keyring, use to sign emitted documents (user events, subscription, etc.).
 # If not set, random keys will be generated.
@@ -152,11 +156,11 @@ duniter.useSsl: true
 duniter.keyring.salt: 'abc'
 duniter.keyring.password: 'def'
 #
-# Enable security - will restrict HTTP access to only Duniter4j known indices - /!\ WARNING: should be enable for production use
+# Enable security - will restrict HTTP access to only Cesium+ known indices - /!\ WARNING: should be enable for production use
 #
 duniter.security.enable: true
 #
-# ---------------------------------- Duniter4j P2P module -------------------------
+# ---------------------------------- Cesium+ Pod > P2P module -------------------------
 #
 # Enable P2P synchronize between ES peers ? (default: true)
 #
@@ -213,7 +217,7 @@ duniter.p2p.includes.endpoints: [
 #
 #duniter.p2p.peering.interval: 60
 #
-# ---------------------------------- Duniter4j document moderation ---------------
+# ---------------------------------- Cesium+ Pod > document moderation ---------------
 #
 # Filter too old document, if time older that 'maxPastDelta' (in seconds). (default: 7200 =2h)
 #
@@ -227,7 +231,7 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.document.allowAdminDeletion: true
 #
-# ---------------------------------- Duniter4j Mail module -----------------------
+# ---------------------------------- Cesium+ Pod > Mail module -----------------------
 #
 # Enable mail module ?
 #
@@ -260,19 +264,19 @@ duniter.mail.enable: false
 #
 # duniter.mail.subject.prefix: '[Cesium+]'
 
-# ---------------------------------- Duniter4j Websocket server ----------------------
+# ---------------------------------- Cesium+ Pod > Websocket server ----------------------
 #
 # Websocket port (default: 9400-9410)
 #
 duniter.ws.port: 9400-9410
 #
-# ---------------------------------- Duniter4j Subscription module -------------------
+# ---------------------------------- Cesium+ Pod > Subscription module -------------------
 #
 # Enable subscription module (Need to enable mail features)
 #
 # duniter.subscription.enable: false
 #
-# Opions to DEBUG this features
+# Options to debug this features (DEV only)
 #
 # duniter.subscription.email.atStartup: false
 # duniter.subscription.email.debug: false
@@ -289,7 +293,7 @@ duniter.ws.port: 9400-9410
 #
 # duniter.subscription.email.link.url: 'https://domain.com/cesium'
 #
-# ---------------------------------- Duniter4j Share module -------------------
+# ---------------------------------- Cesium+ Pod > Share module -------------------
 #
 #
 # Share title: `og:site_name` (default: 'Cesium')
