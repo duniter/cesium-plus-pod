@@ -256,34 +256,64 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                         logger.info(String.format("[%s] Indexing blockchain [OK]", currencyName));
                     }
 
-                    // Index peers (and listen if new peer appear)
-                    if (pluginSettings.enableSynchroDiscovery()) {
-                        injector.getInstance(PeerService.class)
-                                .listenAndIndexPeers(peer);
-                    }
 
-                    // Start synchro
-                    if (pluginSettings.enableSynchro()) {
-                        injector.getInstance(SynchroService.class)
-                                .startScheduling();
-                    }
-
-                    // Start publish peering
-                    if (pluginSettings.enablePeering()) {
-                        injector.getInstance(NetworkService.class)
-                                .startPublishingPeerDocumentToNetwork();
-                    }
 
                 } catch(Throwable e){
                     logger.error(String.format("[%s] Indexing blockchain error: %s", currencyName, e.getMessage()), e);
                     throw e;
                 }
 
+                // Index peers (and listen if new peer appear)
+                if (pluginSettings.enableSynchroDiscovery()) {
+                    injector.getInstance(PeerService.class)
+                            .listenAndIndexPeers(peer);
+                }
+
+                // Start synchro and peering
+                startSynchroAndPeering();
+
+                // Start doc stats
+                startDocStatistics();
             });
 
         }
 
-        // If doc stats enable
+        // No blockchain indexation
+        else {
+
+            // Wait end of currency index creation
+            threadPool.scheduleOnClusterReady(() -> {
+                // Start synchro and peering
+                // (this is possible because default peers can be define in config, by including static endpoints)
+                startSynchroAndPeering();
+
+                // Start doc stats
+                startDocStatistics();
+            });
+        }
+
+        // Allow scroll search (need by synchro from other peers)
+        injector.getInstance(RestSecurityController.class)
+                .allow(RestRequest.Method.POST, "^/_search/scroll$");
+    }
+
+    protected void startSynchroAndPeering() {
+
+        // Start synchro, if enable in config
+        if (pluginSettings.enableSynchro()) {
+            injector.getInstance(SynchroService.class)
+                    .startScheduling();
+        }
+
+        // Start publish peering to network, if enable in config
+        if (pluginSettings.enablePeering()) {
+            injector.getInstance(NetworkService.class)
+                    .startPublishingPeerDocumentToNetwork();
+        }
+    }
+
+    protected void startDocStatistics() {
+        // Start doc stats, if enable in config
         if (pluginSettings.enableDocStats()) {
 
             // Add access to docstat index
@@ -303,9 +333,5 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             // Wait end of currency index creation, then index blocks
             threadPool.scheduleOnClusterReady(docStatService::startScheduling);
         }
-
-        // Allow scroll search
-        injector.getInstance(RestSecurityController.class)
-                .allow(RestRequest.Method.POST, "^/_search/scroll$");
     }
 }
