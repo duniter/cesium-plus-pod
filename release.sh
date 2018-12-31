@@ -11,7 +11,7 @@ if [[ ! "_$failure" = "_" ]]; then
     exit 1
 fi
 
-mvn release:prepare
+mvn release:prepare -Darguments="-DskipTests -DperformFullRelease"
 if [ $? -ne 0 ]; then
     exit 1
 fi
