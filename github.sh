@@ -13,8 +13,7 @@ current=`grep -m1 -P "\<version>[0-9A−Z.]+(-\w*)?</version>" pom.xml | grep -o
 echo "Current version: $current"
 
 ### Get repo URL
-REMOTE_URL=`git remote -v | grep -P "push" | grep -oP "(https:\/\/github.com\/|git@github.com:)[^ ]+"`
-REPO=`echo $REMOTE_URL | sed "s/https:\/\/github.com\///g" | sed "s/git@github.com://g" | sed "s/.git$//"`
+REPO="duniter/cesium-plus-pod"
 REPO_URL=https://api.github.com/repos/$REPO
 
 ###  get auth token
@@ -68,14 +67,15 @@ case "$1" in
     echo "Creating new release..."
     echo " - tag: v$current"
     echo " - description: $description"
-    result=`curl -H ''"$GITHUT_AUTH"'' -s $REPO_URL/releases -d '{"tag_name": "v'"$current"'","target_commitish": "master","name": "v'"$current"'","body": "'"$description"'","draft": false,"prerelease": '"$prerelease"'}'`
+    result=`curl -H ''"$GITHUT_AUTH"'' -s $REPO_URL/releases -d '{"tag_name": "v'"$current"'","target_commitish": "master","name": "'"$current"'","body": "'"$description"'","draft": false,"prerelease": '"$prerelease"'}'`
+    #echo "$result"
     upload_url=`echo "$result" | grep -P "\"upload_url\": \"[^\"]+"  | grep -oP "https://[A-Za-z0-9/.-]+"`
 
     ###  Sending files
     echo "Uploading files... to $upload_url"
     dirname=`pwd`
 
-    result=`curl -s -H ''"$GITHUT_AUTH"'' -H 'Content-Type: application/zip' -T "$dirname/cesium-plus-pod-assembly/target/cesium-plus-pod-$current-standalone.jar" "$upload_url?name=cesium-plus-pod-$current-standalone.jar"`
+    result=`curl -s -H ''"$GITHUT_AUTH"'' -H 'Content-Type: application/zip' -T "$dirname/cesium-plus-pod-assembly/target/cesium-plus-pod-$current-standalone.zip" "$upload_url?name=cesium-plus-pod-$current-standalone.zip"`
     browser_download_url=`echo "$result" | grep -P "\"browser_download_url\":[ ]?\"[^\"]+" | grep -oP "\"browser_download_url\":[ ]?\"[^\"]+"  | grep -oP "https://[A-Za-z0-9/.-]+"`
     echo " - $browser_download_url"
 
