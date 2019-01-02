@@ -2,23 +2,28 @@
 
 VERSION=$1
 OLD_VERSION=$2
+ASSET_BASENAME=cesium-plus-pod
+ASSET=${ASSET_BASENAME}-${VERSION}-standalone
+CURRENCY=g1
+REPO=duniter/cesium-plus-pod
+ASSET_ZIP_URL=https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}.zip
 
-if [ "${VERSION}" == "" ]; then
+if [[ "${VERSION}" == "" ]]; then
         echo "ERROR: Missing version argument !"
         echo " "
         echo "usage: sudo ./update-es.sh <version> [<old_version>]"
         exit
 fi
-if [ "${OLD_VERSION}" == "" ]; then
-        OLD_VERSION=`ps -efl | grep cesium-plus-pod | grep g1/lib | sed -r 's/.*cesium-plus-pod-([0-9.]+)-g1.*/\1/g'`
-        if [ "${OLD_VERSION}" == "" ]; then
+if [[ "${OLD_VERSION}" == "" ]]; then
+        OLD_VERSION=`ps -efl | grep ${ASSET_BASENAME} | grep ${CURRENCY}/lib | sed -r "s/.*${ASSET_BASENAME}-([0-9.]+)-${CURRENCY}.*/\1/g"`
+        if [[ "${OLD_VERSION}" == "" ]]; then
                 echo "Error: unable to known previous version"
                 exit
         fi
 fi
 
 READLINK=`which readlink`
-if [ -z "$READLINK"  ]; then
+if [[ -z "$READLINK"  ]]; then
   message "Required tool 'readlink' is missing. Please install before launch \"$0\" file."
   exit 1
 fi
@@ -27,8 +32,8 @@ fi
 # Ensure BASEDIR points to the directory where the soft is installed.
 # ------------------------------------------------------------------
 SCRIPT_LOCATION=$0
-if [ -x "$READLINK" ]; then
-  while [ -L "$SCRIPT_LOCATION" ]; do
+if [[ -x "$READLINK" ]]; then
+  while [[ -L "$SCRIPT_LOCATION" ]]; do
     SCRIPT_LOCATION=`"$READLINK" -e "$SCRIPT_LOCATION"`
   done
 fi 
@@ -36,55 +41,55 @@ fi
 export BASEDIR=`dirname "$SCRIPT_LOCATION"`                                                                                                                                                                                                        
 cd $BASEDIR 
 
-echo "--- Downloading cesium-plus-pod-standalone v$VERSION... ----------------------"
+echo "--- Downloading ${ASSET} ... ----------------------"
 
-if [ -f "downloads/cesium-plus-pod-${VERSION}-standalone.zip" ]; then
-        echo "...removing file, as it already exists in ./downloads/cesium-plus-pod-${VERSION}-standalone.zip"
-        rm ./downloads/cesium-plus-pod-${VERSION}-standalone.zip
-fi
-
-if [ ! -e "downloads" ]; then
+if [[ ! -e "downloads" ]]; then
         mkdir downloads
 fi
 
-cd downloads
-wget -kL https://github.com/duniter/duniter4j/releases/download/cesium-plus-pod-${VERSION}/cesium-plus-pod-${VERSION}-standalone.zip
-cd ..
+if [[ -f "./downloads/${ASSET}.zip" ]]; then
+        echo "Already downloaded. Skipping"
+else
+    cd downloads
+    wget -kL ${ASSET_ZIP_URL}
+    cd ..
+fi
 
-if [ -f "downloads/cesium-plus-pod-${VERSION}-standalone.zip" ]; then
+
+if [[ -f "downloads/${ASSET}.zip" ]]; then
         echo ""
 else
-        echo "Error: unable to dowlonad this version!"
+        echo "Error: unable to download this version!"
         exit -1
 fi
 
-echo "--- Installating cesium-plus-pod v$VERSION... ---------------------"
-if [ -d "/opt/cesium-plus-pod-${VERSION}-g1" ]; then
-        echo "Error: Already installed in /opt/cesium-plus-pod-${VERSION}-g1 !"
+echo "--- Installing cesium-plus-pod v$VERSION... ---------------------"
+if [[ -d "/opt/cesium-plus-pod-${VERSION}-${CURRENCY}" ]]; then
+        echo "Error: Already installed in /opt/cesium-plus-pod-${VERSION}-${CURRENCY} !"
         exit -1
 fi
 
-unzip -o ./downloads/cesium-plus-pod-${VERSION}-standalone.zip
-mv cesium-plus-pod-${VERSION} cesium-plus-pod-${VERSION}-g1
-sudo mv cesium-plus-pod-${VERSION}-g1 /opt/
-sudo rm /opt/cesium-plus-pod-g1
-sudo ln -s /opt/cesium-plus-pod-${VERSION}-g1 /opt/cesium-plus-pod-g1
+unzip -o ./downloads/${ASSET}.zip
+mv ${ASSET_BASENAME}-${VERSION} ${ASSET_BASENAME}-${VERSION}-${CURRENCY}
+sudo mv ${ASSET_BASENAME}-${VERSION}-${CURRENCY} /opt/
+sudo rm /opt/${ASSET_BASENAME}-${CURRENCY}
+sudo ln -s /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY} /opt/${ASSET_BASENAME}-${CURRENCY}
 
-mkdir /opt/cesium-plus-pod-${VERSION}-g1/data
-mv /opt/cesium-plus-pod-${VERSION}-g1/config/elasticsearch.yml /opt/cesium-plus-pod-${VERSION}-g1/config/elasticsearch.yml.ori
+mkdir /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/data
+mv /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config/elasticsearch.yml /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config/elasticsearch.yml.ori
 
 stop-cesium-plus-pod.sh
 
-if [ "$OLD_VERSION" != "$VERSION" ];
+if [[ "$OLD_VERSION" != "$VERSION" ]];
 then
         echo "--- Restoring files (data+config) from previous version $OLD_VERSION... ---------------------"
-        tar -cvf /opt/cesium-plus-pod-${OLD_VERSION}-g1/data/save.tar.gz /opt/cesium-plus-pod-${OLD_VERSION}-g1/data/g1-*
-        mv /opt/cesium-plus-pod-${OLD_VERSION}-g1/data/g1-* /opt/cesium-plus-pod-${VERSION}-g1/data  
-        cp /opt/cesium-plus-pod-${OLD_VERSION}-g1/config/elasticsearch.yml /opt/cesium-plus-pod-${VERSION}-g1/config
+        tar -cvf /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/save.tar.gz /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/${CURRENCY}-*
+        mv /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/${CURRENCY}-* /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/data
+        cp /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/config/elasticsearch.yml /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config
 fi
 
 #./start-es-nodes.sh
 
-echo "--- Successfully installed cesium-plus-pod v$VERSION ! -------------"
+echo "--- Successfully installed ${ASSET_BASENAME} v$VERSION ! -------------"
 echo ""
 

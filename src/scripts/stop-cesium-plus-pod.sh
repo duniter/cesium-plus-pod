@@ -1,32 +1,34 @@
 #!/bin/bash
 
-# Get ES PID
-PID=`ps -efl | grep cesium-plus-pod | grep lib | awk '{printf "%s", $4}'`
+CURRENCY=g1
 
-if [ "$PID" != "" ];
+# Get ES PID
+PID=`ps -efl | grep cesium-plus-pod | grep ${CURRENCY}/lib | awk '{printf "%s", $4}'`
+
+if [[ "$PID" != "" ]];
 then
-        echo "Stopping ES node running on PID $PID..."
+        echo "Stopping Cesium+ Pod running on PID $PID..."
         sudo kill -15 $PID
 
         sleep 5s
 
         # Check if still alive
-        PID=`ps -efl | grep cesium-plus-pod | grep g1/lib | awk '{printf "%s", $4}'`
-        if [ "$PID" != "" ];
+        PID=`ps -efl | grep cesium-plus-pod | grep ${CURRENCY}/lib | awk '{printf "%s", $4}'`
+        if [[ "$PID" != "" ]];
         then
                 sleep 10s
         fi
 
-        PID=`ps -efl | grep cesium-plus-pod | grep g1/lib | awk '{printf "%s", $4}'`
-        if [ "$PID" != "" ];
+        PID=`ps -efl | grep cesium-plus-pod | grep ${CURRENCY}/lib | awk '{printf "%s", $4}'`
+        if [[ "$PID" != "" ]];
         then 
-                echo "Error: Unable to stop ES node !"
+                echo "Error: Unable to stop Cesium+ Pod !"
                 exit -1
         else
-                echo "ES node stopped"
+                echo "Cesium+ Pod stopped"
         fi
 
 else
-        echo "ES node not running!"
+        echo "Cesium+ Pod not running!"
 fi
 

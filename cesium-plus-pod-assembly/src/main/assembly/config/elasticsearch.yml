@@ -16,6 +16,11 @@
 #
 cluster.name: cesium-plus-pod-g1
 #
+# Host + port, to join your cluster, from external network
+#
+#cluster.remote.host: localhost
+#cluster.remote.port: 9200
+#
 # ------------------------------------ Node ------------------------------------
 #
 # Use a descriptive name for the node:
