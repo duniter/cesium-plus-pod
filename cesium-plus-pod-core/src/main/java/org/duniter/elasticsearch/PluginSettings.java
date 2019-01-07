@@ -287,10 +287,24 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     /**
+     * Peer endpoint API to index (into the '_currency_/peer')
+     * @return
+     */
+    public Collection<EndpointApi> getPeerIndexedApis() {
+        String[] includeApis = settings.getAsArray("duniter.p2p.peer.indexedApis");
+        // By default: getPeeringPublishedApis + getPeeringTargetedApis
+        if (CollectionUtils.isEmpty(includeApis)) {
+            return CollectionUtils.union(getPeeringTargetedApis(), getPeeringPublishedApis());
+        }
+
+        return Arrays.stream(includeApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+    }
+
+    /**
      * Endpoint API to publish, in the emitted peer document. By default, plugins will defined their own API
      * @return
      */
-    public List<EndpointApi> getPeeringPublishedApis() {
+    public Collection<EndpointApi> getPeeringPublishedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.publishedApis");
         if (CollectionUtils.isEmpty(targetedApis)) return null;
 
@@ -302,7 +316,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * This API should accept a POST request to '/network/peering' (like Duniter node, but can also be a pod)
      * @return
      */
-    public List<EndpointApi> getPeeringTargetedApis() {
+    public Collection<EndpointApi> getPeeringTargetedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
                 EndpointApi.BASIC_MERKLED_API.name(),
                 EndpointApi.BMAS.name()

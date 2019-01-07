@@ -24,7 +24,7 @@ package org.duniter.elasticsearch.service;
 
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
@@ -39,7 +39,10 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -53,10 +56,8 @@ public class PeerService extends AbstractService  {
     private ThreadPool threadPool;
 
     // Define endpoint API to include
-    private static List<String> includeEndpointApis = Lists.newArrayList(
-            EndpointApi.BASIC_MERKLED_API.name(),
-            EndpointApi.BMAS.name(),
-            EndpointApi.WS2P.name());
+    // API to include inside when getting peers
+    private final static Set<String> indexedEndpointApis = Sets.newHashSet();
 
     @Inject
     public PeerService(Duniter4jClient client, PluginSettings settings, ThreadPool threadPool,
@@ -71,20 +72,27 @@ public class PeerService extends AbstractService  {
             this.delegate = serviceLocator.getPeerService();
             setIsReady(true);
         });
-    }
 
-    public PeerService addIncludeEndpointApi(String api) {
-        Preconditions.checkNotNull(api);
-        if (!includeEndpointApis.contains(api)) {
-            includeEndpointApis.add(api);
+        // If filtered API defined in settings, use it
+        if (CollectionUtils.isNotEmpty(pluginSettings.getPeerIndexedApis())) {
+            addAllPeerIndexedEndpointApis(pluginSettings.getPeerIndexedApis());
         }
+    }
+
+    public PeerService addIndexedEndpointApi(String api) {
+        Preconditions.checkNotNull(api);
+        if (!indexedEndpointApis.contains(api)) indexedEndpointApis.add(api);
         return this;
     }
 
-    public PeerService addIncludeEndpointApi(EndpointApi api) {
+    public PeerService addIndexedEndpointApi(EndpointApi api) {
         Preconditions.checkNotNull(api);
-        addIncludeEndpointApi(api.name());
+        addIndexedEndpointApi(api.name());
         return this;
+    }
+
+    public void setCurrencyMainPeer(String currency, Peer peer) {
+        delegate.setCurrencyMainPeer(currency, peer);
     }
 
     public PeerService indexPeers(Peer peer) {
@@ -117,7 +125,7 @@ public class PeerService extends AbstractService  {
             org.duniter.core.client.service.local.NetworkService.Filter filterDef = new org.duniter.core.client.service.local.NetworkService.Filter();
             filterDef.filterType = null;
             filterDef.filterStatus = Peer.PeerStatus.UP;
-            filterDef.filterEndpoints = ImmutableList.copyOf(includeEndpointApis);
+            filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
 
             // Default sort
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
@@ -137,7 +145,31 @@ public class PeerService extends AbstractService  {
         delegate.save(peer);
     }
 
-    public void save(final String currencyId, final List<Peer> peers, boolean isFullList) {
+    public void save(final String currencyId, final List<Peer> peers, boolean isFullList, boolean applyFilterEndpoints, boolean refreshPeers) {
+        // Skip if empty and NOT the full list
+        if (!isFullList && CollectionUtils.isEmpty(peers)) return;
+
+        // Filter on endpoint apis
+        if (applyFilterEndpoints) {
+            List<Peer> filteredPeers = peers.stream().filter(p -> indexedEndpointApis.contains(p.getApi())).collect(Collectors.toList());
+            save(currencyId, filteredPeers, isFullList, false, refreshPeers); // Loop, without applying filter
+            return;
+        }
+
+        if (refreshPeers) {
+            final Peer mainPeer = pluginSettings.checkAndGetPeer();
+
+            // Async refresh
+            networkService.asyncRefreshPeers(mainPeer, peers, threadPool.scheduler())
+                    .exceptionally(throwable -> {
+                        logger.error("Could not refresh peers status: " + throwable.getMessage(), throwable);
+                        return peers;
+                    })
+                    // then loop, without refreshing
+                    .thenAccept(list -> save(currencyId, list, isFullList, false, false));
+            return;
+        }
+
         delegate.save(currencyId, peers, isFullList);
     }
 
@@ -154,7 +186,7 @@ public class PeerService extends AbstractService  {
         NetworkService.Filter filterDef = new NetworkService.Filter();
         filterDef.filterType = null;
         filterDef.filterStatus = Peer.PeerStatus.UP;
-        filterDef.filterEndpoints = ImmutableList.copyOf(includeEndpointApis);
+        filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
         filterDef.currency = currencyName;
 
         // Default sort
@@ -168,5 +200,10 @@ public class PeerService extends AbstractService  {
 
     public Long getMaxLastUpTime(String currencyId) {
         return peerDao.getMaxLastUpTime(currencyId);
+    }
+
+    protected void addAllPeerIndexedEndpointApis(Collection<EndpointApi> apis) {
+        Preconditions.checkNotNull(apis);
+        apis.forEach(this::addIndexedEndpointApi);
     }
 }

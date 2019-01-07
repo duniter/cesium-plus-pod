@@ -29,7 +29,7 @@ import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Locale;
 
 /**
@@ -98,11 +98,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return this.delegate.enablePeering();
     }
 
-    public List<EndpointApi> getPeeringTargetedApis() {
+    public Collection<EndpointApi> getPeeringTargetedApis() {
         return this.delegate.getPeeringTargetedApis();
     }
 
-    public List<EndpointApi> getPeeringPublishedApis() {
+    public Collection<EndpointApi> getPeeringPublishedApis() {
         return this.delegate.getPeeringPublishedApis();
     }
 

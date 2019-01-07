@@ -26,6 +26,7 @@ package org.duniter.elasticsearch.service;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
@@ -33,6 +34,8 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.bma.BlockchainRemoteService;
 import org.duniter.core.client.service.bma.NetworkRemoteService;
 import org.duniter.core.client.service.exception.BlockNotFoundException;
+import org.duniter.core.client.util.KnownBlocks;
+import org.duniter.core.client.util.KnownCurrencies;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.model.NullProgressionModel;
 import org.duniter.core.model.ProgressionModel;
@@ -41,22 +44,20 @@ import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.ObjectUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
+import org.duniter.core.util.cache.Cache;
+import org.duniter.core.util.cache.SimpleCache;
 import org.duniter.core.util.json.JsonAttributeParser;
 import org.duniter.core.util.websocket.WebsocketClientEndpoint;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
+import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.duniter.elasticsearch.exception.DuplicateIndexIdException;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequestBuilder;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
-import org.elasticsearch.action.admin.cluster.node.info.TransportNodesInfoAction;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.rest.action.admin.cluster.node.info.RestNodesInfoAction;
 import org.nuiton.i18n.I18n;
 
 import java.io.IOException;
@@ -67,6 +68,7 @@ import java.util.*;
  */
 public class BlockchainService extends AbstractService {
 
+    private static final BlockchainBlock DEFAULT_BLOCK = KnownBlocks.getFirstBlock(KnownCurrencies.G1);
     public static final String BLOCK_TYPE = BlockDao.TYPE;
     public static final String CURRENT_BLOCK_ID = "current";
 
@@ -83,17 +85,21 @@ public class BlockchainService extends AbstractService {
     private final JsonAttributeParser<String> blockHashParser = new JsonAttributeParser<>("hash", String.class);
     private final JsonAttributeParser<String> blockPreviousHashParser = new JsonAttributeParser<>("previousHash", String.class);
 
+    private SimpleCache<String, BlockchainParameters> blockchainParametersCurrencyIdCache;
     private BlockDao blockDao;
+    private CurrencyExtendDao currencyDao;
 
     @Inject
     public BlockchainService(Duniter4jClient client,
                              PluginSettings settings,
                              ThreadPool threadPool,
                              BlockDao blockDao,
+                             CurrencyDao currencyDao,
                              final ServiceLocator serviceLocator){
         super("duniter.blockchain", client, settings);
         this.client = client;
         this.blockDao = blockDao;
+        this.currencyDao = (CurrencyExtendDao) currencyDao;
         threadPool.scheduleOnStarted(() -> {
             blockchainRemoteService = serviceLocator.getBlockchainRemoteService();
             setIsReady(true);
@@ -110,6 +116,13 @@ public class BlockchainService extends AbstractService {
                 synchronized (connectionListeners) {
                     connectionListeners.stream().forEach(connectionListener -> connectionListener.onError(e, lastTimeUp));
                 }
+            }
+        };
+        blockchainParametersCurrencyIdCache = new SimpleCache<String, BlockchainParameters>(/*eternal*/) {
+            @Override
+            public BlockchainParameters load(String currencyId) {
+                if (!isReady()) throw new IllegalStateException("Could not load blockchain parameters (service is not started)");
+                return blockchainRemoteService.getParameters(currencyId);
             }
         };
     }
@@ -466,12 +479,35 @@ public class BlockchainService extends AbstractService {
         }
     }
 
-    public BlockchainBlock getBlockById(final String currencyName, final int number) {
-        return blockDao.getBlockById(currencyName, String.valueOf(number));
+    public BlockchainBlock getBlockById(String currency, final int number) {
+
+        // Retrieve the currency to use
+        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && currencyDao.existsIndex();
+        if (StringUtils.isBlank(currency)) {
+            List<String> currencyIds = enableBlockchainIndexation ? currencyDao.getCurrencyIds() : null;
+            if (CollectionUtils.isNotEmpty(currencyIds)) {
+                currency = currencyIds.get(0);
+            } else {
+                currency = DEFAULT_BLOCK.getCurrency();
+            }
+        }
+
+        return blockDao.getBlockById(currency, String.valueOf(number));
     }
 
-    public BlockchainBlock getCurrentBlock(final String currencyName) {
-        return blockDao.getBlockById(currencyName, CURRENT_BLOCK_ID);
+    public BlockchainBlock getCurrentBlock(String currency) {
+        // Retrieve the currency to use
+        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && currencyDao.existsIndex();
+        if (StringUtils.isBlank(currency)) {
+            List<String> currencyIds = enableBlockchainIndexation ? currencyDao.getCurrencyIds() : null;
+            if (CollectionUtils.isNotEmpty(currencyIds)) {
+                currency = currencyIds.get(0);
+            } else {
+                currency = DEFAULT_BLOCK.getCurrency();
+            }
+        }
+
+        return blockDao.getBlockById(currency, CURRENT_BLOCK_ID);
     }
 
     public void deleteFrom(final String currencyName, final int fromBlock) {
@@ -537,6 +573,26 @@ public class BlockchainService extends AbstractService {
         }
 
         return missingBlockNumbers;
+    }
+
+    public BlockchainParameters getParameters(String currency) {
+        // Check in cache
+        if (StringUtils.isNotBlank(currency)) {
+            return blockchainParametersCurrencyIdCache.get(currency);
+        }
+
+        // Or get default
+        BlockchainParameters result = blockchainParametersCurrencyIdCache.getIfPresent("DEFAULT");
+
+        // Or fill default using duniter node
+        if (result == null && pluginSettings.enableBlockchainIndexation()) {
+            Peer peer = pluginSettings.checkAndGetPeer();
+            result = blockchainRemoteService.getParameters(peer);
+            blockchainParametersCurrencyIdCache.put(result.getCurrency(), result);
+            blockchainParametersCurrencyIdCache.put("DEFAULT", result);
+        }
+
+        return result;
     }
 
     private Collection<String> indexBlocksUsingBulk(Peer peer, String currencyName, int firstNumber, int lastNumber, ProgressionModel progressionModel,

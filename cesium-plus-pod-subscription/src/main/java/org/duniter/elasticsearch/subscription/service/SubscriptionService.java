@@ -27,7 +27,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import org.duniter.core.client.model.ModelUtils;
-import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
@@ -43,8 +42,6 @@ import org.duniter.elasticsearch.subscription.dao.record.SubscriptionRecordDao;
 import org.duniter.elasticsearch.subscription.model.SubscriptionExecution;
 import org.duniter.elasticsearch.subscription.model.SubscriptionRecord;
 import org.duniter.elasticsearch.subscription.model.email.EmailSubscription;
-import org.duniter.elasticsearch.subscription.util.stringtemplate.DateRenderer;
-import org.duniter.elasticsearch.subscription.util.stringtemplate.StringRenderer;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.service.AdminService;
@@ -57,7 +54,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.nuiton.i18n.I18n;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
-import org.stringtemplate.v4.STGroupDir;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -78,6 +74,7 @@ public class SubscriptionService extends AbstractService {
     private UserService userService;
     private String emailSubjectPrefix;
     private STGroup templates;
+    private boolean debug;
 
     @Inject
     public SubscriptionService(Duniter4jClient client,
@@ -102,8 +99,10 @@ public class SubscriptionService extends AbstractService {
         if (StringUtils.isNotBlank(emailSubjectPrefix)) {
             emailSubjectPrefix += " "; // add one trailing space
         }
+        this.debug = logger.isDebugEnabled();
 
         // Configure springtemplate engine
+        STGroup.verbose = debug;
         templates = STUtils.newSTGroup("org/duniter/elasticsearch/subscription/templates");
         Preconditions.checkNotNull(templates.getInstanceOf("text_email"), "Missing ST template {text_email}");
         Preconditions.checkNotNull(templates.getInstanceOf("html_email_content"), "Missing ST template {html_email_content}");
@@ -269,19 +268,19 @@ public class SubscriptionService extends AbstractService {
         boolean debug = pluginSettings.isEmailSubscriptionsDebug();
         if (subscription.getContent() != null && subscription.getContent().getEmail() != null) {
             if (debug) {
-                logger.info(String.format("Processing email subscription to [%s - %s] on account [%s]",
+                logger.info(String.format("Processing email subscription from {%s} to {%s} (pubkey: %s)",
                         senderName,
                         subscription.getContent().getEmail(),
                         ModelUtils.minifyPubkey(subscription.getIssuer())));
             }
             else {
-                logger.info(String.format("Processing email subscription [%s] on account [%s]",
+                logger.info(String.format("Processing email subscription to {%s} (pubkey: %s)",
                         subscription.getId(),
                         ModelUtils.minifyPubkey(subscription.getIssuer())));
             }
         }
         else {
-            logger.warn(String.format("Processing email subscription [%s] - no email found in subscription content: skipping", subscription.getId()));
+            logger.warn(String.format("Processing email subscription {id=%s}: no email found in content. Skipping", subscription.getId()));
             return null;
         }
 
@@ -313,9 +312,7 @@ public class SubscriptionService extends AbstractService {
         // Get user locale
         String[] localParts = subscription.getContent() != null && subscription.getContent().getLocale() != null ?
                 subscription.getContent().getLocale().split("-") : new String[]{"en", "GB"};
-        Locale issuerLocale = localParts.length >= 2 ? new Locale(localParts[0].toLowerCase(), localParts[1].toUpperCase()) : new Locale(localParts[0].toLowerCase());
-
-
+        Locale userLocale = localParts.length >= 2 ? new Locale(localParts[0].toLowerCase(), localParts[1].toUpperCase()) : new Locale(localParts[0].toLowerCase());
 
         // Compute text content
         final String text = fillTemplate(
@@ -325,8 +322,9 @@ public class SubscriptionService extends AbstractService {
                 senderName,
                 profileTitles,
                 userEvents,
+                userLocale,
                 pluginSettings.getEmailLinkUrl())
-                .render(issuerLocale);
+                .render(userLocale);
 
         // Compute HTML content
         final String html = fillTemplate(
@@ -336,8 +334,9 @@ public class SubscriptionService extends AbstractService {
                 senderName,
                 profileTitles,
                 userEvents,
+                userLocale,
                 pluginSettings.getEmailLinkUrl())
-                .render(issuerLocale);
+                .render(userLocale);
 
         final String object = emailSubjectPrefix + I18n.t("duniter4j.es.subscription.email.subject", userEvents.size());
         if (pluginSettings.isEmailSubscriptionsDebug()) {
@@ -370,12 +369,13 @@ public class SubscriptionService extends AbstractService {
     }
 
 
-    public static ST fillTemplate(ST template,
+    public static ST fillTemplate(final ST template,
                                   EmailSubscription subscription,
                                   String senderPubkey,
                                   String senderName,
                                   Map<String, String> issuerProfilNames,
                                   List<UserEvent> userEvents,
+                                  final Locale issuerLocale,
                                   String cesiumSiteUrl) {
         String issuerName = issuerProfilNames != null && issuerProfilNames.containsKey(subscription.getIssuer()) ?
                 issuerProfilNames.get(subscription.getIssuer()) :
@@ -393,11 +393,9 @@ public class SubscriptionService extends AbstractService {
             template.add("senderPubkey", senderPubkey);
             template.add("senderName", senderName);
             userEvents.forEach(userEvent -> {
-                String description = userEvent.getParams() != null ?
-                        I18n.t("duniter.user.event." + userEvent.getCode().toUpperCase(), userEvent.getParams()) :
-                        I18n.t("duniter.user.event." + userEvent.getCode().toUpperCase());
+                String description = getUserEventDescription(issuerLocale, userEvent);
                 template.addAggr("events.{description, time}", new Object[]{
-                    description,
+                        description,
                     new Date(userEvent.getTime() * 1000)
                 });
             });
@@ -451,5 +449,42 @@ public class SubscriptionService extends AbstractService {
         }
     }
 
+    private static String getUserEventDescription(Locale locale, UserEvent userEvent) {
+        final String defaultKey = "duniter.user.event." + userEvent.getCode().toUpperCase();
 
+        // Retrieve the translated description: prefer 'duniter.<INDEX>.event.<CODE>' if exists,
+        // and 'duniter.user.event.<CODE>' otherwise
+        final UserEvent.Reference reference = userEvent.getReference();
+        if (reference != null && reference.getIndex() != null) {
+            return firstValidI18n(locale,
+                    new String[]{
+                        String.format("duniter.%s.%s.event.%s", userEvent.getReference().getIndex().toLowerCase(), userEvent.getReference().getType().toLowerCase(), userEvent.getCode().toUpperCase()),
+                        String.format("duniter.%s.event.%s", userEvent.getReference().getIndex().toLowerCase(), userEvent.getCode().toUpperCase()),
+                        defaultKey
+                    },
+                    userEvent.getParams());
+        }
+
+        return userEvent.getParams() != null ?
+                I18n.l(locale, defaultKey, userEvent.getParams()) :
+                I18n.l(locale, defaultKey);
+    }
+
+    /**
+     * Return the first valid i18N translation
+     * @param locale
+     * @param keys
+     * @param params
+     * @return
+     */
+    private static String firstValidI18n(Locale locale, String[] keys, String[] params) {
+        String result = null;
+        for (String key: keys) {
+            result = params != null ? I18n.l(locale, key, params) : I18n.l(locale, key);
+            if (!key.equals(result)) {
+                return result;
+            }
+        }
+        return result;
+    }
 }

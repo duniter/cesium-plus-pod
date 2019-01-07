@@ -16,7 +16,7 @@ logger:
 
   duniter: DEBUG
   #duniter.core: DEBUG
-  #duniter.security: ERROR
+  duniter.security: WARN
   #duniter.user.event: DEBUG
   #duniter.network.p2p: DEBUG
   #duniter.network.peer: DEBUG

@@ -24,14 +24,12 @@ package org.duniter.elasticsearch.subscription.service;
 
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.elasticsearch.subscription.util.stringtemplate.DateRenderer;
-import org.duniter.elasticsearch.subscription.util.stringtemplate.StringRenderer;
+import org.duniter.elasticsearch.util.springtemplate.STUtils;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
-import org.stringtemplate.v4.STGroupDir;
 
 import java.util.Date;
 import java.util.Locale;
@@ -44,16 +42,13 @@ import static org.junit.Assert.assertNotNull;
 public class SubscriptionTemplateTest {
     private static final Logger log = LoggerFactory.getLogger(SubscriptionTemplateTest.class);
 
-    private static final boolean verbose = false;
+    private static final boolean verbose = true;
 
     @Test
     public void testHtmlEmail() throws Exception{
 
         try {
-            STGroup group = new STGroupDir("templates", '$', '$');
-
-            group.registerRenderer(Date.class, new DateRenderer());
-            group.registerRenderer(String.class, new StringRenderer());
+            STGroup group = STUtils.newSTGroup("org/duniter/elasticsearch/subscription/templates");
 
             ST tpl = group.getInstanceOf("html_email_content");
             tpl.add("issuerName", "MyIssuerName");
@@ -80,10 +75,7 @@ public class SubscriptionTemplateTest {
     public void testTextEmail() throws Exception{
 
         try {
-            STGroup group = new STGroupDir("templates", '$', '$');
-
-            group.registerRenderer(Date.class, new DateRenderer());
-            group.registerRenderer(String.class, new StringRenderer());
+            STGroup group = STUtils.newSTGroup("org/duniter/elasticsearch/subscription/templates");
 
             ST tpl = group.getInstanceOf("text_email");
             tpl.add("issuerPubkey", "5ocqzyDMMWf1V8bsoNhWb1iNwax1e9M7VTUN6navs8of");

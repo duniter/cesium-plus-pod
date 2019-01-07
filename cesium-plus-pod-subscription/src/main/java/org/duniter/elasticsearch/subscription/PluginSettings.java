@@ -28,6 +28,7 @@ import org.duniter.core.util.crypto.KeyPair;
 import org.elasticsearch.common.component.*;
 import org.elasticsearch.common.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -146,11 +147,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.enablePeering();
     }
 
-    public List<EndpointApi> getPeeringTargetedApis() {
+    public Collection<EndpointApi> getPeeringTargetedApis() {
         return this.delegate.getPeeringTargetedApis();
     }
 
-    public List<EndpointApi> getPeeringPublishedApis() {
+    public Collection<EndpointApi> getPeeringPublishedApis() {
         return this.delegate.getPeeringPublishedApis();
     }
 

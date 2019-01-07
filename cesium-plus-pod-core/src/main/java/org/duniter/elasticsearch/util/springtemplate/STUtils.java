@@ -1,9 +1,7 @@
 package org.duniter.elasticsearch.util.springtemplate;
 
-import org.stringtemplate.v4.DateRenderer;
 import org.stringtemplate.v4.STGroup;
 import org.stringtemplate.v4.STGroupDir;
-import org.stringtemplate.v4.StringRenderer;
 
 import java.util.Date;
 

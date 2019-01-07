@@ -49,6 +49,7 @@ import org.elasticsearch.common.inject.Inject;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -73,6 +74,7 @@ public class NetworkService extends AbstractService {
     private HttpService httpService;
     private NetworkRemoteService networkRemoteService;
     private PeerService peerService;
+    private final boolean debug;
 
     @Inject
     public NetworkService(Duniter4jClient client,
@@ -91,6 +93,7 @@ public class NetworkService extends AbstractService {
         this.blockchainService = blockchainService;
         this.peerService = peerService;
         this.threadPool = threadPool;
+        this.debug = logger.isDebugEnabled();
         threadPool.scheduleOnStarted(() -> {
             this.httpService = serviceLocator.getHttpService();
             this.networkRemoteService = serviceLocator.getNetworkRemoteService();
@@ -142,7 +145,7 @@ public class NetworkService extends AbstractService {
                 }
 
             } catch (IOException e) {
-                if (logger.isDebugEnabled()) {
+                if (debug) {
                     logger.warn(String.format("Unable to parse P2P endpoint [%s]: %s", endpoint, e.getMessage()), e);
                 }
                 else {
@@ -400,7 +403,7 @@ public class NetworkService extends AbstractService {
             peering = NetworkPeerings.parse(peeringDocument);
         }
         catch(Exception e) {
-            throw new TechnicalException("Inavlid peer document: " + e.getMessage(), e);
+            throw new TechnicalException("Invalid peer document: " + e.getMessage(), e);
         }
 
         // Check validity then save
@@ -424,22 +427,26 @@ public class NetworkService extends AbstractService {
             Peer peer = Peer.newBuilder()
                     .setCurrency(peering.getCurrency())
                     .setPubkey(peering.getPubkey())
-                    .setEndpoint(ep).build();
-            EndpointApi api = EndpointApi.valueOf(peer.getApi());
-            peers.add(peer);
+                    .setEndpoint(ep)
+                    .build();
 
-            // TODO: filter to keep only useful API ?
-            //if (targetPeersEndpointApis.contains(api)) {
-            //    peers.add(peer);
-            //}
-            //else {
-            //    logger.debug(String.format("Ignoring endpoint {%s}: not a targeted API", peer));
-            //}
+            Peer.Stats stats = new Peer.Stats();
+            peer.setStats(stats);
+
+            String blockStamp = peering.getBlock();
+            if (StringUtils.isNotBlank(blockStamp)) {
+                String[] blockParts = blockStamp.split("-");
+                stats.setBlockNumber(Integer.parseInt(blockParts[0]));
+                stats.setBlockHash(blockParts[1]);
+            }
+
+            peers.add(peer);
         }
 
-        // Save peers
-        if (CollectionUtils.isEmpty(peers)) {
-            peerService.save(peering.getCurrency(), peers, false);
+        // Save peers (if not empty)
+        if (CollectionUtils.isNotEmpty(peers)) {
+            if (debug) logger.debug("Saving peers: " + peers.toString());
+            peerService.save(peering.getCurrency(), peers, false, true, true);
         }
 
         return peering;
@@ -528,12 +535,12 @@ public class NetworkService extends AbstractService {
 
     }
 
-    protected void addAllTargetPeerEndpointApis(List<EndpointApi> apis) {
+    protected void addAllTargetPeerEndpointApis(Collection<EndpointApi> apis) {
         Preconditions.checkNotNull(apis);
         apis.forEach(this::addTargetPeerEndpointApi);
     }
 
-    protected void addAllPublishEndpointApis(List<EndpointApi> apis) {
+    protected void addAllPublishEndpointApis(Collection<EndpointApi> apis) {
         Preconditions.checkNotNull(apis);
         apis.forEach(this::addPublishEndpointApi);
     }

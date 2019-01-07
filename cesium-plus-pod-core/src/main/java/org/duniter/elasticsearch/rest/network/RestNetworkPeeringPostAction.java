@@ -89,7 +89,7 @@ public class RestNetworkPeeringPostAction extends BaseRestHandler {
 
             String peerDocument = content.getProperty("peer");
             if (StringUtils.isBlank(peerDocument)) {
-                throw new TechnicalException("Inavlid request: 'peer' property not found");
+                throw new TechnicalException("Invalid request: 'peer' property not found");
             }
 
             // Decode content

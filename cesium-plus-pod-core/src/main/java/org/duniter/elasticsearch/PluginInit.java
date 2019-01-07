@@ -152,6 +152,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             }
 
             final String currencyName = currency.getCurrencyName();
+            peer.setCurrency(currencyName);
+
+            // Define the main peer for this currency (will fill a cache in PeerService)
+            injector.getInstance(PeerService.class).setCurrencyMainPeer(currencyName, peer);
 
             // Add access security rules, for the currency indices
             injector.getInstance(RestSecurityController.class)

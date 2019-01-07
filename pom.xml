@@ -29,7 +29,7 @@
     <signatureVersion>1.0</signatureVersion>
 
     <!-- Commons versions -->
-    <duniter4j.version>1.1.0</duniter4j.version>
+    <duniter4j.version>1.1.1</duniter4j.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.6</slf4j.version>
     <guava.version>22.0</guava.version>
@@ -41,7 +41,7 @@
     <jna.version>4.2.0</jna.version><!--4.3.0 could not build -->
     <tyrus.version>1.14</tyrus.version>
     <jackson.version>2.9.5</jackson.version>
-    <stringtemplate.version>4.0.2</stringtemplate.version>
+    <stringtemplate.version>4.1</stringtemplate.version>
     <jTextUtilsVersion>0.3.3</jTextUtilsVersion>
 
     <nuitonConfigVersion>3.0</nuitonConfigVersion>
@@ -166,7 +166,7 @@
       <dependency>
         <groupId>org.duniter</groupId>
         <artifactId>duniter4j-core-client</artifactId>
-        <version>1.1.0</version>
+        <version>${duniter4j.version}</version>
       </dependency>
 
       <dependency>
@@ -196,7 +196,7 @@
       </dependency>
       <dependency>
         <groupId>org.antlr</groupId>
-        <artifactId>stringtemplate</artifactId>
+        <artifactId>ST4</artifactId>
         <version>${stringtemplate.version}</version>
         <exclusions>
           <exclusion>

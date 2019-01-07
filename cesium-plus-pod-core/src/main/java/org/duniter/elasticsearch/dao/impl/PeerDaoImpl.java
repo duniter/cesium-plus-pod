@@ -23,6 +23,7 @@ package org.duniter.elasticsearch.dao.impl;
  */
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.collect.ImmutableList;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
@@ -143,7 +144,8 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
     @Override
     public List<Peer> getPeersByCurrencyId(String currencyId) {
-        throw new TechnicalException("no implemented: loading all peers may be unsafe for memory...");
+        logger.warn("Calling method PeerSevice.getPeersByCurrencyId() may be unsafe, as it load all peers in memory. Applying workaround: return peer define in config.");
+        return ImmutableList.of(pluginSettings.checkAndGetPeer());
     }
 
     @Override
@@ -371,6 +373,11 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     .field("type", "nested")
                     //.field("dynamic", "false")
                     .startObject("properties")
+
+                        // stats.software
+                        .startObject(Peer.Stats.PROPERTY_SOFTWARE)
+                        .field("type", "string")
+                        .endObject()
 
                         // stats.version
                         .startObject(Peer.Stats.PROPERTY_VERSION)

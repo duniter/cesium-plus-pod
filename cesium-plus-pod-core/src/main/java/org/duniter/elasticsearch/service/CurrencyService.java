@@ -214,8 +214,8 @@ public class CurrencyService extends AbstractService {
                     createIndexRequestBuilder.addMapping(blockDao.getType(), blockDao.createTypeMapping());
 
                     // Add movement type
-                    MovementDao operationDao = ServiceLocator.instance().getBean(MovementDao.class);
-                    createIndexRequestBuilder.addMapping(operationDao.getType(), operationDao.createTypeMapping());
+                    MovementDao movementDao = ServiceLocator.instance().getBean(MovementDao.class);
+                    createIndexRequestBuilder.addMapping(movementDao.getType(), movementDao.createTypeMapping());
 
                     // Add blockStat type
                     BlockStatDao blockStatDao = injector.getInstance(BlockStatDao.class);

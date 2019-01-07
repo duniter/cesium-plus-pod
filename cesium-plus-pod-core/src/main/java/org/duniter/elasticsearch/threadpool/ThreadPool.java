@@ -80,7 +80,7 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
 
     public void doStart(){
         if (logger.isDebugEnabled()) {
-            logger.debug("Starting Duniter4j ThreadPool...");
+            logger.debug("Starting thread pool...");
         }
 
         if (!afterStartedCommands.isEmpty()) {
