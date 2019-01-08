@@ -236,7 +236,7 @@ duniter.p2p.includes.endpoints: [
 #
 # Allow admin (define in duniter.keyring) to delete documents ? (default: true)
 #
-# duniter.document.allowAdminDeletion: true
+# duniter.document.allowAdminDeletion: false
 #
 # ---------------------------------- Cesium+ Pod > Mail module -----------------------
 #
