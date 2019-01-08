@@ -136,6 +136,11 @@ duniter.blockchain.enable: true
 # duniter.blockchain.reload.from: 18900
 # duniter.blockchain.reload.to: 19000
 #
+# Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
+#  This will listen new peer events on the Duniter node (using BMA /ws/peer)
+#
+# duniter.blockchain.peer.enable: false
+#
 # Duniter node address
 #
 duniter.host: g1.duniter.org

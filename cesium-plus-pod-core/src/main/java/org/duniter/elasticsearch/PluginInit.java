@@ -268,7 +268,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                 }
 
                 // Index peers (and listen if new peer appear)
-                if (pluginSettings.enableSynchroDiscovery()) {
+                if (pluginSettings.enableBlockchainPeerIndexation()) {
                     injector.getInstance(PeerService.class)
                             .listenAndIndexPeers(peer);
                 }
