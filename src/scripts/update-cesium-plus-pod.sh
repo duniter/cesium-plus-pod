@@ -6,7 +6,7 @@ ASSET_BASENAME=cesium-plus-pod
 ASSET=${ASSET_BASENAME}-${VERSION}-standalone
 CURRENCY=g1
 REPO=duniter/cesium-plus-pod
-ASSET_ZIP_URL=https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}.zip
+ASSET_ZIP_URL=https://github.com/${REPO}/releases/download/${ASSET_BASENAME}-${VERSION}/${ASSET}.zip
 
 if [[ "${VERSION}" == "" ]]; then
         echo "ERROR: Missing version argument !"
@@ -39,7 +39,8 @@ if [[ -x "$READLINK" ]]; then
 fi 
 
 export BASEDIR=`dirname "$SCRIPT_LOCATION"`                                                                                                                                                                                                        
-cd $BASEDIR 
+cd $BASEDIR
+BASEDIR=`pwd`
 
 echo "--- Downloading ${ASSET} ... ----------------------"
 
@@ -74,20 +75,36 @@ mv ${ASSET_BASENAME}-${VERSION} ${ASSET_BASENAME}-${VERSION}-${CURRENCY}
 sudo mv ${ASSET_BASENAME}-${VERSION}-${CURRENCY} /opt/
 sudo rm /opt/${ASSET_BASENAME}-${CURRENCY}
 sudo ln -s /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY} /opt/${ASSET_BASENAME}-${CURRENCY}
-
-mkdir /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/data
 mv /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config/elasticsearch.yml /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config/elasticsearch.yml.ori
 
-stop-cesium-plus-pod.sh
+# Creating data + log directories
+mkdir -p ${BASEDIR}/data
+mkdir -p ${BASEDIR}/logs
+mkdir -p ${BASEDIR}/backup
+cd /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}
+ln -s ${BASEDIR}/data data
+ln -s ${BASEDIR}/logs logs
+
+cd ${BASEDIR}
+./stop-cesium-plus-pod.sh
 
 if [[ "$OLD_VERSION" != "$VERSION" ]];
 then
-        echo "--- Restoring files (data+config) from previous version $OLD_VERSION... ---------------------"
-        tar -cvf /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/save.tar.gz /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/${CURRENCY}-*
-        mv /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/data/${CURRENCY}-* /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/data
+        echo "--- Removing symbolic links from previous version $OLD_VERSION... ---------------------"
+        cp /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}
+        rm data
+        rm logs
+
+        echo "--- Restoring config file from previous version $OLD_VERSION... ---------------------"
         cp /opt/${ASSET_BASENAME}-${OLD_VERSION}-${CURRENCY}/config/elasticsearch.yml /opt/${ASSET_BASENAME}-${VERSION}-${CURRENCY}/config
+
+        echo "--- Creating backup file with data... ---------------------"
+        cd ${BASEDIR}/data
+        DATE=`date +"%F-%H%M"`
+        tar -cvf ${BASEDIR}/backup/${CURRENCY}-${DATE}.tar.gz ${CURRENCY}-*
 fi
 
+cd ${BASEDIR}
 #./start-es-nodes.sh
 
 echo "--- Successfully installed ${ASSET_BASENAME} v$VERSION ! -------------"

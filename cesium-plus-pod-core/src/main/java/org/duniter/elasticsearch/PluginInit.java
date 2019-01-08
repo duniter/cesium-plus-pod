@@ -269,6 +269,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
                 // Index peers (and listen if new peer appear)
                 if (pluginSettings.enableBlockchainPeerIndexation()) {
+                    logger.info(String.format("[%s] Indexing blockchain peers...", currencyName));
                     injector.getInstance(PeerService.class)
                             .listenAndIndexPeers(peer);
                 }
