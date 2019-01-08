@@ -207,11 +207,11 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.p2p.peering.enable: false
 #
-# Define targeted API (for peers slection) where to send the peer document (if peering is enable). (Default: ["BASIC_MERKLED_API", "BMAS"])
+# Define targeted API (for peers slection) where to send the peer document (if peering is enable). (Default: ["ES_CORE_API"])
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
 #
 # duniter.p2p.peering.targetedApis: [
-#  "BASIC_MERKLED_API", "BMAS"
+#  "ES_CORE_API"
 # ]
 #
 # Define cluster API to publish (if peering is enable). By default, all compatible API

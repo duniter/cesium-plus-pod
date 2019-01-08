@@ -322,8 +322,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     public Collection<EndpointApi> getPeeringTargetedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
-                EndpointApi.BASIC_MERKLED_API.name(),
-                EndpointApi.BMAS.name()
+                EndpointApi.ES_CORE_API.name()
         });
         if (CollectionUtils.isEmpty(targetedApis)) return null;
 
