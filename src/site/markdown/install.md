@@ -52,6 +52,10 @@ cd cesium-plus-pod-X.Y/config
 # Your ES cluster name
 cluster.name: cesium-plus-pod-g1-TEST
 
+# Your ES cluster public host name (optional - required for publishing peering document)
+cluster.remote.host: cesium-plus-pod.domain.com
+cluster.remote.port: cesium-plus-pod.domain.com
+
 # Use a descriptive name for the node:
 node.name: ES-NODE-1
 
@@ -128,23 +132,23 @@ When a blockchain currency has been indexed, you can test some fun queries :
 
  - get a block by number (e.g the block #0):
     
-    http://localhost:9200/g1-test/block/0 -> with some additional metadata given by ES
+    http://localhost:9200/blockchain/block/0 -> the original block
     
-    http://localhost:9200/gtest/block/0/_source -> the original JSON block
+    http://localhost:9200/g1-test/block/0 -> the block with additional fields from ElastiSearch    
         
  - Block #125 with only hash, dividend and memberCount:
  
-    http://localhost:9200/gtest/block/125/_source?_source=number,hash,dividend,membersCount
+    http://localhost:9200/g1-test/block/125/_source?_source=number,hash,dividend,membersCount
       
  - All blocks using a pubkey (or whatever):
  
-    http://localhost:9200/gtest/block/_search?q=9sbUKBMvJVxtEVhC4N9zV1GFTdaempezehAmtwA8zjKQ1
+    http://localhost:9200/g1-test/block/_search?q=9sbUKBMvJVxtEVhC4N9zV1GFTdaempezehAmtwA8zjKQ1
        
  - All blocks with a dividend, with only some selected fields (like dividend, number, hahs).
    Note : Query executed in command line, using CURL:
 
 ```bash
-curl -XGET 'http://localhost:9200/gtest/block/_search' -d '{
+curl -XGET 'http://localhost:9200/g1-test/block/_search' -d '{
 "query": {
         "filtered" : {
             "filter": {
