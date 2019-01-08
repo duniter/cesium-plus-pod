@@ -523,7 +523,18 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 }
 
                 // Check version
-                Number existingVersion = ((Number) existingFields.get(versionFieldName));
+                Number existingVersion = null;
+                Object versionObj = existingFields.get(versionFieldName);
+                if (versionObj != null) {
+                    if (versionObj instanceof String) {
+                        existingVersion = Long.parseLong((String) versionObj);
+                    } else if (versionObj instanceof Number) {
+                        existingVersion = ((Number) versionObj);
+                    } else {
+                        throw new InvalidFormatException(String.format("Invalid document: '%s' should be a long, but found: %s", versionFieldName, versionObj));
+                    }
+                }
+
                 boolean doUpdate = (existingVersion == null || version > existingVersion.longValue());
 
                 if (doUpdate) {
