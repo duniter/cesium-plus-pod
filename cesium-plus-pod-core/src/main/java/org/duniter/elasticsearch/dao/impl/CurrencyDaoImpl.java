@@ -25,7 +25,10 @@ package org.duniter.elasticsearch.dao.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
 import org.duniter.core.client.model.local.Currency;
+import org.duniter.core.client.service.ServiceLocator;
+import org.duniter.core.client.util.KnownCurrencies;
 import org.duniter.core.exception.TechnicalException;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.AbstractIndexTypeDao;
@@ -33,7 +36,6 @@ import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
@@ -48,6 +50,7 @@ import java.util.Map;
 public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> implements CurrencyExtendDao {
 
     protected static final String REGEX_WORD_SEPARATOR = "[-\\t@# _]+";
+    private String defaultCurrency;
 
     public CurrencyDaoImpl(){
         super(INDEX, RECORD_TYPE);
@@ -211,6 +214,27 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
         catch(IOException ioe) {
             throw new TechnicalException(String.format("Error while getting mapping for index [%s/%s]: %s", INDEX, RECORD_TYPE, ioe.getMessage()), ioe);
         }
+    }
+
+    /**
+     * Return the default currency
+     * @return
+     */
+    public String getDefaultCurrencyName() {
+
+        if (defaultCurrency != null) return defaultCurrency;
+
+        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && existsIndex();
+        try {
+            List<String> currencyIds = enableBlockchainIndexation ? getCurrencyIds() : null;
+            if (CollectionUtils.isNotEmpty(currencyIds)) {
+                defaultCurrency = currencyIds.get(0);
+                return defaultCurrency;
+            }
+        } catch(Throwable t) {
+            // Continue (index not read yet?)
+        }
+        return KnownCurrencies.G1;
     }
 
     /* -- internal methods -- */

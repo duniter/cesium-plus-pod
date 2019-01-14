@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.websocket;
+package org.duniter.elasticsearch.http;
 
 /*
  * #%L
@@ -23,26 +23,19 @@ package org.duniter.elasticsearch.websocket;
  */
 
 
-import org.duniter.elasticsearch.websocket.netty.NettyWebSocketBlockHandler;
-import org.duniter.elasticsearch.websocket.netty.NettyWebSocketChangesHandler;
-import org.duniter.elasticsearch.websocket.netty.NettyWebSocketPeerHandler;
-import org.duniter.elasticsearch.websocket.tyrus.WebSocketBlockEndPoint;
-import org.duniter.elasticsearch.websocket.tyrus.WebSocketChangesEndPoint;
+import org.duniter.elasticsearch.http.netty.NettyWebSocketServer;
+import org.duniter.elasticsearch.http.tyrus.TyrusWebSocketServer;
 import org.elasticsearch.common.inject.AbstractModule;
 
-public class WebSocketModule extends AbstractModule {
+public class WebSocketServerModule extends AbstractModule {
     @Override
     protected void configure() {
 
-        // Netty handler
-        bind(NettyWebSocketBlockHandler.Init.class).asEagerSingleton();
-        bind(NettyWebSocketChangesHandler.Init.class).asEagerSingleton();
-        bind(NettyWebSocketPeerHandler.Init.class).asEagerSingleton();
-
+        // Netty transport: add websocket support
+        bind(NettyWebSocketServer.class).asEagerSingleton();
 
         // Tyrus Web socket Server
-        bind(WebSocketChangesEndPoint.Init.class).asEagerSingleton();
-        bind(WebSocketBlockEndPoint.Init.class).asEagerSingleton();
+        bind(TyrusWebSocketServer.class).asEagerSingleton();
 
     }
 

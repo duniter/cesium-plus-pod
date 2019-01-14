@@ -23,6 +23,7 @@ package org.duniter.elasticsearch;
  */
 
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.io.FileUtils;
 import org.duniter.core.client.config.Configuration;
@@ -151,6 +152,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         }
 
         initVersion(applicationConfig);
+
+        // Init Http client logging
+        System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.Log4JLogger");
     }
 
     @Override
@@ -298,7 +302,17 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         String[] includeApis = settings.getAsArray("duniter.p2p.peer.indexedApis");
         // By default: getPeeringPublishedApis + getPeeringTargetedApis
         if (CollectionUtils.isEmpty(includeApis)) {
-            return CollectionUtils.union(getPeeringTargetedApis(), getPeeringPublishedApis());
+            return CollectionUtils.union(
+                    ImmutableList.of(
+                            EndpointApi.BASIC_MERKLED_API,
+                            EndpointApi.BMAS,
+                            EndpointApi.WS2P
+                    ),
+                    CollectionUtils.union(
+                        getPeeringTargetedApis(),
+                        getPeeringPublishedApis()
+                    )
+            );
         }
 
         return Arrays.stream(includeApis).map(EndpointApi::valueOf).collect(Collectors.toList());
@@ -316,7 +330,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     /**
-     * Targeted API where to send the peer document.
+     * Targeted API where to sendBlock the peer document.
      * This API should accept a POST request to '/network/peering' (like Duniter node, but can also be a pod)
      * @return
      */

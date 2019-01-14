@@ -92,7 +92,9 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
     }
 
     public void doStop(){
-        scheduler.shutdown();
+        if (!scheduler.isShutdown()) {
+            scheduler.shutdown();
+        }
     }
 
     public void doClose() {}

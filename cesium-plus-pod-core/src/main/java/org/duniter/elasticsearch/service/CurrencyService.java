@@ -35,6 +35,7 @@ import org.duniter.core.client.service.exception.HttpConnectException;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.*;
@@ -91,6 +92,17 @@ public class CurrencyService extends AbstractService {
 
     public boolean isCurrencyExists(String currencyName) {
         return currencyDao.isExists(currencyName);
+    }
+
+    /**
+     * Return the given currency, or the default currency
+     * @param currency
+     * @return
+     */
+    public String safeGetCurrency(String currency) {
+
+        if (StringUtils.isNotBlank(currency)) return currency;
+        return currencyDao.getDefaultCurrencyName();
     }
 
     /**

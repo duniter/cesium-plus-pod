@@ -35,7 +35,7 @@ logger:
   #org.duniter.elasticsearch: DEBUG
   #org.duniter.elasticsearch.service: DEBUG
   #org.duniter.elasticsearch.user.service: DEBUG
-  #org.duniter.elasticsearch.subscription.service: DEBUG
+  #org.duniter.elasticsearch.subscription.service: INFO
 
   org.nuiton.i18n: ERROR
   org.nuiton.config: ERROR

@@ -177,7 +177,7 @@ public class ChangeService {
                                     try {
                                         listener.onChange(change);
                                     } catch (Exception e) {
-                                        log.error("Failed to send message", e);
+                                        log.error("Failed to sendBlock message", e);
                                     }
                                 }
                             }

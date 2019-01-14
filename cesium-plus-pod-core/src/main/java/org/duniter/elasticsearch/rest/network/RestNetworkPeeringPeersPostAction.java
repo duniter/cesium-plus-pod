@@ -58,23 +58,23 @@ import java.util.Properties;
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestNetworkPeeringPostAction extends BaseRestHandler {
+public class RestNetworkPeeringPeersPostAction extends BaseRestHandler {
 
 
     private NetworkService networkService;
 
     @Inject
-    public RestNetworkPeeringPostAction(Settings settings, PluginSettings pluginSettings, RestController controller, Client client,
-                                        RestSecurityController securityController,
-                                        NetworkService networkService) {
+    public RestNetworkPeeringPeersPostAction(Settings settings, PluginSettings pluginSettings, RestController controller, Client client,
+                                             RestSecurityController securityController,
+                                             NetworkService networkService) {
         super(settings, controller, client);
 
         if (StringUtils.isBlank(pluginSettings.getClusterRemoteHost())) {
             logger.warn(String.format("The cluster address can not be published on the network. /\\!\\\\ Fill in the options [cluster.remote.xxx] in the configuration (recommended)."));
         }
         else {
-            securityController.allow(RestRequest.Method.POST, "/network/peering");
-            controller.registerHandler(RestRequest.Method.POST, "/network/peering", this);
+            securityController.allow(RestRequest.Method.POST, "/network/peering/peers");
+            controller.registerHandler(RestRequest.Method.POST, "/network/peering/peers", this);
         }
 
         this.networkService = networkService;

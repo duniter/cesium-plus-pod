@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.websocket;
+package org.duniter.elasticsearch.websocket.tyrus;
 
 /*
  * #%L
@@ -41,6 +41,7 @@ package org.duniter.elasticsearch.websocket;
 import com.google.common.collect.Maps;
 import org.apache.commons.collections4.MapUtils;
 import org.duniter.elasticsearch.PluginSettings;
+import org.duniter.elasticsearch.http.tyrus.TyrusWebSocketServer;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeEvents;
 import org.duniter.elasticsearch.service.changes.ChangeService;
@@ -59,15 +60,14 @@ import java.util.Map;
 @ServerEndpoint(value = "/_changes")
 public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
-    public static String PATH_PARAM_INDEX = "index";
-    public static String PATH_PARAM_TYPE = "type";
-
     public static Collection<ChangeSource> DEFAULT_SOURCES = null;
+    private static ESLogger logger;
 
     public static class Init {
 
         @Inject
-        public Init(WebSocketServer webSocketServer, PluginSettings pluginSettings) {
+        public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings) {
+            logger = Loggers.getLogger("duniter.ws.changes");
             webSocketServer.addEndPoint(WebSocketChangesEndPoint.class);
             final String[] sourcesStr = pluginSettings.getWebSocketChangesListenSource();
             List<ChangeSource> sources = new ArrayList<>();
@@ -78,13 +78,12 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
         }
     }
 
-    private final ESLogger log = Loggers.getLogger("duniter.ws.changes");
     private Session session;
     private Map<String, ChangeSource> sources;
 
     @OnOpen
     public void onOpen(Session session) {
-        log.debug("Connected ... " + session.getId());
+        logger.debug("Connected ... " + session.getId());
         this.session = session;
         this.sources = null;
         ChangeService.registerListener(this);
@@ -113,14 +112,14 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
     @OnClose
     public void onClose(CloseReason reason) {
-        log.debug("Closing websocket: "+reason);
+        logger.debug("Closing websocket: "+reason);
         ChangeService.unregisterListener(this);
         this.session = null;
     }
 
     @OnError
     public void onError(Throwable t) {
-        log.error("Error on websocket "+(session == null ? null : session.getId()), t);
+        logger.error("Error on websocket "+(session == null ? null : session.getId()), t);
     }
 
 
@@ -130,13 +129,13 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
         ChangeSource source = new ChangeSource(filter);
         if (source.isEmpty()) {
-            log.debug("Rejecting changes filter (seems to be empty): " + filter);
+            logger.debug("Rejecting changes filter (seems to be empty): " + filter);
             return;
         }
 
         String sourceKey = source.toString();
         if (sources == null || !sources.containsKey(sourceKey)) {
-            log.debug("Adding changes filter: " + filter);
+            logger.debug("Adding changes filter: " + filter);
             if (sources == null) {
                 sources = Maps.newHashMap();
             }

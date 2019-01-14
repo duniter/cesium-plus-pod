@@ -17,7 +17,7 @@
 # cluster.name: my-application
 cluster.name: cesium-plus-cluster-DEV
 cluster.remote.host: localhost
-cluster.remote.port: 9201
+cluster.remote.port: 9200
 #
 # ------------------------------------ Node ------------------------------------
 #
@@ -125,6 +125,7 @@ duniter.string.analyzer: french
 # Enabling blockchain synchronization (default: false)
 #
 duniter.blockchain.enable: true
+duniter.blockchain.peer.enable: false
 duniter.blockchain.event.user.enable: false
 duniter.blockchain.event.admin.enable: false
 #
@@ -139,6 +140,8 @@ duniter.blockchain.event.admin.enable: false
 duniter.host: g1.duniter.fr
 duniter.port: 443
 duniter.useSsl: true
+
+duniter.network.timeout: 5000
 #
 # Compute statistics on indices (each hour) ? (default: true)
 #

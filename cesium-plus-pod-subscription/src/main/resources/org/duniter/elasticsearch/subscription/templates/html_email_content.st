@@ -1,4 +1,4 @@
-html_email_content(issuerPubkey, issuerName, senderPubkey, senderName, events, url) ::= <<
+html_email_content(issuerPubkey, issuerName, senderPubkey, senderName, events, url, linkName) ::= <<
 <table cellspacing="0" cellpadding="0" width="100%"
   style="font-size:12px;font-family:Helvetica Neue,Helvetica,Lucida Grande,tahoma,verdana,arial,sans-serif;border-spacing:0px;border-collapse:collapse;max-width:600px!important;">
     <tr>
@@ -33,7 +33,7 @@ html_email_content(issuerPubkey, issuerName, senderPubkey, senderName, events, u
                     <td>
                         <p style="margin:0px;width:100%;text-align:right;min-height: 64px;padding: 16px 0px;">
                             <a style="overflow:hidden!important;background-color:#387ef5;border-color:transparent;border-radius:2px;border-shadow: 2px 2px rgba(50,50,50,0.32);box-sizing: border-box;color:white;display:inline-block;font-size:14px;font-weight: 500;height: 47px;letter-spacing: 0.5px;line-height:42px;margin:0;min-height:47px;min-width:52px;padding-bottom:0px;padding-left:24px;padding-right:24px;padding-top:0px;text-align:center;text-decoration:none;text-transform:uppercase;"
-                               href="$url$">$i18n("duniter4j.es.subscription.email.openCesium")$ &gt;&gt;</a>
+                               href="$url$">$i18n("duniter4j.es.subscription.email.open")$ $linkName$ &gt;&gt;</a>
                         </p>
                     </td>
                 </tr>
@@ -63,10 +63,10 @@ html_email_content(issuerPubkey, issuerName, senderPubkey, senderName, events, u
         <td>
             <div style="background-color: rgb(236, 240, 247) !important;border-color: rgb(221, 223, 226) !important;width:100%;text-align:center;border-radius:4px;">
                 <p style="margin:0px;padding:8px 0px;text-align:center;color:grey !important;text-decoration:none !important;">
-                   $i18n_args("duniter4j.es.subscription.email.html.footer.sendBy", [{$[url, "/#/app/wot/", senderPubkey, "/"]; separator=""$}, senderName])$
+                   $i18n_args("duniter4j.es.subscription.email.html.footer.sendBy", [{$[url, "/#/app/wot/", senderPubkey, "/"]; separator=""$}, senderName, linkName])$
                    <br/>
                    <small>
-                       $i18n_args("duniter4j.es.subscription.email.html.footer.disableHelp", {$[url, "/#/app/wallet/subscriptions"]; separator=""$})$
+                       $i18n_args("duniter4j.es.subscription.email.html.footer.disableHelp", [{$[url, "/#/app/wallet/subscriptions"]; separator=""$}, linkName])$
                    </small>
                 </p>
             </div>

@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.websocket;
+package org.duniter.elasticsearch.http.tyrus;
 
 /*
  * #%L
@@ -45,6 +45,9 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.http.HttpServer;
+import org.elasticsearch.rest.RestChannel;
+import org.elasticsearch.rest.RestRequest;
 import org.glassfish.tyrus.server.Server;
 
 import java.net.BindException;
@@ -54,7 +57,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 
-public class WebSocketServer {
+public class TyrusWebSocketServer {
 
 
     public static final String WS_PATH = "/ws";
@@ -64,10 +67,13 @@ public class WebSocketServer {
     private List<Class<?>> endPoints = new ArrayList<>();
 
     @Inject
-    public WebSocketServer(final PluginSettings pluginSettings, ThreadPool threadPool) {
+    public TyrusWebSocketServer(final PluginSettings pluginSettings,
+                                ThreadPool threadPool) {
         logger = Loggers.getLogger("duniter.ws", pluginSettings.getSettings(), new String[0]);
+
         // If WS enable
         if (pluginSettings.getWebSocketEnable()) {
+
             // When node started
             threadPool.scheduleOnStarted(() -> {
                 // startScheduling WS server
@@ -76,6 +82,8 @@ public class WebSocketServer {
                         getEndPoints());
             });
         }
+
+
     }
 
     public void addEndPoint(Class<?> endPoint) {
@@ -104,15 +112,15 @@ public class WebSocketServer {
 
             final Server server = new Server(host, port, WS_PATH, null, endPoints) ;
             try {
-                AccessController.doPrivileged(new PrivilegedExceptionAction<Server>() {
+                AccessController.doPrivileged(new PrivilegedExceptionAction<Void>() {
                     @Override
-                    public Server run() throws Exception {
+                    public Void run() throws Exception {
                             // Tyrus tries to load the server code using reflection. In Elasticsearch 2.x Java
                             // security manager is used which breaks the reflection code as it can't find the class.
                             // This is a workaround for that
                             Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
                             server.start();
-                            return server;
+                            return null;
                     }
                 });
                 started = true;
@@ -129,6 +137,8 @@ public class WebSocketServer {
             }
 
         }
+
+
 
         if (started) {
             logger.info(String.format("Websocket server started {%s:%s%s}", host, port, WS_PATH));

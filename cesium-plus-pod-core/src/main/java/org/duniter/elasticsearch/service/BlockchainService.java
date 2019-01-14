@@ -44,7 +44,6 @@ import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.ObjectUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
-import org.duniter.core.util.cache.Cache;
 import org.duniter.core.util.cache.SimpleCache;
 import org.duniter.core.util.json.JsonAttributeParser;
 import org.duniter.core.util.websocket.WebsocketClientEndpoint;
@@ -57,6 +56,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
 
@@ -479,35 +479,34 @@ public class BlockchainService extends AbstractService {
         }
     }
 
+
+    public long[] getBlockNumberWithUd(String currency) {
+        currency = safeGetCurrency(currency);
+        return blockDao.getBlockNumberWithUd(currency);
+    }
+
+    public long[] getBlockNumberWithNewcomers(String currency) {
+        currency = safeGetCurrency(currency);
+        return blockDao.getBlockNumberWithNewcomers(currency);
+    }
+
     public BlockchainBlock getBlockById(String currency, final int number) {
 
-        // Retrieve the currency to use
-        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && currencyDao.existsIndex();
-        if (StringUtils.isBlank(currency)) {
-            List<String> currencyIds = enableBlockchainIndexation ? currencyDao.getCurrencyIds() : null;
-            if (CollectionUtils.isNotEmpty(currencyIds)) {
-                currency = currencyIds.get(0);
-            } else {
-                currency = DEFAULT_BLOCK.getCurrency();
-            }
-        }
-
+        currency = safeGetCurrency(currency);
         return blockDao.getBlockById(currency, String.valueOf(number));
     }
 
     public BlockchainBlock getCurrentBlock(String currency) {
-        // Retrieve the currency to use
-        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && currencyDao.existsIndex();
-        if (StringUtils.isBlank(currency)) {
-            List<String> currencyIds = enableBlockchainIndexation ? currencyDao.getCurrencyIds() : null;
-            if (CollectionUtils.isNotEmpty(currencyIds)) {
-                currency = currencyIds.get(0);
-            } else {
-                currency = DEFAULT_BLOCK.getCurrency();
-            }
-        }
-
+        currency = safeGetCurrency(currency);
         return blockDao.getBlockById(currency, CURRENT_BLOCK_ID);
+    }
+
+    public BytesReference getBlockByIdAsBytes(String currency, final int number) {
+        return blockDao.getBlockByIdAsBytes(safeGetCurrency(currency), String.valueOf(number));
+    }
+
+    public BytesReference getCurrentBlockAsBytes(String currency) {
+        return blockDao.getBlockByIdAsBytes(safeGetCurrency(currency), CURRENT_BLOCK_ID);
     }
 
     public void deleteFrom(final String currencyName, final int fromBlock) {
@@ -624,7 +623,7 @@ public class BlockchainService extends AbstractService {
                 }
             }
 
-            // Peer send no blocks
+            // Peer sendBlock no blocks
             if (CollectionUtils.isEmpty(blocksAsJson)) {
 
                 // Add range to missing blocks
@@ -894,5 +893,18 @@ public class BlockchainService extends AbstractService {
 
     private String getBlockId(int number) {
         return number == -1 ? CURRENT_BLOCK_ID : String.valueOf(number);
+    }
+
+
+    /**
+     * Return the given currency, or the default currency
+     * @param currency
+     * @return
+     */
+    protected String safeGetCurrency(String currency) {
+
+        if (StringUtils.isNotBlank(currency)) return currency;
+
+        return currencyDao.getDefaultCurrencyName();
     }
 }

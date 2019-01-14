@@ -23,15 +23,16 @@ package org.duniter.elasticsearch.rest;
  */
 
 import org.duniter.elasticsearch.rest.attachment.RestImageAttachmentAction;
-import org.duniter.elasticsearch.rest.blockchain.RestBlockchainBlockGetAction;
-import org.duniter.elasticsearch.rest.blockchain.RestBlockchainParametersGetAction;
+import org.duniter.elasticsearch.rest.blockchain.*;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeeringGetAction;
-import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPostAction;
+import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPeersPostAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityAuthAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.rest.security.RestSecurityFilter;
 import org.duniter.elasticsearch.rest.security.RestSecurityGetChallengeAction;
+import org.duniter.elasticsearch.rest.wot.RestWotLookupGetAction;
+import org.duniter.elasticsearch.rest.wot.RestWotMembersGetAction;
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.inject.Module;
 
@@ -56,11 +57,18 @@ public class RestModule extends AbstractModule implements Module {
 
         // Network
         bind(RestNetworkPeeringGetAction.class).asEagerSingleton();
-        bind(RestNetworkPeeringPostAction.class).asEagerSingleton();
+        bind(RestNetworkPeeringPeersPostAction.class).asEagerSingleton();
 
         // Blockchain
         bind(RestBlockchainParametersGetAction.class).asEagerSingleton();
         bind(RestBlockchainBlockGetAction.class).asEagerSingleton();
+        bind(RestBlockchainWithUdAction.class).asEagerSingleton();
+        bind(RestBlockchainWithNewcomersAction.class).asEagerSingleton();
+        bind(RestBlockchainBlocksGetAction.class).asEagerSingleton();
+
+        // Wot
+        bind(RestWotLookupGetAction.class).asEagerSingleton();
+        bind(RestWotMembersGetAction.class).asEagerSingleton();
 
     }
 }

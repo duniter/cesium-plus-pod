@@ -42,7 +42,7 @@ public class RestSecurityFilter extends RestFilter {
         super();
         logger = Loggers.getLogger("duniter.security", pluginSettings.getSettings(), new String[0]);
         if (pluginSettings.enableSecurity()) {
-            logger.info("Enable security on all duniter4j indices");
+            logger.info("Enable security on all indices");
             controller.registerFilter(this);
         }
         this.securityController = securityController;

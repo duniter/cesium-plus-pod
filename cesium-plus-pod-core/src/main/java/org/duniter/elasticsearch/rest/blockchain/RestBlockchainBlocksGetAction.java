@@ -22,6 +22,7 @@ package org.duniter.elasticsearch.rest.blockchain;
  * #L%
  */
 
+import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.BlockDao;
@@ -30,12 +31,17 @@ import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.CurrencyService;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.*;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
 
@@ -43,23 +49,20 @@ import java.io.IOException;
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestBlockchainBlockGetAction extends BaseRestHandler {
+public class RestBlockchainBlocksGetAction extends BaseRestHandler {
 
     private Client client;
     private CurrencyService currencyService;
 
     @Inject
-    public RestBlockchainBlockGetAction(Settings settings, RestController controller, Client client, RestSecurityController securityController,
-                                        CurrencyService currencyService) {
+    public RestBlockchainBlocksGetAction(Settings settings, RestController controller, Client client, RestSecurityController securityController,
+                                         CurrencyService currencyService) {
         super(settings, controller, client);
 
-        securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/blockchain/block/[0-9]+");
-        securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/blockchain/current");
+        securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/blockchain/blocks/[0-9]+/[0-9]+");
 
-        controller.registerHandler(RestRequest.Method.GET, "/blockchain/block/{number}", this);
-        controller.registerHandler(RestRequest.Method.GET, "/blockchain/current", this);
-        controller.registerHandler(RestRequest.Method.GET, "/{index}/blockchain/block/{number}", this);
-        controller.registerHandler(RestRequest.Method.GET, "/{index}/blockchain/current", this);
+        controller.registerHandler(RestRequest.Method.GET, "/blockchain/blocks/{count}/{from}", this);
+        controller.registerHandler(RestRequest.Method.GET, "/{index}/blockchain/blocks/{count}/{from}", this);
 
         this.client = client;
         this.currencyService = currencyService;
@@ -68,20 +71,30 @@ public class RestBlockchainBlockGetAction extends BaseRestHandler {
     @Override
     protected void handleRequest(RestRequest request, RestChannel channel, Client client) {
         String currency = currencyService.safeGetCurrency(request.param("index"));
-        String number = request.param("number");
-        boolean isCurrent = StringUtils.isBlank(number);
+        int count = request.paramAsInt("count", 100);
+        int from = request.paramAsInt("from", 0);
 
         try {
-            GetResponse response = client.prepareGet(currency, BlockDao.TYPE, isCurrent ? "current" : number)
-                    .execute().actionGet();
-            XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).rawValue(response.getSourceAsBytesRef());
+            SearchRequestBuilder req = client.prepareSearch(currency)
+                    .setTypes(BlockDao.TYPE)
+                    .setFrom(0)
+                    .setSize(count)
+                    .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(BlockchainBlock.PROPERTY_NUMBER).lte(from))))
+                    .setFetchSource(true)
+                    .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC);
+
+            XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).startArray();
+
+            SearchResponse resp = req.execute().actionGet();
+            for (SearchHit hit: resp.getHits().getHits()) {
+                builder.rawValue(hit.getSourceRef());
+            }
+            builder.endArray();
+
             channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
         }
         catch(IOException ioe) {
-            if (isCurrent)
-                throw new TechnicalException(String.format("Error while generating JSON for [/blockchain/current]: %s", ioe.getMessage()), ioe);
-            else
-                throw new TechnicalException(String.format("Error while generating JSON for [/blockchain/block/%s]: %s", number, ioe.getMessage()), ioe);
+            throw new TechnicalException(String.format("Error while generating JSON for [/blockchain/blocks/<count>/<from>]: %s", ioe.getMessage()), ioe);
         }
     }
 }

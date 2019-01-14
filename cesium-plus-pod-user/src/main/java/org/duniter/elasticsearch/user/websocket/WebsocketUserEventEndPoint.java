@@ -45,7 +45,7 @@ import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.service.UserEventService;
-import org.duniter.elasticsearch.websocket.WebSocketServer;
+import org.duniter.elasticsearch.http.tyrus.TyrusWebSocketServer;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -66,7 +66,7 @@ public class WebsocketUserEventEndPoint implements UserEventService.UserEventLis
     public static class Init {
 
         @Inject
-        public Init(WebSocketServer webSocketServer, PluginSettings pluginSettings) {
+        public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings) {
             webSocketServer.addEndPoint(WebsocketUserEventEndPoint.class);
             defaultLocale = pluginSettings.getI18nLocale();
             if (defaultLocale == null) defaultLocale = new Locale("en", "GB");

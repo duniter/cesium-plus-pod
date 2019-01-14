@@ -99,8 +99,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return this.settings.get("duniter.subscription.email.link.url", getCesiumUrl());
     }
 
+    public String getEmailLinkName() {
+        return this.settings.get("duniter.subscription.email.link.name", "Cesium+");
+    }
+
     /**
-     * Should email subscription be send at startup ?
+     * Should email subscription be sendBlock at startup ?
      * @return
      */
     public boolean isEmailSubscriptionsExecuteAtStartup() {

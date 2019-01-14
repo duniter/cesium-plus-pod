@@ -25,22 +25,35 @@ package org.duniter.elasticsearch.dao.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import org.duniter.core.client.model.bma.BlockchainBlock;
+import org.duniter.core.client.model.bma.BlockchainParameters;
+import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.json.JsonSyntaxException;
 import org.duniter.elasticsearch.dao.AbstractDao;
 import org.duniter.elasticsearch.dao.BlockDao;
+import org.duniter.elasticsearch.model.SynchroExecution;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.get.GetRequestBuilder;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.metrics.max.Max;
@@ -48,10 +61,10 @@ import org.elasticsearch.search.highlight.HighlightField;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -249,6 +262,101 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         return client.getSourceById(currencyName, TYPE, id, BlockchainBlock.class);
     }
 
+    public BytesReference getBlockByIdAsBytes(String currencyName, String id) {
+        GetResponse response = client.prepareGet(currencyName, TYPE, id).setFetchSource(true).execute().actionGet();
+        if (response.isExists()) {
+            return client.prepareGet(currencyName, TYPE, id).setFetchSource(true).execute().actionGet().getSourceAsBytesRef();
+        }
+        return null;
+    }
+
+
+    public long[] getBlockNumberWithUd(String currencyName) {
+        return getBlockNumbersFromQuery(currencyName,
+                QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_DIVIDEND)));
+    }
+
+    @Override
+    public long[] getBlockNumberWithNewcomers(String currencyName) {
+        return getBlockNumbersFromQuery(currencyName,
+                QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_IDENTITIES)));
+    }
+
+    @Override
+    public Map<String, String> getMembers(BlockchainParameters parameters) {
+        Preconditions.checkNotNull(parameters);
+
+        Number medianTime = client.getMandatoryTypedFieldById(parameters.getCurrency(), TYPE, "current", BlockchainBlock.PROPERTY_MEDIAN_TIME);
+        long startMedianTime = medianTime.longValue() - parameters.getMsValidity() - (parameters.getAvgGenTime() / 2);
+
+        QueryBuilder withEvents = QueryBuilders.boolQuery()
+                .minimumNumberShouldMatch(1)
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_JOINERS))
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_ACTIVES));
+
+        QueryBuilder timeQuery = QueryBuilders.rangeQuery(BlockchainBlock.PROPERTY_MEDIAN_TIME)
+                .gte(startMedianTime);
+
+        long total = -1;
+        int from = 0;
+        int size = pluginSettings.getIndexBulkSize();
+        Map<String, String> results = Maps.newHashMap();
+        do {
+            SearchRequestBuilder req = client.prepareSearch(parameters.getCurrency())
+                    .setTypes(BlockDao.TYPE)
+                    .setFrom(from)
+                    .setSize(size)
+                    .addFields(BlockchainBlock.PROPERTY_JOINERS,
+                            BlockchainBlock.PROPERTY_ACTIVES,
+                            BlockchainBlock.PROPERTY_EXCLUDED,
+                            BlockchainBlock.PROPERTY_LEAVERS,
+                            BlockchainBlock.PROPERTY_REVOKED)
+                    .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().must(withEvents).must(timeQuery)))
+                    .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
+                    .setFetchSource(false);
+
+            SearchResponse response = req.execute().actionGet();
+            if (total == -1) total = response.getHits().getTotalHits();
+
+            if (total > 0) {
+                for (SearchHit hit: response.getHits().getHits()) {
+                    Map<String, SearchHitField> fields = hit.getFields();
+                    // membership IN
+                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_JOINERS), true);
+                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_ACTIVES), true);
+                    // membership OUT
+                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_EXCLUDED), false);
+                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_LEAVERS), false);
+                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_REVOKED), false);
+                }
+            }
+
+            from += size;
+        } while(from<total);
+
+        if (logger.isDebugEnabled()) logger.debug("Wot members found: " + results);
+        return results;
+    }
+
+    private void updateMembershipsMap(Map<String, String> result, SearchHitField field, boolean membershipIn) {
+        List<Object> values = field != null ? field.values() : null;
+        if (CollectionUtils.isEmpty(values)) return;
+        for (Object value: values) {
+            String[] parts = value.toString().split(":");
+            String pubkey = parts[0];
+            if (membershipIn) {
+                String uid = parts[parts.length -1 ];
+                result.put(pubkey, uid);
+            }
+            else {
+                result.remove(pubkey);
+            }
+        }
+
+    }
+
     /**
      * Delete blocks from a start number (using bulk)
      * @param currencyName
@@ -410,5 +518,28 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         });
 
         return result;
+    }
+
+    protected long[] getBlockNumbersFromQuery(String currencyName, QueryBuilder query) {
+        int size = pluginSettings.getIndexBulkSize();
+        int offset = 0;
+        long total = -1;
+        List<String> ids = Lists.newArrayList();
+        do {
+            SearchRequestBuilder request = client.prepareSearch(currencyName)
+                    .setTypes(TYPE)
+                    .setFrom(offset)
+                    .setSize(size)
+                    .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
+                    .setQuery(query)
+                    .setFetchSource(false);
+            SearchResponse response = request.execute().actionGet();
+            ids.addAll(toListIds(response));
+
+            if (total == -1) total = response.getHits().getTotalHits();
+            offset += size;
+        } while (offset < total);
+
+        return ids.stream().mapToLong(Long::parseLong).toArray();
     }
 }

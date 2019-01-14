@@ -64,7 +64,7 @@ public class NetworkService extends AbstractService {
     private BlockchainService blockchainService;
     private Map<String, NetworkPeering> peeringByCurrencyCache = Maps.newHashMap();
 
-    // API where to send the peer document
+    // API where to sendBlock the peer document
     private final static Set<EndpointApi> targetPeersEndpointApis = Sets.newHashSet();
     // API to include inside the peer document
     private final static Set<EndpointApi> publishedEndpointApis = Sets.newHashSet();
@@ -292,15 +292,7 @@ public class NetworkService extends AbstractService {
         waitReady();
 
         // Retrieve the currency to use
-        boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && currencyDao.existsIndex();
-        if (StringUtils.isBlank(currency)) {
-            List<String> currencyIds = enableBlockchainIndexation ? currencyDao.getCurrencyIds() : null;
-            if (CollectionUtils.isNotEmpty(currencyIds)) {
-                currency = currencyIds.get(0);
-            } else {
-                currency = DEFAULT_BLOCK.getCurrency();
-            }
-        }
+        currency = blockchainService.safeGetCurrency(currency);
 
         // Get result from cache, is allow
         if (useCache) {
@@ -312,7 +304,7 @@ public class NetworkService extends AbstractService {
         NetworkPeering result = new NetworkPeering();
 
         // Get current block
-        BlockchainBlock currentBlock = enableBlockchainIndexation ? blockchainService.getCurrentBlock(currency) : null;
+        BlockchainBlock currentBlock = pluginSettings.enableBlockchainIndexation() ? blockchainService.getCurrentBlock(currency) : null;
         if (currentBlock == null) {
             currentBlock = DEFAULT_BLOCK;
             currency = currentBlock.getCurrency();
@@ -485,7 +477,7 @@ public class NetworkService extends AbstractService {
             currencyIds = null;
         }
         if (CollectionUtils.isEmpty(currencyIds)) {
-            logger.warn("Skipping the publication of peer document (no indexed currency)");
+            logger.warn("Skipping publication of peer document (no indexed currency)");
             return;
         }
 
@@ -525,6 +517,8 @@ public class NetworkService extends AbstractService {
         Preconditions.checkNotNull(peerDocument);
 
         try {
+            if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Sending peer document", currencyId, peer));
+
             networkRemoteService.postPeering(peer, peerDocument);
             return true;
         }

@@ -32,4 +32,5 @@ public interface CurrencyExtendDao extends CurrencyDao, IndexTypeDao<CurrencyExt
     String RECORD_TYPE = "record";
 
 
+    String getDefaultCurrencyName();
 }

@@ -73,6 +73,7 @@ public class SubscriptionService extends AbstractService {
     private UserEventService userEventService;
     private UserService userService;
     private String emailSubjectPrefix;
+    private String emailLinkName;
     private STGroup templates;
     private boolean debug;
 
@@ -99,6 +100,7 @@ public class SubscriptionService extends AbstractService {
         if (StringUtils.isNotBlank(emailSubjectPrefix)) {
             emailSubjectPrefix += " "; // add one trailing space
         }
+        this.emailLinkName = pluginSettings.getEmailLinkName().trim();
         this.debug = logger.isDebugEnabled();
 
         // Configure springtemplate engine
@@ -290,7 +292,7 @@ public class SubscriptionService extends AbstractService {
         if (lastExecution != null) {
             lastExecutionTime = lastExecution.getTime();
         }
-        // If first email execution: only send event from the last 7 days.
+        // If first email execution: only sendBlock event from the last 7 days.
         else  {
             Calendar defaultDateLimit = new GregorianCalendar();
             defaultDateLimit.setTimeInMillis(System.currentTimeMillis());
@@ -323,7 +325,8 @@ public class SubscriptionService extends AbstractService {
                 profileTitles,
                 userEvents,
                 userLocale,
-                pluginSettings.getEmailLinkUrl())
+                pluginSettings.getEmailLinkUrl(),
+                emailLinkName)
                 .render(userLocale);
 
         // Compute HTML content
@@ -335,12 +338,13 @@ public class SubscriptionService extends AbstractService {
                 profileTitles,
                 userEvents,
                 userLocale,
-                pluginSettings.getEmailLinkUrl())
+                pluginSettings.getEmailLinkUrl(),
+                emailLinkName)
                 .render(userLocale);
 
         final String object = emailSubjectPrefix + I18n.t("duniter4j.es.subscription.email.subject", userEvents.size());
         if (pluginSettings.isEmailSubscriptionsDebug()) {
-            logger.info(String.format("---- Email to send (debug mode) ------\nTo:%s\nObject: %s\nText content:\n%s",
+            logger.info(String.format("---- Email to sendBlock (debug mode) ------\nTo:%s\nObject: %s\nText content:\n%s",
                     subscription.getContent().getEmail(),
                     object,
                     text));
@@ -376,7 +380,8 @@ public class SubscriptionService extends AbstractService {
                                   Map<String, String> issuerProfilNames,
                                   List<UserEvent> userEvents,
                                   final Locale issuerLocale,
-                                  String cesiumSiteUrl) {
+                                  String linkUrl,
+                                  String linkName) {
         String issuerName = issuerProfilNames != null && issuerProfilNames.containsKey(subscription.getIssuer()) ?
                 issuerProfilNames.get(subscription.getIssuer()) :
                 ModelUtils.minifyPubkey(subscription.getIssuer());
@@ -387,7 +392,8 @@ public class SubscriptionService extends AbstractService {
 
         try {
             // Compute body
-            template.add("url", cesiumSiteUrl);
+            template.add("linkName", linkName);
+            template.add("url", linkUrl);
             template.add("issuerPubkey", subscription.getIssuer());
             template.add("issuerName", issuerName);
             template.add("senderPubkey", senderPubkey);

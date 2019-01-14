@@ -39,8 +39,14 @@ package org.duniter.elasticsearch.service.changes;
 */
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.duniter.core.exception.TechnicalException;
 import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.joda.time.DateTime;
+
+import java.io.IOException;
 
 public class ChangeEvent {
     private final String id;
@@ -50,6 +56,7 @@ public class ChangeEvent {
     private final Operation operation;
     private final long version;
     private final BytesReference source;
+    private String sourceText; // cache
 
     public enum Operation {
         INDEX,CREATE,DELETE
@@ -106,6 +113,20 @@ public class ChangeEvent {
     @JsonIgnore
     public boolean hasSource() {
         return source != null;
+    }
+
+    @JsonIgnore
+    public String getSourceText(){
+        if (sourceText != null) return sourceText;
+        if (source == null) return null;
+        try {
+            XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, new BytesStreamOutput());
+            builder.rawValue(source);
+            sourceText = builder.string();
+            return sourceText;
+        } catch (IOException e) {
+            throw new TechnicalException("Error while generating JSON from source", e);
+        }
     }
 
 }
