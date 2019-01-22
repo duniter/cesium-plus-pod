@@ -444,7 +444,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getWebSocketPort()  {
-        return settings.get("duniter.ws.port", "9400");
+        return settings.get("duniter.ws.port");
     }
 
     public boolean getWebSocketEnable()  {

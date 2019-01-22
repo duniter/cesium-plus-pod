@@ -1,7 +1,6 @@
 package org.duniter.elasticsearch.http.netty;
 
 
-import org.duniter.elasticsearch.http.netty.websocket.NettyWebSocketSession;
 import org.duniter.elasticsearch.http.netty.websocket.WebSocketEndpoint;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.network.NetworkService;
@@ -15,10 +14,8 @@ import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.rest.support.RestUtils;
-import org.jboss.netty.channel.*;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
-import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
 
 public class NettyHttpServerTransport extends  org.elasticsearch.http.netty.NettyHttpServerTransport {
 
@@ -82,6 +79,7 @@ public class NettyHttpServerTransport extends  org.elasticsearch.http.netty.Nett
         } else if (request.method() == RestRequest.Method.OPTIONS) {
             channel.sendResponse(new BytesRestResponse(RestStatus.OK));
         } else {
+            if (logger.isTraceEnabled()) logger.trace(String.format("No matching rules for %s request [%s]: reject", request.method(), request.rawPath()));
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Websocket to URI [" + request.uri() + "] not authorized"));
         }
     }
@@ -92,6 +90,9 @@ public class NettyHttpServerTransport extends  org.elasticsearch.http.netty.Nett
     protected <T extends WebSocketEndpoint> T createWebsocketEndpoint(RestRequest request) {
         String path = request.rawPath();
         Class<? extends WebSocketEndpoint> clazz = websocketEndpoints != null ? websocketEndpoints.retrieve(path, request.params()) : null;
+        if (clazz == null ){
+            return null;
+        }
         try {
             return (T)clazz.newInstance();
         }

@@ -46,9 +46,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 
 import javax.websocket.CloseReason;
-import javax.websocket.OnClose;
-import javax.websocket.OnError;
-import javax.websocket.OnMessage;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -95,7 +92,11 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
         this.lastBlockstampSent = null;
 
         if (!isReady) {
-            session.close(new CloseReason(CloseReason.CloseCodes.SERVICE_RESTART, "Pod is not ready"));
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.SERVICE_RESTART, "Pod is not ready"));
+            } catch (IOException e) {
+                // silent
+            }
             return;
         }
 
@@ -108,7 +109,11 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
 
         // Failed if no currency on this pod, or if pod is not ready yet
         if (StringUtils.isBlank(currency)) {
-            session.close(new CloseReason(CloseReason.CloseCodes.CANNOT_ACCEPT, "Missing currency to listen"));
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.CANNOT_ACCEPT, "Missing currency to listen"));
+            } catch (IOException e) {
+                // silent
+            }
             return;
         }
 

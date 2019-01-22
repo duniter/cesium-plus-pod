@@ -72,7 +72,7 @@ public class TyrusWebSocketServer {
         logger = Loggers.getLogger("duniter.ws", pluginSettings.getSettings(), new String[0]);
 
         // If WS enable
-        if (pluginSettings.getWebSocketEnable()) {
+        if (pluginSettings.getWebSocketEnable() && pluginSettings.getWebSocketPort() != null) {
 
             // When node started
             threadPool.scheduleOnStarted(() -> {

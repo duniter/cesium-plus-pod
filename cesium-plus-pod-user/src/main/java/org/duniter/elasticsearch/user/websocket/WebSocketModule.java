@@ -22,12 +22,18 @@ package org.duniter.elasticsearch.user.websocket;
  * #L%
  */
 
+import org.duniter.elasticsearch.user.websocket.netty.NettyWebSocketUserEventHandler;
+import org.duniter.elasticsearch.user.websocket.tyrus.WebsocketUserEventEndPoint;
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.inject.Module;
 
 public class WebSocketModule extends AbstractModule implements Module {
 
     @Override protected void configure() {
+        // Netty handler
+        bind(NettyWebSocketUserEventHandler.Init.class).asEagerSingleton();
+
+        // Tyrus handler
         bind(WebsocketUserEventEndPoint.Init.class).asEagerSingleton();
     }
 

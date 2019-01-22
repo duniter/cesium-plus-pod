@@ -24,28 +24,19 @@ package org.duniter.elasticsearch.websocket.netty;
 
 
 import com.google.common.collect.ImmutableList;
-import org.duniter.core.client.model.bma.BlockchainBlock;
-import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.StringUtils;
-import org.duniter.core.util.json.JsonAttributeParser;
 import org.duniter.elasticsearch.dao.PeerDao;
 import org.duniter.elasticsearch.http.netty.NettyWebSocketServer;
 import org.duniter.elasticsearch.http.netty.websocket.NettyBaseWebSocketEndpoint;
 import org.duniter.elasticsearch.http.netty.websocket.NettyWebSocketSession;
-import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.CurrencyService;
-import org.duniter.elasticsearch.service.PeerService;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 
 import javax.websocket.CloseReason;
 import java.io.IOException;
@@ -85,7 +76,11 @@ public class NettyWebSocketPeerHandler extends NettyBaseWebSocketEndpoint implem
         this.session = session;
 
         if (!isReady) {
-            session.close(new CloseReason(CloseReason.CloseCodes.SERVICE_RESTART, "Pod is not ready"));
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.SERVICE_RESTART, "Pod is not ready"));
+            } catch (IOException e) {
+                // silent
+            }
             return;
         }
 
@@ -98,7 +93,11 @@ public class NettyWebSocketPeerHandler extends NettyBaseWebSocketEndpoint implem
 
         // Failed if no currency on this pod, or if pod is not ready yet
         if (StringUtils.isBlank(currency)) {
-            session.close(new CloseReason(CloseReason.CloseCodes.CANNOT_ACCEPT, "Missing currency to listen"));
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.CANNOT_ACCEPT, "Missing currency to listen"));
+            } catch (IOException e) {
+                // silent
+            }
             return;
         }
 

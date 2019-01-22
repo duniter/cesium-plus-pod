@@ -11,6 +11,7 @@ import org.jboss.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 
 import javax.websocket.CloseReason;
+import java.io.IOException;
 import java.util.Map;
 
 public class NettyWebSocketSession {
@@ -23,7 +24,7 @@ public class NettyWebSocketSession {
         this.pathParameters = pathParameters;
     }
 
-    public void close(CloseReason closeReason) {
+    public void close(CloseReason closeReason) throws IOException {
 
         CloseWebSocketFrame frame = new CloseWebSocketFrame(closeReason.getCloseCode().getCode(), closeReason.getReasonPhrase());
         ChannelFuture future = channel.write(frame);

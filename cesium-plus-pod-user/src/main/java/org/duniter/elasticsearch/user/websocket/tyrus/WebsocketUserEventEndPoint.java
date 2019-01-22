@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.user.websocket;
+package org.duniter.elasticsearch.user.websocket.tyrus;
 
 /*
  * #%L
@@ -42,10 +42,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.duniter.core.client.model.bma.Constants;
 import org.duniter.core.util.StringUtils;
+import org.duniter.elasticsearch.http.tyrus.TyrusWebSocketServer;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.service.UserEventService;
-import org.duniter.elasticsearch.http.tyrus.TyrusWebSocketServer;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -60,6 +60,7 @@ import java.util.regex.Pattern;
 @ServerEndpoint(value = "/event/user/{pubkey}/{locale}")
 public class WebsocketUserEventEndPoint implements UserEventService.UserEventListener {
 
+    private static ESLogger logger;
     public static Locale defaultLocale;
     public static ObjectMapper mapper;
 
@@ -67,13 +68,17 @@ public class WebsocketUserEventEndPoint implements UserEventService.UserEventLis
 
         @Inject
         public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings) {
-            webSocketServer.addEndPoint(WebsocketUserEventEndPoint.class);
+            logger = Loggers.getLogger("duniter.ws.user.event");
+
             defaultLocale = pluginSettings.getI18nLocale();
             if (defaultLocale == null) defaultLocale = new Locale("en", "GB");
 
             // Define a static mapper
             mapper = new ObjectMapper();
             mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+            // Register endpoint
+            webSocketServer.addEndPoint(WebsocketUserEventEndPoint.class);
         }
     }
 
@@ -81,7 +86,6 @@ public class WebsocketUserEventEndPoint implements UserEventService.UserEventLis
     private static final String PATH_PARAM_LOCALE = "locale";
     private final static Pattern PUBKEY_PATTERN = Pattern.compile(Constants.Regex.PUBKEY);
 
-    private final ESLogger log = Loggers.getLogger("duniter.ws.user.event");
     private Session session;
     private String pubkey;
     private Locale locale;
@@ -101,7 +105,7 @@ public class WebsocketUserEventEndPoint implements UserEventService.UserEventLis
             return;
         }
 
-        log.debug(I18n.t("duniter4j.ws.user.open", pubkey, session.getId(), locale.toString()));
+        logger.debug(I18n.t("duniter4j.ws.user.open", pubkey, session.getId(), locale.toString()));
         UserEventService.registerListener(this);
     }
 
@@ -133,19 +137,19 @@ public class WebsocketUserEventEndPoint implements UserEventService.UserEventLis
 
     @OnMessage
     public void onMessage(String message) {
-        log.debug("Received message: "+message);
+        logger.debug("Received message: "+message);
     }
 
     @OnClose
     public void onClose(CloseReason reason) {
-        log.debug("Closing websocket: "+reason);
+        logger.debug("Closing websocket: "+reason);
         UserEventService.unregisterListener(this);
         this.session = null;
     }
 
     @OnError
     public void onError(Throwable t) {
-        log.error("Error on websocket "+(session == null ? null : session.getId()), t);
+        logger.error("Error on websocket "+(session == null ? null : session.getId()), t);
     }
 
 }
