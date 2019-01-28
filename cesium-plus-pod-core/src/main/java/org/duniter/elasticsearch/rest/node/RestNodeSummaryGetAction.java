@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.rest.node;
 import org.duniter.core.client.config.Configuration;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.elasticsearch.PluginSettings;
+import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.elasticsearch.client.Client;
@@ -58,14 +59,14 @@ public class RestNodeSummaryGetAction extends BaseRestHandler {
 
     @Override
     protected void handleRequest(RestRequest request, RestChannel channel, Client client) throws Exception {
-        XContentBuilder content = createSummary();
+        XContentBuilder content = createSummary(request);
         channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, content));
     }
 
 
-    public XContentBuilder createSummary() {
+    public XContentBuilder createSummary(RestRequest request) {
         try {
-            XContentBuilder mapping = XContentFactory.jsonBuilder().startObject()
+            XContentBuilder mapping = RestXContentBuilder.restContentBuilder(request).startObject()
                     .startObject("duniter")
 
                     // software

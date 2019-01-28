@@ -22,10 +22,9 @@ package org.duniter.elasticsearch.rest.network;
  * #L%
  */
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.duniter.core.client.model.bma.NetworkPeering;
-import org.duniter.core.client.model.bma.jackson.JacksonUtils;
+import org.duniter.core.client.model.bma.NetworkPeers;
 import org.duniter.core.exception.TechnicalException;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.JacksonJsonRestResponse;
@@ -37,29 +36,30 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.*;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestNetworkPeeringGetAction extends BaseRestHandler {
+public class RestNetworkPeersGetAction extends BaseRestHandler {
 
 
     private NetworkService networkService;
 
     @Inject
-    public RestNetworkPeeringGetAction(Settings settings, PluginSettings pluginSettings, RestController controller, Client client, RestSecurityController securityController,
-                                       NetworkService networkService) {
+    public RestNetworkPeersGetAction(Settings settings, PluginSettings pluginSettings, RestController controller, Client client, RestSecurityController securityController,
+                                     NetworkService networkService) {
         super(settings, controller, client);
 
         if (StringUtils.isBlank(pluginSettings.getClusterRemoteHost())) {
             logger.warn(String.format("The cluster address can not be published on the network. /\\!\\\\ Fill in the options [cluster.remote.xxx] in the configuration (recommended)."));
         }
         else {
-            securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/network/peering");
+            securityController.allow(RestRequest.Method.GET, "(/[^/]+)?/network/peers");
 
-            controller.registerHandler(RestRequest.Method.GET, "/network/peering", this);
-            controller.registerHandler(RestRequest.Method.GET, "/{currency}/network/peering", this);
+            controller.registerHandler(RestRequest.Method.GET, "/network/peers", this);
+            controller.registerHandler(RestRequest.Method.GET, "/{currency}/network/peers", this);
         }
 
         this.networkService = networkService;
@@ -68,17 +68,23 @@ public class RestNetworkPeeringGetAction extends BaseRestHandler {
     @Override
     protected void handleRequest(RestRequest request, RestChannel channel, Client client) throws Exception {
         String currency = request.param("currency");
-        NetworkPeering peering = networkService.getLastPeering(currency);
+
 
         try {
-            channel.sendResponse(new JacksonJsonRestResponse(request, RestStatus.OK, peering));
+            NetworkPeers result = new NetworkPeers();
+            List<NetworkPeers.Peer> peers = networkService.getPeersAsBmaFormat(currency);
+            if (CollectionUtils.isNotEmpty(peers)) {
+                result.peers = peers.toArray(new NetworkPeers.Peer[peers.size()]);
+            }
+            else {
+                result.peers = new NetworkPeers.Peer[0];
+            }
+
+            channel.sendResponse(new JacksonJsonRestResponse(request, RestStatus.OK, result));
         }
         catch(IOException ioe) {
-            throw new TechnicalException(String.format("Error while generating JSON for [/network/peering]: %s", ioe.getMessage()), ioe);
+            throw new TechnicalException(String.format("Error while generating JSON for [/network/peers]: %s", ioe.getMessage()), ioe);
         }
     }
 
-    protected ObjectMapper getObjectMapper() {
-        return JacksonUtils.getThreadObjectMapper();
-    }
 }

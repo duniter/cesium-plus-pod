@@ -30,21 +30,17 @@ import org.duniter.core.client.model.bma.NetworkPeerings;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.CollectionUtils;
+
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
+import org.duniter.elasticsearch.rest.JacksonJsonRestResponse;
 import org.duniter.elasticsearch.rest.XContentThrowableRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.NetworkService;
-import org.duniter.elasticsearch.service.PeerService;
-import org.duniter.elasticsearch.service.ServiceLocator;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.*;
-import org.nuiton.i18n.I18n;
 import org.yaml.snakeyaml.util.UriEncoder;
 
 import java.io.IOException;
@@ -73,8 +69,10 @@ public class RestNetworkPeeringPeersPostAction extends BaseRestHandler {
             logger.warn(String.format("The cluster address can not be published on the network. /\\!\\\\ Fill in the options [cluster.remote.xxx] in the configuration (recommended)."));
         }
         else {
-            securityController.allow(RestRequest.Method.POST, "/network/peering/peers");
+            securityController.allow(RestRequest.Method.POST, "(/[^/]+)?/network/peering/peers");
+
             controller.registerHandler(RestRequest.Method.POST, "/network/peering/peers", this);
+            controller.registerHandler(RestRequest.Method.POST, "/{currency}/network/peering/peers", this);
         }
 
         this.networkService = networkService;
@@ -82,6 +80,8 @@ public class RestNetworkPeeringPeersPostAction extends BaseRestHandler {
 
     @Override
     protected void handleRequest(RestRequest request, RestChannel channel, Client client) throws Exception {
+
+        String currency = request.param("currency");
 
         try {
             Properties content = new Properties();
@@ -94,16 +94,11 @@ public class RestNetworkPeeringPeersPostAction extends BaseRestHandler {
 
             // Decode content
             peerDocument = UriEncoder.decode(peerDocument);
-            logger.debug("Received peer document: " + peerDocument);
+            if (logger.isDebugEnabled()) logger.debug("Received peer document:\n" + peerDocument);
 
-            NetworkPeering peering = networkService.checkAndSavePeering(peerDocument);
+            NetworkPeering peering = networkService.checkAndSavePeering(currency, peerDocument);
 
-            channel.sendResponse(new BytesRestResponse(
-                    RestStatus.OK,
-                    ContentType.APPLICATION_JSON.toString(),
-                    getObjectMapper()
-                            .writerWithDefaultPrettyPrinter() // enable pretty printer
-                            .writeValueAsBytes(peering)));
+            channel.sendResponse(new JacksonJsonRestResponse(request, RestStatus.OK, peering));
         }
         catch(Exception e) {
             logger.debug("Error while parsing peer document: " + e.getMessage());

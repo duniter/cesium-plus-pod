@@ -48,25 +48,3 @@ curl -XPOST 'http://localhost:9200/g1/block/_search?pretty' -d '
         }
       }
    }'
-
-curl -XPOST 'http://localhost:9200/g1/peer/_search?pretty' -d '
-{
-  "size" : 1000,
-  "query" : {
-    "constant_score" : {
-      "filter" : {
-        "bool" : {
-          "must" : [ {
-            "bool" : {
-              "must" : {
-                "term" : {
-                  "api" : "ES_USER_API"
-                }
-              }
-            }
-          }]
-        }
-      }
-    }
-  }
-}'

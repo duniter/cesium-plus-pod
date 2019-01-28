@@ -25,7 +25,9 @@ package org.duniter.elasticsearch.dao.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import org.duniter.core.client.model.bma.EndpointApi;
+import org.duniter.core.client.model.bma.NetworkPeers;
 import org.duniter.core.client.model.local.Peer;
+import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
@@ -51,6 +53,7 @@ import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation;
 import org.elasticsearch.search.aggregations.metrics.max.Max;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -180,6 +183,35 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
+    public List<NetworkPeers.Peer> getBmaPeersByCurrencyId(String currencyId, String[] pubkeys) {
+        Preconditions.checkNotNull(currencyId);
+
+        SearchRequestBuilder request = client.prepareSearch(currencyId)
+                .setTypes(TYPE)
+                .setSize(1000);
+
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+
+        // Query = filter on UP status
+        NestedQueryBuilder statusQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
+                QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
+        query.must(statusQuery);
+
+        // Filter on pubkeys
+        if (CollectionUtils.isNotEmpty(pubkeys)) {
+            BoolQueryBuilder pubkeysQuery = QueryBuilders.boolQuery();
+            pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
+            query.must(pubkeysQuery);
+        }
+
+        request.setQuery(QueryBuilders.constantScoreQuery(query));
+
+        SearchResponse response = request.execute().actionGet();
+        return Peers.toBmaPeers(toList(response, Peer.class));
+    }
+
+    @Override
     public boolean isExists(String currencyId, String peerId) {
         return client.isDocumentExists(currencyId, TYPE, peerId);
     }
@@ -221,10 +253,10 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
-    public void updatePeersAsDown(String currencyName, long upTimeLimitInSec) {
+    public void updatePeersAsDown(String currencyName, long upTimeLimitInSec, Collection<String> endpointApis) {
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] Setting peers as DOWN, if older than [%s]...", currencyName, new Date(upTimeLimitInSec*1000)));
+            logger.debug(String.format("[%s] %s Setting peers as DOWN, if older than [%s]...", currencyName, endpointApis, new Date(upTimeLimitInSec*1000)));
         }
 
         SearchRequestBuilder searchRequest = client.prepareSearch(currencyName)
@@ -232,12 +264,22 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                 .setTypes(TYPE);
 
         // Query = filter on lastUpTime
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
-                // where lastUpTime < upTimeLimit
-                .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
-                // AND status = UP
-                .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name()));
-        searchRequest.setQuery(QueryBuilders.nestedQuery(Peer.PROPERTY_STATS, QueryBuilders.constantScoreQuery(boolQuery)));
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+
+        if (CollectionUtils.isNotEmpty(endpointApis)) {
+            query.filter(QueryBuilders.termsQuery(Peer.PROPERTY_API, endpointApis));
+        }
+
+        // filter on stats
+        NestedQueryBuilder statsQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
+                QueryBuilders.boolQuery()
+                        // lastUpTime < upTimeLimit
+                    .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
+                        // status = UP
+                    .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
+        query.must(statsQuery);
+
+        searchRequest.setQuery(QueryBuilders.constantScoreQuery(query));
 
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
@@ -288,7 +330,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
             }
 
             if (counter > 0) {
-                logger.info(String.format("Mark %s peers as DOWN", counter));
+                logger.info(String.format("[%s] Updated %s peers status has DOWN", currencyName, counter));
             }
 
         } catch (SearchPhaseExecutionException e) {
@@ -366,6 +408,36 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     .startObject(Peer.PROPERTY_EP_ID)
                     .field("type", "string")
                     .field("index", "not_analyzed")
+                    .endObject()
+
+                    // peering
+                    .startObject(Peer.PROPERTY_PEERING)
+                    .field("type", "nested")
+                    //.field("dynamic", "false")
+                    .startObject("properties")
+
+                        // peering.version
+                        .startObject(Peer.Peering.PROPERTY_VERSION)
+                        .field("type", "string")
+                        .endObject()
+
+                        // peering.blockNumber
+                        .startObject(Peer.Peering.PROPERTY_BLOCK_NUMBER)
+                        .field("type", "integer")
+                        .endObject()
+
+                        // peering.blockHash
+                        .startObject(Peer.Peering.PROPERTY_BLOCK_HASH)
+                        .field("type", "string")
+                        .field("index", "not_analyzed")
+                        .endObject()
+
+                        // peering.signature
+                        .startObject(Peer.Peering.PROPERTY_SIGNATURE)
+                        .field("type", "string")
+                        .field("index", "not_analyzed")
+                        .endObject()
+
                     .endObject()
 
                     // stats

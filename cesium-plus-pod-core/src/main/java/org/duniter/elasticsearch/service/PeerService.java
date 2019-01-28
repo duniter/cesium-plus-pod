@@ -74,8 +74,9 @@ public class PeerService extends AbstractService  {
         });
 
         // If filtered API defined in settings, use it
-        if (CollectionUtils.isNotEmpty(pluginSettings.getPeerIndexedApis())) {
-            addAllPeerIndexedEndpointApis(pluginSettings.getPeerIndexedApis());
+        Collection<EndpointApi> peerIndexedApis = pluginSettings.getPeerIndexedApis();
+        if (CollectionUtils.isNotEmpty(peerIndexedApis)) {
+            addAllPeerIndexedEndpointApis(peerIndexedApis);
         }
     }
 
@@ -104,9 +105,9 @@ public class PeerService extends AbstractService  {
                 logger.error(I18n.t("duniter4j.es.networkService.indexPeers.remoteParametersError", peer));
                 return this;
             }
-            String currencyName = parameter.getCurrency();
+            String currency = parameter.getCurrency();
 
-            indexPeers(currencyName, peer);
+            indexPeers(currency, peer);
 
         } catch(Exception e) {
             logger.error("Error during indexAllPeers: " + e.getMessage(), e);
@@ -115,25 +116,27 @@ public class PeerService extends AbstractService  {
         return this;
     }
 
-    public PeerService indexPeers(String currencyName, Peer firstPeer) {
+    public PeerService indexPeers(String currency, Peer firstPeer) {
         long timeStart = System.currentTimeMillis();
 
         try {
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currencyName, firstPeer));
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, firstPeer));
 
             // Default filter
-            org.duniter.core.client.service.local.NetworkService.Filter filterDef = new org.duniter.core.client.service.local.NetworkService.Filter();
-            filterDef.filterType = null;
-            filterDef.filterStatus = Peer.PeerStatus.UP;
-            filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
+            NetworkService.Filter filterDef = getDefaultFilter(currency);
 
             // Default sort
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
             sortDef.sortType = null;
 
             List<Peer> peers = networkService.getPeers(firstPeer, filterDef, sortDef, threadPool.scheduler());
-            delegate.save(currencyName, peers, true);
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currencyName, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
+
+            // Save list
+            delegate.save(currency, peers);
+
+            // Set olf peers as Down
+            delegate.updatePeersAsDown(currency, filterDef.filterEndpoints);
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
         } catch(Exception e) {
             logger.error("Error during indexBlocksFromNode: " + e.getMessage(), e);
         }
@@ -145,14 +148,19 @@ public class PeerService extends AbstractService  {
         delegate.save(peer);
     }
 
-    public void save(final String currencyId, final List<Peer> peers, boolean isFullList, boolean applyFilterEndpoints, boolean refreshPeers) {
-        // Skip if empty and NOT the full list
-        if (!isFullList && CollectionUtils.isEmpty(peers)) return;
+    public void save(final String currencyId, final List<Peer> peers, boolean applyFilter, boolean refreshPeers) {
+        if (CollectionUtils.isEmpty(peers)) return; // Skip if empty
 
         // Filter on endpoint apis
-        if (applyFilterEndpoints) {
-            List<Peer> filteredPeers = peers.stream().filter(p -> indexedEndpointApis.contains(p.getApi())).collect(Collectors.toList());
-            save(currencyId, filteredPeers, isFullList, false, refreshPeers); // Loop, without applying filter
+        if (applyFilter) {
+
+            // Default filter
+            NetworkService.Filter filterDef = getDefaultFilter(currencyId);
+
+            List<Peer> filteredPeers = peers.stream()
+                    .filter(networkService.peerFilter(filterDef))
+                    .collect(Collectors.toList());
+            save(currencyId, filteredPeers, false, refreshPeers); // Loop, without applying filter
             return;
         }
 
@@ -160,17 +168,19 @@ public class PeerService extends AbstractService  {
             final Peer mainPeer = pluginSettings.checkAndGetPeer();
 
             // Async refresh
-            networkService.asyncRefreshPeers(mainPeer, peers, threadPool.scheduler())
+            networkService.refreshPeersAsync(mainPeer, peers, threadPool.scheduler())
                     .exceptionally(throwable -> {
                         logger.error("Could not refresh peers status: " + throwable.getMessage(), throwable);
                         return peers;
                     })
                     // then loop, without refreshing
-                    .thenAccept(list -> save(currencyId, list, isFullList, false, false));
+                    .thenAccept(list -> save(currencyId, list, false, false));
             return;
         }
 
-        delegate.save(currencyId, peers, isFullList);
+        if (logger.isDebugEnabled()) logger.debug("Saving peers: " + peers.toString());
+
+        delegate.save(currencyId, peers);
     }
 
     public void listenAndIndexPeers(final Peer mainPeer) {
@@ -205,5 +215,14 @@ public class PeerService extends AbstractService  {
     protected void addAllPeerIndexedEndpointApis(Collection<EndpointApi> apis) {
         Preconditions.checkNotNull(apis);
         apis.forEach(this::addIndexedEndpointApi);
+    }
+
+    protected NetworkService.Filter getDefaultFilter(String currency) {
+        org.duniter.core.client.service.local.NetworkService.Filter filterDef = new org.duniter.core.client.service.local.NetworkService.Filter();
+        filterDef.filterType = null;
+        filterDef.filterStatus = Peer.PeerStatus.UP;
+        filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
+        filterDef.currency = currency;
+        return filterDef;
     }
 }

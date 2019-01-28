@@ -99,7 +99,7 @@ public class ChangeService {
                                     create.source()
                             );
 
-                            addChange(change);
+                            emitChange(change);
                         }
 
                         @Override
@@ -124,7 +124,7 @@ public class ChangeService {
                                     null
                             );
 
-                            addChange(change);
+                            emitChange(change);
                         }
 
                         @Override
@@ -143,7 +143,7 @@ public class ChangeService {
                                     index.source()
                             );
 
-                            addChange(change);
+                            emitChange(change);
                         }
 
                         private boolean hasListener(String index, String type, String id) {
@@ -171,17 +171,18 @@ public class ChangeService {
                             return false;
                         }
 
-                        private void addChange(ChangeEvent change) {
-                            for (ChangeListener listener : LISTENERS.values()) {
-                                if (apply(listener, change)) {
-                                    try {
-                                        listener.onChange(change);
-                                    } catch (Exception e) {
-                                        log.error("Failed to sendBlock message", e);
-                                    }
-                                }
-                            }
-
+                        private void emitChange(final ChangeEvent change) {
+                            LISTENERS.values().parallelStream()
+                                    .filter(listener -> apply(listener, change))
+                                    .forEach(listener -> {
+                                        try {
+                                            if (apply(listener, change)) {
+                                                listener.onChange(change);
+                                            }
+                                        } catch (Exception e) {
+                                            log.error("Failed to emit change event on listener: " + listener.getClass().getName(), e);
+                                        }
+                                    });
                         }
                     });
                 }

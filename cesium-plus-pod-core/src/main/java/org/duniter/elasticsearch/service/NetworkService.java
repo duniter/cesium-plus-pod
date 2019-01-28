@@ -32,6 +32,7 @@ import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.*;
 import org.duniter.core.client.model.local.Currency;
 import org.duniter.core.client.model.local.Peer;
+import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.client.service.HttpService;
 import org.duniter.core.client.service.bma.NetworkRemoteService;
 import org.duniter.core.client.util.KnownBlocks;
@@ -41,6 +42,7 @@ import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
+import org.duniter.core.util.http.InetAddressUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.CurrencyExtendDao;
@@ -115,6 +117,9 @@ public class NetworkService extends AbstractService {
         }
     }
 
+    protected List<Peer> getConfigIncludesPeers(final String currencyId) {
+        return getConfigIncludesPeers(currencyId, null);
+    }
 
     protected List<Peer> getConfigIncludesPeers(final String currencyId, final EndpointApi api) {
         Preconditions.checkNotNull(currencyId);
@@ -131,7 +136,7 @@ public class NetworkService extends AbstractService {
                 String epCurrencyId = (endpointPart.length == 2) ? endpointPart[0] : null /*optional*/;
 
                 NetworkPeering.Endpoint ep = (endpointPart.length == 2) ? Endpoints.parse(endpointPart[1]) : Endpoints.parse(endpoint);
-                if (ep != null && ep.api == api && (epCurrencyId == null || currencyId.equals(epCurrencyId))) {
+                if (ep != null && (api == null || ep.api == api) && (epCurrencyId == null || currencyId.equals(epCurrencyId))) {
                     Peer peer = Peer.newBuilder()
                             .setEndpoint(ep)
                             .setCurrency(currencyId)
@@ -242,6 +247,56 @@ public class NetworkService extends AbstractService {
             logger.error(String.format("Could not get peers for Api [%s]", api.name()), e);
             return null;
         }
+    }
+
+    public List<NetworkPeers.Peer> getPeersAsBmaFormat(String currency) {
+
+        // Retrieve the currency to use
+        currency = blockchainService.safeGetCurrency(currency);
+
+        List<NetworkPeers.Peer> result = null;
+        try {
+
+            // Discovery enable: use index '/<currency>/peer'
+            if (pluginSettings.enableSynchroDiscovery()) {
+                result = peerDao.getBmaPeersByCurrencyId(currency, null);
+            }
+
+            // Discovery disable, so get it from Duniter node
+            else {
+                List<Peer> configIncludedPeers = getConfigIncludesPeers(currency);
+
+                if (CollectionUtils.isNotEmpty(configIncludedPeers)) {
+                    final long now = Math.round(System.currentTimeMillis() / 1000);
+                    configIncludedPeers.stream().forEach(peer -> {
+                        try {
+                            NetworkPeering peering = networkRemoteService.getPeering(peer);
+                            peer.setPubkey(peering.getPubkey());
+                            peer.setCurrency(peering.getCurrency());
+                            Peer.Stats stats = peer.getStats();
+                            stats.setStatus(Peer.PeerStatus.UP);
+                            stats.setLastUpTime(now);
+                            String blockstamp = peering.getBlock();
+                            if (StringUtils.isNotBlank(blockstamp)) {
+                                String[] blockParts = blockstamp.split("-");
+                                stats.setBlockNumber(Integer.parseInt(blockParts[0]));
+                                stats.setBlockHash(blockParts[1]);
+                            }
+                        } catch(Exception e) {
+                            logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
+                        }
+                    });
+
+                    result = Peers.toBmaPeers(configIncludedPeers);
+                }
+            }
+            return result;
+        }
+        catch (Exception e) {
+            logger.error("Could not get peers (BMA format)", e);
+            return result;
+        }
+
     }
 
     public boolean isEsNodeAliveAndValid(Peer peer) {
@@ -388,7 +443,10 @@ public class NetworkService extends AbstractService {
         return this;
     }
 
-    public NetworkPeering checkAndSavePeering(String peeringDocument) {
+    public NetworkPeering checkAndSavePeering(String currency, String peeringDocument) {
+
+        if (!isReady()) throw new IllegalStateException("Could not save peering document (service is not started)");
+
         Preconditions.checkNotNull(peeringDocument);
         NetworkPeering peering;
         try {
@@ -399,15 +457,29 @@ public class NetworkService extends AbstractService {
         }
 
         // Check validity then save
-        return checkAndSavePeering(peering);
+        return checkAndSavePeering(currency, peering);
 
     }
 
-    public NetworkPeering checkAndSavePeering(NetworkPeering peering) {
+    public NetworkPeering checkAndSavePeering(String currency, NetworkPeering peering) {
 
+        // Check currency
+        if (peering.getCurrency() == null) {
+            throw new TechnicalException("Invalid document: missing currency");
+        }
+
+        // Skip if no endpoints
         if (CollectionUtils.isEmpty(peering.getEndpoints())) {
             logger.debug("Ignoring peer document (no endpoint to process)");
             return peering;
+        }
+
+        // Retrieve the currency to use
+        currency = blockchainService.safeGetCurrency(currency);
+
+        // Check currency
+        if (!peering.getCurrency().equals(currency)) {
+            throw new TechnicalException(String.format("Invalid document currency. Expected '%s', but found '%s'.", currency, peering.getCurrency()));
         }
 
         // Check signature
@@ -432,13 +504,15 @@ public class NetworkService extends AbstractService {
                 stats.setBlockHash(blockParts[1]);
             }
 
-            peers.add(peer);
+            // If not a local address, add to the list
+            if (InetAddressUtils.isNotLocalAddress(peer.getHost())) {
+                peers.add(peer);
+            }
         }
 
         // Save peers (if not empty)
         if (CollectionUtils.isNotEmpty(peers)) {
-            if (debug) logger.debug("Saving peers: " + peers.toString());
-            peerService.save(peering.getCurrency(), peers, false, true, true);
+            peerService.save(peering.getCurrency(), peers, true, true);
         }
 
         return peering;
@@ -502,9 +576,9 @@ public class NetworkService extends AbstractService {
                 // Send document to every peers
                 long count = peers.stream().map(p -> this.safePublishPeerDocumentToPeer(currencyId, p, peerDocument)).filter(Boolean.TRUE::equals).count();
 
-                logger.info(String.format("[%s] Peer document sent to %s/%s peers", currencyId, count, peers.size()));
+                logger.info(String.format("[%s] Peering document sent to %s/%s peers", currencyId, count, peers.size()));
             } else {
-                logger.debug(String.format("[%s] No peer document sent (no targeted peer found)", currencyId));
+                logger.debug(String.format("[%s] Peering document not published to network: no peers with targeted apis %s", currencyId, targetPeersEndpointApis));
             }
         });
     }
