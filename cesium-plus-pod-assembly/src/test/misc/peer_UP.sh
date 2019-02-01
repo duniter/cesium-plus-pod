@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-curl -XPOST 'http://localhost:9205/g1/peer/_search?pretty' -d '
+curl -XPOST 'http://localhost:9200/g1/peer/_search?pretty' -d '
 {
   "size" : 1000,
   "query" : {
@@ -16,22 +16,19 @@ curl -XPOST 'http://localhost:9205/g1/peer/_search?pretty' -d '
            },
            {
               "nested" : {
+                "path" : "stats",
                 "query" : {
                   "bool" : {
-                    "filter" : {
-                      "term" : {
-                        "stats.status" : "DOWN"
-                      }
-                    }
+                    "filter" : [
+                        {"term": {"stats.status" : "UP" }}
+                    ]
                   }
-                },
-                "path" : "stats"
+                }
               }
           }
           ]
         }
       }
     }
-  },
-  _source: ["dns", "ipv4", "ipv6", "port", "path"]
+  }
 }'

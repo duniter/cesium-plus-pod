@@ -25,6 +25,8 @@ package org.duniter.elasticsearch.dao;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import org.duniter.core.beans.Bean;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.local.LocalEntity;
@@ -32,6 +34,7 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
@@ -39,7 +42,13 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 08/04/2015.
@@ -81,33 +90,60 @@ public abstract class AbstractDao implements Bean {
         return JacksonUtils.getThreadObjectMapper();
     }
 
+    protected <C> List<C> toList(SearchResponse response, final Function<SearchHit, C> mapper) {
+
+        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return null;
+
+        return Arrays.stream(response.getHits().getHits())
+                .map(hit -> mapper.apply(hit))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    protected Stream<SearchHit> toStream(SearchResponse response) {
+
+        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return Stream.empty();
+
+        return Arrays.stream(response.getHits().getHits());
+    }
+
     protected <C extends LocalEntity<String>> List<C> toList(SearchResponse response, Class<? extends C> clazz) {
         ObjectMapper objectMapper = getObjectMapper();
 
-        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return null;
-
-        List<C> result = Lists.newArrayList();
-        for (SearchHit hit: response.getHits().getHits()) {
-
+        return toList(response, hit -> {
             try {
-                C value = objectMapper.readValue(hit.getSourceRef().streamInput(), clazz);
-                value.setId(hit.getId());
-                result.add(value);
+                return objectMapper.readValue(hit.getSourceRef().streamInput(), clazz);
+
             }
             catch(IOException e) {
                 logger.warn(String.format("Unable to deserialize source [%s/%s/%s] into [%s]: %s", hit.getIndex(), hit.getType(), hit.getId(), clazz.getName(), e.getMessage()));
+                return null;
             }
-        }
+        });
+    }
+
+    protected Set<String> executeAndGetIds(SearchResponse response) {
+        return toStream(response).map(SearchHit::getId).collect(Collectors.toSet());
+    }
+
+    protected Set<String> executeAndGetIds(SearchRequestBuilder request) {
+
+        Set<String> result = Sets.newHashSet();
+        int size = this.pluginSettings.getIndexBulkSize();
+        request.setSize(size);
+
+        long total = -1;
+        int from = 0;
+        do {
+            request.setFrom(from);
+            SearchResponse response = request.execute().actionGet();
+            toStream(response).forEach(hit -> result.add(hit.getId()));
+
+            if (total == -1) total = response.getHits().getTotalHits();
+            from += size;
+        } while(from<total);
+
         return result;
     }
 
-    protected List<String> toListIds(SearchResponse response) {
-        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return null;
-
-        List<String> result = Lists.newArrayList();
-        for (SearchHit hit: response.getHits().getHits()) {
-            result.add(hit.getId());
-        }
-        return result;
-    }
 }

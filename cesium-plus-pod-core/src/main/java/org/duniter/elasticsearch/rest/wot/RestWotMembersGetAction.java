@@ -24,12 +24,11 @@ package org.duniter.elasticsearch.rest.wot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
+import org.duniter.core.client.model.local.Member;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
-import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.WotService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
@@ -38,7 +37,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.*;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.List;
 
 /**
  * A GET request similar as /wot/members in Duniter BMA API
@@ -46,7 +45,6 @@ import java.util.Map;
  */
 public class RestWotMembersGetAction extends BaseRestHandler {
 
-    private Client client;
     private WotService wotService;
 
     @Inject
@@ -59,7 +57,6 @@ public class RestWotMembersGetAction extends BaseRestHandler {
         controller.registerHandler(RestRequest.Method.GET, "/wot/members", this);
         controller.registerHandler(RestRequest.Method.GET, "/{index}/members", this);
 
-        this.client = client;
         this.wotService = wotService;
     }
 
@@ -67,22 +64,21 @@ public class RestWotMembersGetAction extends BaseRestHandler {
     protected void handleRequest(RestRequest request, RestChannel channel, Client client) throws Exception {
         String currency = request.param("index");
 
-
         try {
-            Map<String, String> members = wotService.getMembers(currency);
+            List<Member> members = wotService.getMembers(currency);
             XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).startObject()
                     .startArray("results");
-            for (Map.Entry<String, String> entry: members.entrySet()) {
+            for (Member member: members) {
                 builder.startObject()
-                        .field("pubkey", entry.getKey())
-                        .field("uid", entry.getValue())
+                        .field("pubkey", member.getPubkey())
+                        .field("uid", member.getUid())
                         .endObject();
             }
             builder.endArray().endObject();
             channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
         }
         catch(IOException ioe) {
-            throw new TechnicalException(String.format("Error while generating JSON for [/wot/lookup]: %s", ioe.getMessage()), ioe);
+            throw new TechnicalException(String.format("Error while generating JSON for [/wot/members]: %s", ioe.getMessage()), ioe);
         }
     }
 

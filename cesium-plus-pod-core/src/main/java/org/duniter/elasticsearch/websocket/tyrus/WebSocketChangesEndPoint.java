@@ -49,6 +49,7 @@ import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
 
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
@@ -67,7 +68,7 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
         @Inject
         public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings) {
-            logger = Loggers.getLogger("duniter.ws.changes");
+            logger = Loggers.getLogger("duniter.ws.changes", pluginSettings.getSettings(), new String[0]);
             webSocketServer.addEndPoint(WebSocketChangesEndPoint.class);
             final String[] sourcesStr = pluginSettings.getWebSocketChangesListenSource();
             List<ChangeSource> sources = new ArrayList<>();

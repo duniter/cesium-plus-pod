@@ -37,6 +37,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
 
 import javax.websocket.CloseReason;
 import java.io.IOException;
@@ -53,10 +54,11 @@ public class NettyWebSocketPeerHandler extends NettyBaseWebSocketEndpoint implem
 
     public static class Init {
         @Inject
-        public Init( NettyWebSocketServer webSocketServer,
-                     CurrencyService currencyService,
-                     ThreadPool threadPool) {
-            logger = Loggers.getLogger("duniter.ws.peer");
+        public Init(Settings settings,
+                    NettyWebSocketServer webSocketServer,
+                    CurrencyService currencyService,
+                    ThreadPool threadPool) {
+            logger = Loggers.getLogger("duniter.ws.peer", settings, new String[0]);
 
             NettyWebSocketPeerHandler.currencyService = currencyService;
 

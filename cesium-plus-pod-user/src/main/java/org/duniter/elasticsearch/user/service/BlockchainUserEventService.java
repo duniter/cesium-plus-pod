@@ -170,8 +170,8 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
                     errorNotified = false;
                     adminService.notifyAdmin(UserEvent.newBuilder(UserEvent.EventType.INFO, UserEventCodes.NODE_BMA_UP.name())
                             .setMessage(I18n.n("duniter.user.event.NODE_BMA_UP"),
-                                    pluginSettings.getNodeBmaHost(),
-                                    String.valueOf(pluginSettings.getNodeBmaPort()),
+                                    pluginSettings.getDuniterNodeHost(),
+                                    String.valueOf(pluginSettings.getDuniterNodePort()),
                                     pluginSettings.getClusterName())
                             .build());
                 }
@@ -188,8 +188,8 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
                     errorNotified = true;
                     adminService.notifyAdmin(UserEvent.newBuilder(UserEvent.EventType.ERROR, UserEventCodes.NODE_BMA_DOWN.name())
                             .setMessage(I18n.n("duniter.user.event.NODE_BMA_DOWN"),
-                                    pluginSettings.getNodeBmaHost(),
-                                    String.valueOf(pluginSettings.getNodeBmaPort()),
+                                    pluginSettings.getDuniterNodeHost(),
+                                    String.valueOf(pluginSettings.getDuniterNodePort()),
                                     pluginSettings.getClusterName(),
                                     String.valueOf(lastTimeUp))
                             .build());

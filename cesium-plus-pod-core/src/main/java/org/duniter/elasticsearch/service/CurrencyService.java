@@ -32,6 +32,7 @@ import org.duniter.core.client.model.elasticsearch.Currency;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.bma.BlockchainRemoteService;
 import org.duniter.core.client.service.exception.HttpConnectException;
+import org.duniter.core.client.service.exception.HttpTimeoutException;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.Preconditions;
@@ -102,7 +103,7 @@ public class CurrencyService extends AbstractService {
     public String safeGetCurrency(String currency) {
 
         if (StringUtils.isNotBlank(currency)) return currency;
-        return currencyDao.getDefaultCurrencyName();
+        return currencyDao.getDefaultId();
     }
 
     /**
@@ -120,7 +121,7 @@ public class CurrencyService extends AbstractService {
         while(true) {
             try {
                 return indexCurrencyFromPeer(peer);
-            } catch (HttpConnectException e) {
+            } catch (HttpConnectException | HttpTimeoutException e) {
                 // log then retry
                 logger.warn(String.format("[%s] Unable to connect. Retrying in 10s...", peer.toString()));
             }
@@ -148,16 +149,15 @@ public class CurrencyService extends AbstractService {
         BlockchainBlock currentBlock = blockchainRemoteService.getCurrentBlock(peer);
         Long lastUD = blockchainRemoteService.getLastUD(peer);
 
-
         Currency result = new Currency();
-        result.setCurrencyName(parameters.getCurrency());
+        result.setId(parameters.getCurrency());
         result.setFirstBlockSignature(firstBlock.getSignature());
         result.setMembersCount(currentBlock.getMembersCount());
         result.setLastUD(lastUD);
         result.setParameters(parameters);
 
         // Save it
-        saveCurrency(result);
+        save(result);
 
         return result;
     }
@@ -168,7 +168,7 @@ public class CurrencyService extends AbstractService {
      * @throws DuplicateIndexIdException
      * @throws AccessDeniedException if exists and user if not the original blockchain sender
      */
-    public void saveCurrency(Currency currency) throws DuplicateIndexIdException {
+    public void save(Currency currency) throws DuplicateIndexIdException {
         Preconditions.checkNotNull(currency, "currency could not be null") ;
         Preconditions.checkNotNull(currency.getId(), "currency attribute 'currency' could not be null");
 
@@ -228,6 +228,10 @@ public class CurrencyService extends AbstractService {
                     // Add movement type
                     MovementDao movementDao = ServiceLocator.instance().getBean(MovementDao.class);
                     createIndexRequestBuilder.addMapping(movementDao.getType(), movementDao.createTypeMapping());
+
+                    // Add wot type
+                    MemberDao memberDao = ServiceLocator.instance().getBean(MemberDao.class);
+                    createIndexRequestBuilder.addMapping(memberDao.getType(), memberDao.createTypeMapping());
 
                     // Add blockStat type
                     BlockStatDao blockStatDao = injector.getInstance(BlockStatDao.class);

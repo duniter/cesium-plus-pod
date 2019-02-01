@@ -45,6 +45,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.http.HttpServer;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
@@ -67,9 +68,10 @@ public class TyrusWebSocketServer {
     private List<Class<?>> endPoints = new ArrayList<>();
 
     @Inject
-    public TyrusWebSocketServer(final PluginSettings pluginSettings,
+    public TyrusWebSocketServer(final Settings settings,
+                                final PluginSettings pluginSettings,
                                 ThreadPool threadPool) {
-        logger = Loggers.getLogger("duniter.ws", pluginSettings.getSettings(), new String[0]);
+        logger = Loggers.getLogger("duniter.ws", settings, new String[0]);
 
         // If WS enable
         if (pluginSettings.getWebSocketEnable() && pluginSettings.getWebSocketPort() != null) {

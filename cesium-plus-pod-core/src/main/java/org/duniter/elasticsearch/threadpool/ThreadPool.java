@@ -52,7 +52,7 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
 
     private ScheduledThreadPoolExecutor scheduler = null;
     private final Injector injector;
-    private final ESLogger logger = Loggers.getLogger("duniter.threadpool");
+    private final ESLogger logger;
 
     private final org.elasticsearch.threadpool.ThreadPool delegate;
 
@@ -64,6 +64,7 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
                       org.elasticsearch.threadpool.ThreadPool esThreadPool
                         ) {
         super(settings);
+        this.logger = Loggers.getLogger("duniter.threadpool", settings, new String[0]);
         this.injector = injector;
         this.afterStartedCommands = Lists.newArrayList();
 
@@ -71,7 +72,7 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
 
         int availableProcessors = EsExecutors.boundedNumberOfProcessors(settings);
         this.scheduler = new LoggingScheduledThreadPoolExecutor(logger, availableProcessors,
-                EsExecutors.daemonThreadFactory(settings, "duniter-scheduler"),
+                EsExecutors.daemonThreadFactory(settings, "cesium_plus_scheduler"),
                 new RetryPolicy(1, TimeUnit.SECONDS));
         this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
         this.scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);

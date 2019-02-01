@@ -25,11 +25,13 @@ package org.duniter.elasticsearch.dao;
 import org.duniter.core.beans.Bean;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
+import org.duniter.core.client.model.local.Member;
 import org.elasticsearch.common.bytes.BytesReference;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by blavenie on 03/04/17.
@@ -79,5 +81,7 @@ public interface BlockDao extends Bean, TypeDao<BlockDao> {
 
     void deleteById(final String currencyName, String id);
 
-    Map<String, String> getMembers(BlockchainParameters parameters);
+    List<Member> getMembers(BlockchainParameters parameters);
+
+    Set<String> getUniqueIssuersBetween(String currencyName, int startNumber, int endNumber);
 }

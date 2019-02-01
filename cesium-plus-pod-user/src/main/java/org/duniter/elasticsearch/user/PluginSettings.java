@@ -66,6 +66,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     }
 
+    public Settings getSettings() {
+        return delegate.getSettings();
+    }
+
     public org.duniter.elasticsearch.PluginSettings getDelegate() {
         return delegate;
     }
@@ -174,11 +178,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getNodeBmaHost() {
-        return delegate.getNodeBmaHost();
+        return delegate.getDuniterNodeHost();
     }
 
     public int getNodeBmaPort() {
-        return delegate.getNodeBmaPort();
+        return delegate.getDuniterNodePort();
     }
 
     public int getIndexBulkSize() {

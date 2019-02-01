@@ -26,6 +26,7 @@ package org.duniter.elasticsearch.service;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import org.duniter.core.client.dao.PeerDao;
+import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
@@ -35,6 +36,7 @@ import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
@@ -122,8 +124,14 @@ public class PeerService extends AbstractService  {
         try {
             logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, firstPeer));
 
+
             // Default filter
             NetworkService.Filter filterDef = getDefaultFilter(currency);
+
+            Number currentNumber = client.getTypedFieldById(currency, BlockDao.TYPE, "current", BlockchainBlock.PROPERTY_NUMBER);
+            if (currentNumber != null) {
+                filterDef.minBlockNumber = currentNumber.intValue() - 100;
+            }
 
             // Default sort
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
@@ -165,7 +173,7 @@ public class PeerService extends AbstractService  {
         }
 
         if (refreshPeers) {
-            final Peer mainPeer = pluginSettings.checkAndGetPeer();
+            final Peer mainPeer = pluginSettings.checkAndGetDuniterPeer();
 
             // Async refresh
             networkService.refreshPeersAsync(mainPeer, peers, threadPool.scheduler())
@@ -190,21 +198,21 @@ public class PeerService extends AbstractService  {
             logger.error(I18n.t("duniter4j.es.networkService.indexPeers.remoteParametersError", mainPeer));
             return;
         }
-        String currencyName = parameter.getCurrency();
+        String currency = parameter.getCurrency();
 
         // Default filter
         NetworkService.Filter filterDef = new NetworkService.Filter();
         filterDef.filterType = null;
         filterDef.filterStatus = Peer.PeerStatus.UP;
         filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
-        filterDef.currency = currencyName;
+        filterDef.currency = currency;
 
         // Default sort
         NetworkService.Sort sortDef = new NetworkService.Sort();
         sortDef.sortType = null;
 
         networkService.addPeersChangeListener(mainPeer,
-                peers -> logger.debug(String.format("[%s] Update peers: %s found", currencyName, CollectionUtils.size(peers))),
+                peers -> logger.info(String.format("[%s] %s peers UP", currency, CollectionUtils.size(peers))),
                 filterDef, sortDef, true /*autoreconnect*/, threadPool.scheduler());
     }
 

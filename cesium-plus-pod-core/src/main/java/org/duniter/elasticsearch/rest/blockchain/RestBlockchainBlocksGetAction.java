@@ -24,25 +24,28 @@ package org.duniter.elasticsearch.rest.blockchain;
 
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.CurrencyService;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.bytes.BytesArray;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.*;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.SortOrder;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
@@ -51,7 +54,6 @@ import java.io.IOException;
  */
 public class RestBlockchainBlocksGetAction extends BaseRestHandler {
 
-    private Client client;
     private CurrencyService currencyService;
 
     @Inject
@@ -64,7 +66,6 @@ public class RestBlockchainBlocksGetAction extends BaseRestHandler {
         controller.registerHandler(RestRequest.Method.GET, "/blockchain/blocks/{count}/{from}", this);
         controller.registerHandler(RestRequest.Method.GET, "/{index}/blockchain/blocks/{count}/{from}", this);
 
-        this.client = client;
         this.currencyService = currencyService;
     }
 
@@ -73,25 +74,33 @@ public class RestBlockchainBlocksGetAction extends BaseRestHandler {
         String currency = currencyService.safeGetCurrency(request.param("index"));
         int count = request.paramAsInt("count", 100);
         int from = request.paramAsInt("from", 0);
+        String[] includes = request.paramAsStringArray("_source", null);
+        String[] excludes = request.paramAsStringArray("_source_exclude", null);
 
         try {
             SearchRequestBuilder req = client.prepareSearch(currency)
                     .setTypes(BlockDao.TYPE)
                     .setFrom(0)
                     .setSize(count)
-                    .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(BlockchainBlock.PROPERTY_NUMBER).lte(from))))
-                    .setFetchSource(true)
+                    .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(BlockchainBlock.PROPERTY_NUMBER).gte(from))))
+                    .setFetchSource(includes, excludes)
                     .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC);
-
-            XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).startArray();
-
             SearchResponse resp = req.execute().actionGet();
-            for (SearchHit hit: resp.getHits().getHits()) {
-                builder.rawValue(hit.getSourceRef());
-            }
-            builder.endArray();
 
-            channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
+            BytesStreamOutput bso = new BytesStreamOutput();
+
+            boolean first = true;
+            bso.write('[');
+            for (SearchHit hit: resp.getHits().getHits()) {
+                BytesReference bytes = hit.getSourceRef();
+                if (bytes != null) {
+                    if (!first) bso.write(',');
+                    hit.getSourceRef().writeTo(bso);
+                    first = false;
+                }
+            }
+            bso.write(']');
+            channel.sendResponse(new BytesRestResponse(RestStatus.OK, XContentType.JSON.restContentType(), bso.bytes()));
         }
         catch(IOException ioe) {
             throw new TechnicalException(String.format("Error while generating JSON for [/blockchain/blocks/<count>/<from>]: %s", ioe.getMessage()), ioe);

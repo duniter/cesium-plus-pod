@@ -28,6 +28,7 @@ import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.json.JsonAttributeParser;
+import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.http.netty.NettyWebSocketServer;
 import org.duniter.elasticsearch.http.netty.websocket.NettyBaseWebSocketEndpoint;
 import org.duniter.elasticsearch.http.netty.websocket.NettyWebSocketSession;
@@ -42,6 +43,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 
@@ -65,11 +67,12 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
 
     public static class Init {
         @Inject
-        public Init( NettyWebSocketServer webSocketServer,
-                     CurrencyService currencyService,
-                     BlockchainService blockchainService,
-                     ThreadPool threadPool) {
-            logger = Loggers.getLogger("duniter.ws.block");
+        public Init(PluginSettings pluginSettings,
+                    NettyWebSocketServer webSocketServer,
+                    CurrencyService currencyService,
+                    BlockchainService blockchainService,
+                    ThreadPool threadPool) {
+            logger = Loggers.getLogger("duniter.ws.block", pluginSettings.getSettings(), new String[0]);
 
             NettyWebSocketBlockHandler.currencyService = currencyService;
             NettyWebSocketBlockHandler.blockchainService = blockchainService;
@@ -132,11 +135,10 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
     public void onChange(ChangeEvent event) {
         switch (event.getOperation()) {
             case CREATE:
-            //case INDEX:
                 sendSourceIfNotNull(event);
                 break;
             default:
-                // Ignoring (if delete)
+                // Ignoring (if delete or update)
         }
     }
 

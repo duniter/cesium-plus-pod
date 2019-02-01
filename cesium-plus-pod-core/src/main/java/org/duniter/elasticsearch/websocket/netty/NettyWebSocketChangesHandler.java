@@ -73,7 +73,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
 
         @Inject
         public Init(NettyWebSocketServer webSocketServer, PluginSettings pluginSettings) {
-            logger = Loggers.getLogger("duniter.ws.changes");
+            logger = Loggers.getLogger("duniter.ws.changes", pluginSettings.getSettings(), new String[0]);
 
             // Init default sources
             final String[] sourcesStr = pluginSettings.getWebSocketChangesListenSource();

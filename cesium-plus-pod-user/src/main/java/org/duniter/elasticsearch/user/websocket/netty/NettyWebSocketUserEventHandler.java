@@ -73,7 +73,7 @@ public class NettyWebSocketUserEventHandler extends NettyBaseWebSocketEndpoint i
 
         @Inject
         public Init(NettyWebSocketServer webSocketServer, PluginSettings pluginSettings) {
-            logger = Loggers.getLogger("duniter.ws.event");
+            logger = Loggers.getLogger("duniter.ws.event", pluginSettings.getSettings(), new String[0]);
 
             // Default locale
             defaultLocale = pluginSettings.getI18nLocale();

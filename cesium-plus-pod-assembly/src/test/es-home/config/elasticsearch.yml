@@ -16,6 +16,9 @@
 #
 # cluster.name: my-application
 cluster.name: cesium-plus-cluster-DEV
+#
+# Host + port, to join your cluster, from external network
+#
 cluster.remote.host: localhost
 cluster.remote.port: 9200
 #

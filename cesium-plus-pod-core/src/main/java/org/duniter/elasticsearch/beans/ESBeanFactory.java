@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.beans;
 import org.duniter.core.beans.Bean;
 import org.duniter.core.beans.BeanCreationException;
 import org.duniter.core.beans.BeanFactory;
+import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
 
@@ -34,15 +35,21 @@ import org.elasticsearch.common.inject.Injector;
 public class ESBeanFactory extends BeanFactory {
 
     private Injector injector = null;
+    private ThreadPool threadPool = null;
 
     @Inject
     public void setInjector(Injector injector) {
         this.injector = injector;
     }
 
+    @Inject
+    public void setThreadPool(ThreadPool threadPool) {
+        this.threadPool = threadPool;
+    }
+
     @Override
     protected <S extends Bean> void initBean(S bean) {
-        super.initBean(bean);
+        threadPool.scheduleOnClusterReady(() -> super.initBean(bean));
         if (injector != null) {
             injector.injectMembers(bean);
         }

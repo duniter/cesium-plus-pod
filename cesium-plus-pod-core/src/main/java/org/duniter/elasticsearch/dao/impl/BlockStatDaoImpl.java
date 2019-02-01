@@ -110,14 +110,11 @@ public class BlockStatDaoImpl extends AbstractDao implements BlockStatDao {
         Preconditions.checkNotNull(block.getNumber());
 
         // Serialize into JSON
-        // WARN: must use GSON, to have same JSON result (e.g identities and joiners field must be converted into String)
         try {
-            String json = getObjectMapper().writeValueAsString(block);
-
             // Preparing
             UpdateRequestBuilder request = client.prepareUpdate(block.getCurrency(), TYPE, block.getNumber().toString())
                     .setRefresh(true)
-                    .setDoc(json);
+                    .setDoc(getObjectMapper().writeValueAsBytes(block));
 
             // Execute
             client.safeExecuteRequest(request, wait);

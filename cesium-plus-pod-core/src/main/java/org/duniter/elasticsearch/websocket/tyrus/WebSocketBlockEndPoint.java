@@ -37,6 +37,7 @@ import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 
@@ -59,19 +60,18 @@ public class WebSocketBlockEndPoint implements ChangeService.ChangeListener{
 
 
         @Inject
-        public Init(TyrusWebSocketServer webSocketServer,
+        public Init(Settings settings,
+                    TyrusWebSocketServer webSocketServer,
                     CurrencyService currencyService,
                     BlockchainService blockchainService,
                     ThreadPool threadPool) {
+            logger = Loggers.getLogger("duniter.ws.block", settings, new String[0]);
+
             webSocketServer.addEndPoint(WebSocketBlockEndPoint.class);
             WebSocketBlockEndPoint.currencyService = currencyService;
             WebSocketBlockEndPoint.blockchainService = blockchainService;
-            logger = Loggers.getLogger("duniter.ws.block");
 
-            //server.addLifecycleListener();
-            threadPool.scheduleOnClusterReady(() -> {
-                isReady = true;
-            });
+            threadPool.scheduleOnClusterReady(() -> isReady = true);
         }
     }
 

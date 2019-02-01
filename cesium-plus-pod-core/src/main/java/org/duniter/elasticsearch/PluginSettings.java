@@ -67,10 +67,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static  String nodePubkey;
     private static List<String> i18nBundleNames = new CopyOnWriteArrayList<>(); // Default
     private static boolean isI18nStarted = false;
+    private static Peer duniterPeer;
 
     protected final Settings settings;
     private String clusterRemoteUrl;
     private final CryptoService cryptoService;
+
 
     /**
      * Delegate application config.
@@ -111,8 +113,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         String baseDir = settings.get("path.home");
         applicationConfig.setConfigFileName("duniter4j.config");
         applicationConfig.setDefaultOption(ConfigurationOption.BASEDIR.getKey(), baseDir);
-        applicationConfig.setDefaultOption(ConfigurationOption.NODE_HOST.getKey(), getNodeBmaHost());
-        applicationConfig.setDefaultOption(ConfigurationOption.NODE_PORT.getKey(), String.valueOf(getNodeBmaPort()));
+        applicationConfig.setDefaultOption(ConfigurationOption.NODE_HOST.getKey(), getDuniterNodeHost());
+        applicationConfig.setDefaultOption(ConfigurationOption.NODE_PORT.getKey(), String.valueOf(getDuniterNodePort()));
         applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_TIMEOUT.getKey(), String.valueOf(getNetworkTimeout()));
         applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_MAX_CONNECTIONS.getKey(), String.valueOf(getNetworkMaxConnections()));
         applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_MAX_CONNECTIONS_PER_ROUTE.getKey(), String.valueOf(getNetworkMaxConnectionsPerRoute()));
@@ -213,16 +215,16 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     /* -- Settings on Duniter node (with BMA API) -- */
 
-    public String getNodeBmaHost() {
+    public String getDuniterNodeHost() {
         return settings.get("duniter.host", "g1.duniter.org");
     }
 
-    public int getNodeBmaPort() {
+    public int getDuniterNodePort() {
         return settings.getAsInt("duniter.port", 10901);
     }
 
-    public boolean getNodeBmaUseSsl() {
-        return settings.getAsBoolean("duniter.useSsl", getNodeBmaPort() == 443);
+    public boolean getDuniterNodeUseSsl() {
+        return settings.getAsBoolean("duniter.useSsl", getDuniterNodePort() == 443);
     }
 
     /* -- Other settings -- */
@@ -271,7 +273,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public int getNetworkTimeout()  {
-        return settings.getAsInt("duniter.network.timeout", 30000 /*30s*/);
+        return settings.getAsInt("duniter.network.timeout", 20000 /*20s*/);
     }
 
     public int getNetworkMaxConnections()  {
@@ -391,20 +393,22 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.get("duniter.share.base.url");
     }
 
-    public Peer checkAndGetPeer() {
-        if (StringUtils.isBlank(getNodeBmaHost())) {
+    public Peer checkAndGetDuniterPeer() {
+        if (duniterPeer != null) return duniterPeer;
+
+        if (StringUtils.isBlank(getDuniterNodeHost())) {
             logger.error("ERROR: node host is required");
             System.exit(-1);
             return null;
         }
-        if (getNodeBmaPort() <= 0) {
+        if (getDuniterNodePort() <= 0) {
             logger.error("ERROR: node port is required");
             System.exit(-1);
             return null;
         }
 
-        Peer peer = Peer.newBuilder().setHost(getNodeBmaHost()).setPort(getNodeBmaPort()).setUseSsl(getNodeBmaUseSsl()).build();
-        return peer;
+        this.duniterPeer = Peer.newBuilder().setHost(getDuniterNodeHost()).setPort(getDuniterNodePort()).setUseSsl(getDuniterNodeUseSsl()).build();
+        return duniterPeer;
     }
 
     public String getKeyringSalt() {

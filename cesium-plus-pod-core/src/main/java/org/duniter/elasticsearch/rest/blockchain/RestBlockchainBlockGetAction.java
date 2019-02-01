@@ -32,10 +32,13 @@ import org.duniter.elasticsearch.service.CurrencyService;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.*;
+import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
 
@@ -70,12 +73,17 @@ public class RestBlockchainBlockGetAction extends BaseRestHandler {
         String currency = currencyService.safeGetCurrency(request.param("index"));
         String number = request.param("number");
         boolean isCurrent = StringUtils.isBlank(number);
+        String[] includes = request.paramAsStringArray("_source", null);
+        String[] excludes = request.paramAsStringArray("_source_exclude", null);
 
         try {
             GetResponse response = client.prepareGet(currency, BlockDao.TYPE, isCurrent ? "current" : number)
+                    .setFetchSource(includes, excludes)
                     .execute().actionGet();
-            XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).rawValue(response.getSourceAsBytesRef());
-            channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
+
+            BytesStreamOutput bso = new BytesStreamOutput();
+            response.getSourceAsBytesRef().writeTo(bso);
+            channel.sendResponse(new BytesRestResponse(RestStatus.OK, XContentType.JSON.restContentType(), bso.bytes()));
         }
         catch(IOException ioe) {
             if (isCurrent)

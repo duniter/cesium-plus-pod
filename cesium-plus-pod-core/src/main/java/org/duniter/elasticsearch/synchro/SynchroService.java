@@ -159,9 +159,9 @@ public class SynchroService extends AbstractService {
             closeWsClientEndpoints();
         }
 
-        List<String> currencyIds;
+        Set<String> currencyIds;
         try {
-            currencyIds = currencyDao.getCurrencyIds();
+            currencyIds = currencyDao.getAllIds();
         }
         catch (Exception e) {
             logger.error("Could not retrieve indexed currencies", e);

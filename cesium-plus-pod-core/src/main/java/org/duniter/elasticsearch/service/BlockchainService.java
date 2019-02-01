@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
+import org.duniter.core.client.model.bma.BlockchainDifficulties;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
@@ -62,6 +63,8 @@ import org.nuiton.i18n.I18n;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -86,6 +89,7 @@ public class BlockchainService extends AbstractService {
     private final JsonAttributeParser<String> blockPreviousHashParser = new JsonAttributeParser<>("previousHash", String.class);
 
     private SimpleCache<String, BlockchainParameters> blockchainParametersCurrencyIdCache;
+    private static Map<String, BlockchainParameters> blockchainParametersCurrencyId = new ConcurrentHashMap<>();
     private BlockDao blockDao;
     private CurrencyExtendDao currencyDao;
 
@@ -121,8 +125,14 @@ public class BlockchainService extends AbstractService {
         blockchainParametersCurrencyIdCache = new SimpleCache<String, BlockchainParameters>(/*eternal*/) {
             @Override
             public BlockchainParameters load(String currencyId) {
-                if (!isReady()) throw new IllegalStateException("Could not load blockchain parameters (service is not started)");
-                return blockchainRemoteService.getParameters(currencyId);
+                if (blockchainParametersCurrencyId.containsKey(currencyId)) {
+                    return blockchainParametersCurrencyId.get(currencyId);
+                }
+                checkReady();
+
+                BlockchainParameters parameters = blockchainRemoteService.getParameters(currencyId);
+                blockchainParametersCurrencyId.put(currencyId, parameters);
+                return parameters;
             }
         };
     }
@@ -534,6 +544,22 @@ public class BlockchainService extends AbstractService {
 
     }
 
+    public int getMaxBlockNumber(String currencyName) {
+        return blockDao.getMaxBlockNumber(currencyName);
+    }
+
+    public Map<String, Integer> getDifficulties(String currencyName) {
+        checkReady();
+
+        // TODO: recompute difficulties, using BlockDao, instead of asking to remote peer
+
+        Peer peer = pluginSettings.checkAndGetDuniterPeer();
+        BlockchainDifficulties diff = blockchainRemoteService.getDifficulties(peer);
+        if (diff == null || diff.getLevels() == null) return null;
+        return Arrays.stream(diff.getLevels())
+            .collect(Collectors.toMap(BlockchainDifficulties.DifficultyLevel::getUid, BlockchainDifficulties.DifficultyLevel::getLevel));
+    }
+
     /* -- Internal methods -- */
 
     private Collection<String> indexBlocksNoBulk(Peer peer, String currencyName, int firstNumber, int lastNumber, ProgressionModel progressionModel, boolean isLastCurrent) {
@@ -585,7 +611,10 @@ public class BlockchainService extends AbstractService {
 
         // Or fill default using duniter node
         if (result == null && pluginSettings.enableBlockchainIndexation()) {
-            Peer peer = pluginSettings.checkAndGetPeer();
+
+            if (!isReady()) throw new IllegalStateException("Could not load blockchain parameters (service is not started)");
+
+            Peer peer = pluginSettings.checkAndGetDuniterPeer();
             result = blockchainRemoteService.getParameters(peer);
             blockchainParametersCurrencyIdCache.put(result.getCurrency(), result);
             blockchainParametersCurrencyIdCache.put("DEFAULT", result);
@@ -905,6 +934,10 @@ public class BlockchainService extends AbstractService {
 
         if (StringUtils.isNotBlank(currency)) return currency;
 
-        return currencyDao.getDefaultCurrencyName();
+        return currencyDao.getDefaultId();
+    }
+
+    protected void checkReady() throws IllegalStateException{
+        if (!isReady()) throw new IllegalStateException("Service not started");
     }
 }

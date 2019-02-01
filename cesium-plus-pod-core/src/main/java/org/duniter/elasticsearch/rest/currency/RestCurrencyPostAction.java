@@ -35,11 +35,11 @@ import org.elasticsearch.rest.RestController;
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestCurrencyIndexAction extends AbstractRestPostIndexAction {
+public class RestCurrencyPostAction extends AbstractRestPostIndexAction {
 
     @Inject
-    public RestCurrencyIndexAction(Settings settings, RestController controller, Client client,
-                                   RestSecurityController securityController, CurrencyService currencyService) {
+    public RestCurrencyPostAction(Settings settings, RestController controller, Client client,
+                                  RestSecurityController securityController, CurrencyService currencyService) {
         super(settings, controller, client, securityController,
                 CurrencyService.INDEX, CurrencyService.RECORD_TYPE,
                 (json) -> {

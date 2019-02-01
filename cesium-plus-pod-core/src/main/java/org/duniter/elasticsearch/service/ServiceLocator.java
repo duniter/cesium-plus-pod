@@ -40,9 +40,12 @@ import org.duniter.core.service.MailService;
 import org.duniter.core.service.MailServiceImpl;
 import org.duniter.elasticsearch.beans.ESBeanFactory;
 import org.duniter.elasticsearch.dao.BlockDao;
+import org.duniter.elasticsearch.dao.MemberDao;
 import org.duniter.elasticsearch.dao.impl.BlockDaoImpl;
 import org.duniter.elasticsearch.dao.impl.CurrencyDaoImpl;
 import org.duniter.elasticsearch.dao.impl.PeerDaoImpl;
+import org.duniter.elasticsearch.dao.impl.MemberDaoImpl;
+import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.logging.ESLogger;
@@ -59,13 +62,14 @@ public class ServiceLocator
     private static ESBeanFactory beanFactory = null;
 
     @Inject
-    public ServiceLocator() {
+    public ServiceLocator(ThreadPool threadPool) {
         super(getOrCreateBeanFactory());
         if (logger.isDebugEnabled()) {
-            logger.debug("Starting Duniter4j ServiceLocator...");
+            logger.debug("Starting ES ServiceLocator...");
         }
 
         org.duniter.core.client.service.ServiceLocator.setInstance(this);
+
     }
 
     @Override
@@ -105,6 +109,7 @@ public class ServiceLocator
                 .bind(CurrencyDao.class, CurrencyDaoImpl.class)
                 .bind(PeerDao.class, PeerDaoImpl.class)
                 .bind(BlockDao.class, BlockDaoImpl.class)
+                .bind(MemberDao.class, MemberDaoImpl.class)
 
                 .add(DataContext.class);
 

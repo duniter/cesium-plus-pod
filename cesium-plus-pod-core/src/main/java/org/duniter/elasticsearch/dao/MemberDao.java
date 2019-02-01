@@ -22,15 +22,32 @@ package org.duniter.elasticsearch.dao;
  * #L%
  */
 
-import org.duniter.core.client.dao.CurrencyDao;
+import org.duniter.core.beans.Bean;
+import org.duniter.core.client.model.local.Identity;
+import org.duniter.core.client.model.local.Member;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 /**
- * Created by blavenie on 03/04/17.
+ * Created by blavenie on 30/01/19.
  */
-public interface CurrencyExtendDao extends CurrencyDao, IndexTypeDao<CurrencyExtendDao> {
-    String INDEX = "currency";
-    String RECORD_TYPE = "record";
+public interface MemberDao extends Bean, TypeDao<MemberDao>{
 
+    String TYPE = "member";
 
-    String getDefaultId();
+    List<Member> getMembers(String currencyId);
+
+    boolean isExists(String currencyId, String pubkey);
+
+    Identity create(Identity identity);
+
+    Identity update(Identity identity);
+
+    Set<String> getMemberPubkeys(String currency);
+
+    void save(String currencyId, List<Member> members);
+
+    void updateAsWasMember(String currency, Collection<String> wasMemberPubkeys);
 }

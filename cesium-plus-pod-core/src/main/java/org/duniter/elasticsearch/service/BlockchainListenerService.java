@@ -108,6 +108,9 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
                     }
                 });
         }
+
+        // TODO: get members IN
+
     }
 
     protected void processBlockDelete(ChangeEvent change) {

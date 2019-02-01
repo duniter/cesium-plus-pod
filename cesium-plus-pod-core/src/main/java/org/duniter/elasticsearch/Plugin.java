@@ -27,6 +27,7 @@ import org.duniter.elasticsearch.dao.DaoModule;
 import org.duniter.elasticsearch.rest.RestModule;
 import org.duniter.elasticsearch.script.BlockchainTxCountScriptFactory;
 import org.duniter.elasticsearch.security.SecurityModule;
+import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.ServiceModule;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.websocket.WebSocketModule;

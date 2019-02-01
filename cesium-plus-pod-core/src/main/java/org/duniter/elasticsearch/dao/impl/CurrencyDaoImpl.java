@@ -25,7 +25,6 @@ package org.duniter.elasticsearch.dao.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
 import org.duniter.core.client.model.local.Currency;
-import org.duniter.core.client.service.ServiceLocator;
 import org.duniter.core.client.util.KnownCurrencies;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.CollectionUtils;
@@ -43,6 +42,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by blavenie on 29/12/15.
@@ -50,7 +50,8 @@ import java.util.Map;
 public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> implements CurrencyExtendDao {
 
     protected static final String REGEX_WORD_SEPARATOR = "[-\\t@# _]+";
-    private String defaultCurrency;
+
+    private static String defaultId;
 
     public CurrencyDaoImpl(){
         super(INDEX, RECORD_TYPE);
@@ -65,18 +66,14 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
                 fillTags((org.duniter.core.client.model.elasticsearch.Currency)currency);
             }
 
-            // Serialize into JSON
-            byte[] json = getObjectMapper().writeValueAsBytes(currency);
-
             // Preparing indexBlocksFromNode
-            IndexRequestBuilder indexRequest = client.prepareIndex(INDEX, RECORD_TYPE)
+            IndexRequestBuilder request = client.prepareIndex(INDEX, RECORD_TYPE)
                     .setId(currency.getId())
-                    .setSource(json);
+                    .setRefresh(true)
+                    .setSource(getObjectMapper().writeValueAsBytes(currency));
 
             // Execute indexBlocksFromNode
-            indexRequest
-                    .setRefresh(true)
-                    .execute().actionGet();
+            client.safeExecuteRequest(request, true);
 
         } catch(JsonProcessingException e) {
             throw new TechnicalException(e);
@@ -127,18 +124,27 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
-    public List<Currency> getCurrencies(long accountId) {
+    public List<Currency> getAllByAccount(long accountId) {
         throw new TechnicalException("Not implemented yet");
     }
 
     @Override
-    public List<String> getCurrencyIds() {
+    public List<Currency> getAll() {
+        SearchRequestBuilder request = client.prepareSearch(INDEX)
+                .setTypes(RECORD_TYPE)
+                .setSize(pluginSettings.getIndexBulkSize())
+                .setFetchSource(true);
+        return toList(request.execute().actionGet(), Currency.class);
+    }
+
+    @Override
+    public Set<String> getAllIds() {
         SearchRequestBuilder request = client.prepareSearch(INDEX)
                 .setTypes(RECORD_TYPE)
                 .setSize(pluginSettings.getIndexBulkSize())
                 .setFetchSource(false);
 
-        return toListIds(request.execute().actionGet());
+        return executeAndGetIds(request.execute().actionGet());
     }
 
     @Override
@@ -220,16 +226,16 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
      * Return the default currency
      * @return
      */
-    public String getDefaultCurrencyName() {
+    public String getDefaultId() {
 
-        if (defaultCurrency != null) return defaultCurrency;
+        if (defaultId != null) return defaultId;
 
         boolean enableBlockchainIndexation = pluginSettings.enableBlockchainIndexation() && existsIndex();
         try {
-            List<String> currencyIds = enableBlockchainIndexation ? getCurrencyIds() : null;
-            if (CollectionUtils.isNotEmpty(currencyIds)) {
-                defaultCurrency = currencyIds.get(0);
-                return defaultCurrency;
+            Set<String> ids = enableBlockchainIndexation ? getAllIds() : null;
+            if (CollectionUtils.isNotEmpty(ids)) {
+                defaultId = ids.iterator().next();
+                return defaultId;
             }
         } catch(Throwable t) {
             // Continue (index not read yet?)
@@ -255,7 +261,7 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     protected void fillTags(org.duniter.core.client.model.elasticsearch.Currency currency) {
-        String currencyName = currency.getCurrencyName();
+        String currencyName = currency.getId();
         String[] tags = currencyName.split(REGEX_WORD_SEPARATOR);
         List<String> tagsList = Lists.newArrayList(tags);
 

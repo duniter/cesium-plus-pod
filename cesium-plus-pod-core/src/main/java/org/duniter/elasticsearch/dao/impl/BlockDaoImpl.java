@@ -26,10 +26,9 @@ package org.duniter.elasticsearch.dao.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
-import org.duniter.core.client.model.local.Peer;
+import org.duniter.core.client.model.local.Member;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
@@ -37,12 +36,9 @@ import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.json.JsonSyntaxException;
 import org.duniter.elasticsearch.dao.AbstractDao;
 import org.duniter.elasticsearch.dao.BlockDao;
-import org.duniter.elasticsearch.model.SynchroExecution;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.get.GetRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
@@ -62,9 +58,7 @@ import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -136,15 +130,11 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         Preconditions.checkNotNull(block.getHash());
         Preconditions.checkNotNull(block.getNumber());
 
-        // Serialize into JSON
-        // WARN: must use GSON, to have same JSON result (e.g identities and joiners field must be converted into String)
         try {
-            String json = getObjectMapper().writeValueAsString(block);
-
             // Preparing
             UpdateRequestBuilder request = client.prepareUpdate(block.getCurrency(), TYPE, block.getNumber().toString())
                     .setRefresh(true)
-                    .setDoc(json);
+                    .setDoc(getObjectMapper().writeValueAsBytes(block));
 
             // Execute
             client.safeExecuteRequest(request, wait);
@@ -285,77 +275,77 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
     }
 
     @Override
-    public Map<String, String> getMembers(BlockchainParameters parameters) {
+    public List<Member> getMembers(BlockchainParameters parameters) {
         Preconditions.checkNotNull(parameters);
 
-        Number medianTime = client.getMandatoryTypedFieldById(parameters.getCurrency(), TYPE, "current", BlockchainBlock.PROPERTY_MEDIAN_TIME);
-        long startMedianTime = medianTime.longValue() - parameters.getMsValidity() - (parameters.getAvgGenTime() / 2);
+        long now = System.currentTimeMillis();
+        Number currentMedianTime = client.getMandatoryTypedFieldById(parameters.getCurrency(), TYPE, "current", BlockchainBlock.PROPERTY_MEDIAN_TIME);
+        long startMedianTime = currentMedianTime.longValue() - parameters.getMsValidity() - (parameters.getAvgGenTime() / 2);
+
+        int size = pluginSettings.getIndexBulkSize();
 
         QueryBuilder withEvents = QueryBuilders.boolQuery()
                 .minimumNumberShouldMatch(1)
                 .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_JOINERS))
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_EXCLUDED))
                 .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_ACTIVES));
 
         QueryBuilder timeQuery = QueryBuilders.rangeQuery(BlockchainBlock.PROPERTY_MEDIAN_TIME)
                 .gte(startMedianTime);
 
+        SearchRequestBuilder req = client.prepareSearch(parameters.getCurrency())
+                .setTypes(BlockDao.TYPE)
+                .setSize(size)
+                .addFields(BlockchainBlock.PROPERTY_JOINERS,
+                        BlockchainBlock.PROPERTY_ACTIVES,
+                        BlockchainBlock.PROPERTY_EXCLUDED,
+                        BlockchainBlock.PROPERTY_LEAVERS,
+                        BlockchainBlock.PROPERTY_REVOKED)
+                .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().must(withEvents).must(timeQuery)))
+                .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
+                .setFetchSource(false);
+
         long total = -1;
         int from = 0;
-        int size = pluginSettings.getIndexBulkSize();
         Map<String, String> results = Maps.newHashMap();
         do {
-            SearchRequestBuilder req = client.prepareSearch(parameters.getCurrency())
-                    .setTypes(BlockDao.TYPE)
-                    .setFrom(from)
-                    .setSize(size)
-                    .addFields(BlockchainBlock.PROPERTY_JOINERS,
-                            BlockchainBlock.PROPERTY_ACTIVES,
-                            BlockchainBlock.PROPERTY_EXCLUDED,
-                            BlockchainBlock.PROPERTY_LEAVERS,
-                            BlockchainBlock.PROPERTY_REVOKED)
-                    .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().must(withEvents).must(timeQuery)))
-                    .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
-                    .setFetchSource(false);
 
             SearchResponse response = req.execute().actionGet();
-            if (total == -1) total = response.getHits().getTotalHits();
-
-            if (total > 0) {
-                for (SearchHit hit: response.getHits().getHits()) {
-                    Map<String, SearchHitField> fields = hit.getFields();
-                    // membership IN
-                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_JOINERS), true);
-                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_ACTIVES), true);
-                    // membership OUT
-                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_EXCLUDED), false);
-                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_LEAVERS), false);
-                    updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_REVOKED), false);
-                }
-            }
+            toStream(response).forEach(hit -> {
+                Map<String, SearchHitField> fields = hit.getFields();
+                // membership IN
+                updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_JOINERS), true);
+                updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_ACTIVES), true);
+                // membership OUT
+                updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_EXCLUDED), false);
+                updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_LEAVERS), false);
+                updateMembershipsMap(results, fields.get(BlockchainBlock.PROPERTY_REVOKED), false);
+            });
 
             from += size;
+            req.setFrom(from);
+            if (total == -1) total = response.getHits().getTotalHits();
         } while(from<total);
 
-        if (logger.isDebugEnabled()) logger.debug("Wot members found: " + results);
-        return results;
-    }
-
-    private void updateMembershipsMap(Map<String, String> result, SearchHitField field, boolean membershipIn) {
-        List<Object> values = field != null ? field.values() : null;
-        if (CollectionUtils.isEmpty(values)) return;
-        for (Object value: values) {
-            String[] parts = value.toString().split(":");
-            String pubkey = parts[0];
-            if (membershipIn) {
-                String uid = parts[parts.length -1 ];
-                result.put(pubkey, uid);
-            }
-            else {
-                result.remove(pubkey);
+        if (logger.isDebugEnabled()) {
+            logger.debug(String.format("[%s] WoT has {%s} members, computed from {%s} blocks reading in %s ms.",
+                    parameters.getCurrency(),
+                    results.size(),
+                    total,
+                    System.currentTimeMillis() - now));
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format("[%s] Wot members are: %s", parameters.getCurrency(), results));
             }
         }
-
+        return results.entrySet().stream().map(e -> {
+            Member member = new Member();
+            member.setPubkey(e.getKey());
+            member.setUid(e.getValue());
+            member.setMember(true);
+            return member;
+        }).collect(Collectors.toList());
     }
+
 
     /**
      * Delete blocks from a start number (using bulk)
@@ -389,7 +379,39 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         client.prepareDelete(currencyName, TYPE, number).execute().actionGet();
     }
 
+    @Override
+    public Set<String> getUniqueIssuersBetween(String currencyName, int start, int end) {
 
+        int firstBlock = Math.max(0, start);
+        int lastBlock = Math.max(0, end);
+
+        Preconditions.checkArgument(firstBlock<=lastBlock);
+        int length = lastBlock-firstBlock + 1;
+        Preconditions.checkArgument(length <= 1000, "Maximum size of range [start,end] is 1000, but got " + length);
+
+        List<String> numbers = Lists.newArrayListWithCapacity(lastBlock-firstBlock + 1);
+        for (int i=start; i<=end; i++) numbers.add(String.valueOf(i));
+
+        QueryBuilder numbersQuery = QueryBuilders.idsQuery(TYPE).ids(numbers);
+
+        BoolQueryBuilder query = QueryBuilders.boolQuery().must(QueryBuilders.boolQuery()
+                .must(numbersQuery)
+        );
+
+        SearchRequestBuilder request = client.prepareSearch(currencyName)
+                .setTypes(TYPE)
+                .setSize(1000)
+                .setFetchSource(BlockchainBlock.PROPERTY_ISSUER, null)
+                .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
+                        .must(numbersQuery)
+                ))
+                .setFetchSource(false);
+
+        return toStream(request.execute().actionGet())
+                .map(hit -> (String)hit.getSource().get(BlockchainBlock.PROPERTY_ISSUER))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
 
     @Override
     public XContentBuilder createTypeMapping() {
@@ -483,6 +505,24 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
 
     /* -- Internal methods -- */
 
+
+    private void updateMembershipsMap(Map<String, String> result, SearchHitField field, boolean membershipIn) {
+        List<Object> values = field != null ? field.values() : null;
+        if (CollectionUtils.isEmpty(values)) return;
+        for (Object value: values) {
+            String[] parts = value.toString().split(":");
+            String pubkey = parts[0];
+            if (membershipIn) {
+                String uid = parts[parts.length -1 ];
+                result.put(pubkey, uid);
+            }
+            else {
+                result.remove(pubkey);
+            }
+        }
+
+    }
+
     protected List<BlockchainBlock> toBlocks(SearchResponse response, boolean withHighlight) {
         // Read query result
         List<BlockchainBlock> result = Lists.newArrayList();
@@ -530,16 +570,15 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
                     .setTypes(TYPE)
                     .setFrom(offset)
                     .setSize(size)
-                    .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
                     .setQuery(query)
                     .setFetchSource(false);
             SearchResponse response = request.execute().actionGet();
-            ids.addAll(toListIds(response));
+            ids.addAll(executeAndGetIds(response));
 
             if (total == -1) total = response.getHits().getTotalHits();
             offset += size;
         } while (offset < total);
 
-        return ids.stream().mapToLong(Long::parseLong).toArray();
+        return ids.stream().mapToLong(Long::parseLong).sorted().toArray();
     }
 }

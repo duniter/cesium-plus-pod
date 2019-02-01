@@ -120,11 +120,11 @@ public class ChangeEvent {
         if (sourceText != null) return sourceText;
         if (source == null) return null;
         try {
-            XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, new BytesStreamOutput());
-            builder.rawValue(source);
-            sourceText = builder.string();
+            //XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, new BytesStreamOutput());
+            //builder.rawValue(source);
+            sourceText = new String(source.toBytesArray().toBytes(), "UTF8");
             return sourceText;
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new TechnicalException("Error while generating JSON from source", e);
         }
     }

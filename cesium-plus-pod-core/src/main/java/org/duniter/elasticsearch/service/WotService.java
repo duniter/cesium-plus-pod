@@ -23,89 +23,208 @@ package org.duniter.elasticsearch.service;
  */
 
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import org.duniter.core.client.dao.CurrencyDao;
-import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
-import org.duniter.core.client.model.bma.EndpointApi;
-import org.duniter.core.client.model.local.Peer;
-import org.duniter.core.client.service.bma.BlockchainRemoteService;
-import org.duniter.core.client.service.bma.NetworkRemoteService;
+import org.duniter.core.client.model.local.Member;
 import org.duniter.core.client.service.bma.WotRemoteService;
-import org.duniter.core.client.service.exception.BlockNotFoundException;
-import org.duniter.core.client.util.KnownBlocks;
-import org.duniter.core.client.util.KnownCurrencies;
-import org.duniter.core.exception.TechnicalException;
-import org.duniter.core.model.NullProgressionModel;
-import org.duniter.core.model.ProgressionModel;
-import org.duniter.core.model.ProgressionModelImpl;
 import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.ObjectUtils;
+import org.duniter.core.util.LockManager;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
-import org.duniter.core.util.cache.SimpleCache;
-import org.duniter.core.util.json.JsonAttributeParser;
-import org.duniter.core.util.websocket.WebsocketClientEndpoint;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.dao.CurrencyExtendDao;
-import org.duniter.elasticsearch.exception.DuplicateIndexIdException;
+import org.duniter.elasticsearch.dao.MemberDao;
+import org.duniter.elasticsearch.service.changes.ChangeEvent;
+import org.duniter.elasticsearch.service.changes.ChangeService;
+import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.common.inject.Inject;
-import org.nuiton.i18n.I18n;
 
-import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Benoit on 30/03/2015.
  */
 public class WotService extends AbstractService {
 
+    private static final String LOCK_NAME_COMPUTE_MEMBERS = "Index WoT members";
+
+
     private BlockDao blockDao;
+    private MemberDao memberDao;
     private CurrencyExtendDao currencyDao;
     private WotRemoteService wotRemoteService;
     private BlockchainService blockchainService;
+    private ThreadPool threadPool;
+    private final LockManager lockManager = new LockManager(4, 10);
 
     @Inject
     public WotService(Duniter4jClient client,
                       PluginSettings settings,
                       ThreadPool threadPool,
                       BlockDao blockDao,
+                      MemberDao memberDao,
                       CurrencyDao currencyDao,
                       BlockchainService blockchainService,
                       final ServiceLocator serviceLocator){
         super("duniter.wot", client, settings);
         this.client = client;
         this.blockDao = blockDao;
+        this.memberDao = memberDao;
         this.currencyDao = (CurrencyExtendDao) currencyDao;
         this.blockchainService = blockchainService;
-        threadPool.scheduleOnStarted(() -> {
+        this.threadPool = threadPool;
+        this.threadPool.scheduleOnStarted(() -> {
             wotRemoteService = serviceLocator.getWotRemoteService();
             setIsReady(true);
         });
     }
 
-    public Map<String, String> getMembers(String currency) {
+    public List<Member> getMembers(String currency) {
 
-        currency = safeGetCurrency(currency);
+        final String currencyId = safeGetCurrency(currency);
 
+        // Index is enable: use dao
         if (pluginSettings.enableBlockchainIndexation()) {
-            BlockchainParameters p = blockchainService.getParameters(currency);
-            return blockDao.getMembers(p);
+
+            List<Member> members = memberDao.getMembers(currencyId);
+
+            // No members, or not indexed yet ?
+            if (CollectionUtils.isEmpty(members)) {
+                logger.warn("No member found. Trying to index members...");
+                return indexAndGetMembers(currencyId);
+            }
+
+            return members;
         }
         else {
-            // TODO: check if it works !
-            return wotRemoteService.getMembersUids(currency);
+            return wotRemoteService.getMembers(currencyId);
         }
 
+    }
+
+    public void save(String currencyId, final List<Member> members) {
+        // skip if nothing to save
+        if (CollectionUtils.isEmpty(members)) return;
+
+        memberDao.save(currencyId, members);
+    }
+
+
+
+    public Member save(final Member member) {
+        Preconditions.checkNotNull(member);
+        Preconditions.checkNotNull(member.getCurrency());
+        Preconditions.checkNotNull(member.getPubkey());
+        Preconditions.checkNotNull(member.getUid());
+
+        boolean exists = memberDao.isExists(member.getCurrency(), member.getPubkey());
+
+        // Create
+        if (!exists) {
+            memberDao.create(member);
+        }
+
+        // or update
+        else {
+            memberDao.update(member);
+        }
+        return member;
+    }
+
+    public WotService indexMembers(final String currency) {
+        indexAndGetMembers(currency);
+        return this;
+    }
+
+    public WotService listenAndIndexMembers(final String currency) {
+
+        // Listen changes on block
+        ChangeService.registerListener(new ChangeService.ChangeListener() {
+            @Override
+            public String getId() {
+                return "duniter.wot";
+            }
+            @Override
+            public Collection<ChangeSource> getChangeSources() {
+                return ImmutableList.of(new ChangeSource(currency, BlockDao.TYPE, "current"));
+            }
+            @Override
+            public void onChange(ChangeEvent change) {
+                // If current block indexed
+                switch (change.getOperation()) {
+                    case CREATE:
+                    case INDEX:
+                        logger.debug(String.format("[%s] Scheduling indexation of WoT members", currency));
+                        threadPool.schedule(() -> {
+                            try {
+                                // Acquire lock (once members indexation at a time)
+                                if (lockManager.tryLock(LOCK_NAME_COMPUTE_MEMBERS, 10, TimeUnit.SECONDS)) {
+                                    try {
+                                        indexMembers(currency);
+                                    }
+                                    catch (Exception e) {
+                                        logger.error("Error while indexing WoT members: " + e.getMessage(), e);
+                                    }
+                                    finally {
+                                        // Release the lock
+                                        lockManager.unlock(LOCK_NAME_COMPUTE_MEMBERS);
+                                    }
+                                }
+                                else {
+                                    logger.debug("Could not acquire lock for indexing members. Skipping.");
+                                }
+                            } catch (InterruptedException e) {
+                                logger.warn("Stopping indexation of WoT members: " + e.getMessage());
+                            }
+                        }, 30, TimeUnit.SECONDS);
+                        break;
+                    default:
+                        // Skip deletion
+                        break;
+                }
+
+            }
+        });
+
+        return this;
+    }
+
+    /* -- protected methods -- */
+
+    protected List<Member> indexAndGetMembers(final String currency) {
+
+        logger.info(String.format("[%s] Indexing WoT members...", currency));
+
+        Set<String> wasMemberPubkeys = memberDao.getMemberPubkeys(currency);
+
+        BlockchainParameters p = blockchainService.getParameters(currency);
+        List<Member> members = blockDao.getMembers(p);
+
+        // Save members into index
+        if (CollectionUtils.isNotEmpty(members)) {
+            // Set currency
+            members.forEach(m -> {
+                wasMemberPubkeys.remove(m.getPubkey());
+                m.setCurrency(currency);
+            });
+
+            // Save members
+            memberDao.save(currency, members);
+        }
+
+        // Update old members as "was member"
+        if (CollectionUtils.isNotEmpty(wasMemberPubkeys)) {
+            memberDao.updateAsWasMember(currency, wasMemberPubkeys);
+        }
+
+        logger.info(String.format("[%s] Indexing WoT members [OK]", currency));
+
+        return members;
     }
 
     /**
@@ -115,6 +234,6 @@ public class WotService extends AbstractService {
      */
     protected String safeGetCurrency(String currency) {
         if (StringUtils.isNotBlank(currency)) return currency;
-        return currencyDao.getDefaultCurrencyName();
+        return currencyDao.getDefaultId();
     }
 }

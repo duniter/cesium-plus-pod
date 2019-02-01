@@ -94,7 +94,7 @@ public class PeerServiceTest {
         peer2.getStats().setLastUpTime(peer1.getStats().getLastUpTime() - 150); // Set UP just before the peer 1
 
         // Save peers
-        localService.save(peer1.getCurrency(), ImmutableList.of(peer1, peer2), false);
+        localService.save(peer1.getCurrency(), ImmutableList.of(peer1, peer2));
 
         // Wait propagation
         Thread.sleep(2000);

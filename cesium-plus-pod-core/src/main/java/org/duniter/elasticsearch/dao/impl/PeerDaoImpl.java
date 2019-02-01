@@ -26,6 +26,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.bma.NetworkPeers;
+import org.duniter.core.client.model.bma.NetworkWs2pHeads;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.exception.TechnicalException;
@@ -45,7 +46,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.NestedQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -57,6 +57,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Created by blavenie on 29/12/15.
@@ -147,8 +148,9 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
     @Override
     public List<Peer> getPeersByCurrencyId(String currencyId) {
-        logger.warn("Calling method PeerSevice.getPeersByCurrencyId() may be unsafe, as it load all peers in memory. Applying workaround: return peer define in config.");
-        return ImmutableList.of(pluginSettings.checkAndGetPeer());
+        // Loading all peers in memory may be unsafe !
+        // Applying workaround: return only the Duniter peer defined in config.
+        return ImmutableList.of(pluginSettings.checkAndGetDuniterPeer());
     }
 
     @Override
@@ -212,6 +214,46 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
+    public List<NetworkWs2pHeads.Head> getWs2pPeersByCurrencyId(String currencyId, String[] pubkeys) {
+        Preconditions.checkNotNull(currencyId);
+
+        SearchRequestBuilder request = client.prepareSearch(currencyId)
+                .setTypes(TYPE)
+                .setSize(1000);
+
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+
+        // Query = filter on UP status
+        NestedQueryBuilder statusQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
+                QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
+        query.must(statusQuery);
+
+        // Filter on pubkeys
+        if (CollectionUtils.isNotEmpty(pubkeys)) {
+            BoolQueryBuilder pubkeysQuery = QueryBuilders.boolQuery();
+            pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
+            query.must(pubkeysQuery);
+        }
+
+        // Filter on WS2P api
+        if (CollectionUtils.isNotEmpty(pubkeys)) {
+            BoolQueryBuilder apiQuery = QueryBuilders.boolQuery();
+            apiQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_API, EndpointApi.WS2P.name()));
+            query.must(apiQuery);
+        }
+
+        request.setQuery(QueryBuilders.constantScoreQuery(query));
+
+        SearchResponse response = request.execute().actionGet();
+        return toList(response, Peer.class).stream()
+                .map(Peers::toWs2pHead)
+                // Skip if no message
+                .filter(head -> head.getMessage() != null)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean isExists(String currencyId, String peerId) {
         return client.isDocumentExists(currencyId, TYPE, peerId);
     }
@@ -256,7 +298,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     public void updatePeersAsDown(String currencyName, long upTimeLimitInSec, Collection<String> endpointApis) {
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] %s Setting peers as DOWN, if older than [%s]...", currencyName, endpointApis, new Date(upTimeLimitInSec*1000)));
+            logger.debug(String.format("[%s] %s Mark peers as DOWN when {last up time <= %s}...", currencyName, endpointApis, new Date(upTimeLimitInSec*1000)));
         }
 
         SearchRequestBuilder searchRequest = client.prepareSearch(currencyName)
@@ -274,9 +316,9 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         NestedQueryBuilder statsQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
                 QueryBuilders.boolQuery()
                         // lastUpTime < upTimeLimit
-                    .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
+                    .must(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
                         // status = UP
-                    .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
+                    .must(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
         query.must(statsQuery);
 
         searchRequest.setQuery(QueryBuilders.constantScoreQuery(query));
@@ -330,7 +372,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
             }
 
             if (counter > 0) {
-                logger.info(String.format("[%s] Updated %s peers status has DOWN", currencyName, counter));
+                logger.info(String.format("[%s] %s peers DOWN", currencyName, counter));
             }
 
         } catch (SearchPhaseExecutionException e) {

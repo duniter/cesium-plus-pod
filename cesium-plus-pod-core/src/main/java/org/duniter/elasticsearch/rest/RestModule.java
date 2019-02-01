@@ -27,6 +27,7 @@ import org.duniter.elasticsearch.rest.blockchain.*;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeeringGetAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPeersPostAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeersGetAction;
+import org.duniter.elasticsearch.rest.network.RestNetworkWs2pHeadsGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityAuthAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -54,12 +55,13 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestImageAttachmentAction.class).asEagerSingleton();
 
         // Currency
-        //bind(RestCurrencyIndexAction.class).asEagerSingleton();
+        //bind(RestCurrencyPostAction.class).asEagerSingleton();
 
         // Network
         bind(RestNetworkPeeringGetAction.class).asEagerSingleton();
         bind(RestNetworkPeeringPeersPostAction.class).asEagerSingleton();
         bind(RestNetworkPeersGetAction.class).asEagerSingleton();
+        bind(RestNetworkWs2pHeadsGetAction.class).asEagerSingleton();
 
         // Blockchain
         bind(RestBlockchainParametersGetAction.class).asEagerSingleton();
@@ -67,6 +69,7 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestBlockchainWithUdAction.class).asEagerSingleton();
         bind(RestBlockchainWithNewcomersAction.class).asEagerSingleton();
         bind(RestBlockchainBlocksGetAction.class).asEagerSingleton();
+        bind(RestBlockchainDifficultiesGetAction.class).asEagerSingleton();
 
         // Wot
         bind(RestWotLookupGetAction.class).asEagerSingleton();

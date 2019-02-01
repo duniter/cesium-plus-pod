@@ -163,7 +163,7 @@ public class NetworkService extends AbstractService {
 
     public boolean hasSomePeers(Set<EndpointApi> peerApiFilters) {
 
-        List<String> currencyIds = currencyDao.getCurrencyIds();
+        Set<String> currencyIds = currencyDao.getAllIds();
         if (CollectionUtils.isEmpty(currencyIds)) return false;
 
         for (String currencyId: currencyIds) {
@@ -266,6 +266,7 @@ public class NetworkService extends AbstractService {
             else {
                 List<Peer> configIncludedPeers = getConfigIncludesPeers(currency);
 
+                // TODO: review this code !
                 if (CollectionUtils.isNotEmpty(configIncludedPeers)) {
                     final long now = Math.round(System.currentTimeMillis() / 1000);
                     configIncludedPeers.stream().forEach(peer -> {
@@ -298,6 +299,58 @@ public class NetworkService extends AbstractService {
         }
 
     }
+
+    public List<NetworkWs2pHeads.Head> getWs2pHeads(String currency) {
+
+        // Retrieve the currency to use
+        currency = blockchainService.safeGetCurrency(currency);
+
+        List<NetworkWs2pHeads.Head> result = null;
+        try {
+
+            // Discovery enable: use index '/<currency>/peer'
+            if (pluginSettings.enableSynchroDiscovery()) {
+                result = peerDao.getWs2pPeersByCurrencyId(currency, null);
+            }
+
+            // Discovery disable, so get it from Duniter node
+            else {
+                List<Peer> configIncludedPeers = getConfigIncludesPeers(currency);
+
+                // TODO: review this code !
+                if (CollectionUtils.isNotEmpty(configIncludedPeers)) {
+                    final long now = Math.round(System.currentTimeMillis() / 1000);
+                    configIncludedPeers.stream().forEach(peer -> {
+                        try {
+                            NetworkPeering peering = networkRemoteService.getPeering(peer);
+                            peer.setPubkey(peering.getPubkey());
+                            peer.setCurrency(peering.getCurrency());
+                            Peer.Stats stats = peer.getStats();
+                            stats.setStatus(Peer.PeerStatus.UP);
+                            stats.setLastUpTime(now);
+                            String blockstamp = peering.getBlock();
+                            if (StringUtils.isNotBlank(blockstamp)) {
+                                String[] blockParts = blockstamp.split("-");
+                                stats.setBlockNumber(Integer.parseInt(blockParts[0]));
+                                stats.setBlockHash(blockParts[1]);
+                            }
+                        } catch(Exception e) {
+                            logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
+                        }
+                    });
+
+                    result = configIncludedPeers.stream().map(Peers::toWs2pHead).collect(Collectors.toList());
+                }
+            }
+            return result;
+        }
+        catch (Exception e) {
+            logger.error("Could not get peers (BMA format)", e);
+            return result;
+        }
+
+    }
+
 
     public boolean isEsNodeAliveAndValid(Peer peer) {
         Preconditions.checkNotNull(peer);
@@ -542,9 +595,9 @@ public class NetworkService extends AbstractService {
     }
 
     protected void publishPeerDocumentToNetwork() {
-        List<String> currencyIds;
+        Set<String> currencyIds;
         try {
-            currencyIds = currencyDao.getCurrencyIds();
+            currencyIds = currencyDao.getAllIds();
         }
         catch (Exception e) {
             logger.error("Could not retrieve indexed currencies", e);
