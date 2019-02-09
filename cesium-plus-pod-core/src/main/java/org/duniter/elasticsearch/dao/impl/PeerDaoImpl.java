@@ -185,12 +185,12 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
-    public List<NetworkPeers.Peer> getBmaPeersByCurrencyId(String currencyId, String[] pubkeys) {
+    public List<Peer> getUpPeersByCurrencyId(String currencyId, String[] includePubkeys) {
         Preconditions.checkNotNull(currencyId);
 
         SearchRequestBuilder request = client.prepareSearch(currencyId)
                 .setTypes(TYPE)
-                .setSize(1000);
+                .setSize(pluginSettings.getIndexBulkSize());
 
         BoolQueryBuilder query = QueryBuilders.boolQuery();
 
@@ -201,16 +201,15 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         query.must(statusQuery);
 
         // Filter on pubkeys
-        if (CollectionUtils.isNotEmpty(pubkeys)) {
+        if (CollectionUtils.isNotEmpty(includePubkeys)) {
             BoolQueryBuilder pubkeysQuery = QueryBuilders.boolQuery();
-            pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
+            pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, includePubkeys));
             query.must(pubkeysQuery);
         }
 
         request.setQuery(QueryBuilders.constantScoreQuery(query));
 
-        SearchResponse response = request.execute().actionGet();
-        return Peers.toBmaPeers(toList(response, Peer.class));
+        return toList(request, Peer.class);
     }
 
     @Override
@@ -452,36 +451,6 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     .field("index", "not_analyzed")
                     .endObject()
 
-                    // peering
-                    .startObject(Peer.PROPERTY_PEERING)
-                    .field("type", "nested")
-                    //.field("dynamic", "false")
-                    .startObject("properties")
-
-                        // peering.version
-                        .startObject(Peer.Peering.PROPERTY_VERSION)
-                        .field("type", "string")
-                        .endObject()
-
-                        // peering.blockNumber
-                        .startObject(Peer.Peering.PROPERTY_BLOCK_NUMBER)
-                        .field("type", "integer")
-                        .endObject()
-
-                        // peering.blockHash
-                        .startObject(Peer.Peering.PROPERTY_BLOCK_HASH)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
-
-                        // peering.signature
-                        .startObject(Peer.Peering.PROPERTY_SIGNATURE)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
-
-                    .endObject()
-
                     // stats
                     .startObject(Peer.PROPERTY_STATS)
                     .field("type", "nested")
@@ -555,6 +524,37 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                         // stats.lastUP
                         .startObject(Peer.Stats.PROPERTY_LAST_UP_TIME)
                         .field("type", "integer")
+                        .endObject()
+
+                    .endObject()
+                    .endObject()
+
+                    // peering
+                    .startObject(Peer.PROPERTY_PEERING)
+                    .field("type", "nested")
+                    //.field("dynamic", "false")
+                    .startObject("properties")
+
+                        // peering.version
+                        .startObject(Peer.Peering.PROPERTY_VERSION)
+                        .field("type", "string")
+                        .endObject()
+
+                        // peering.blockNumber
+                        .startObject(Peer.Peering.PROPERTY_BLOCK_NUMBER)
+                        .field("type", "integer")
+                        .endObject()
+
+                        // peering.blockHash
+                        .startObject(Peer.Peering.PROPERTY_BLOCK_HASH)
+                        .field("type", "string")
+                        .field("index", "not_analyzed")
+                        .endObject()
+
+                        // peering.signature
+                        .startObject(Peer.Peering.PROPERTY_SIGNATURE)
+                        .field("type", "string")
+                        .field("index", "not_analyzed")
                         .endObject()
 
                     .endObject()

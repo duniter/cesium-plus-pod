@@ -37,6 +37,7 @@ import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.search.SearchHit;
@@ -47,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -91,9 +93,7 @@ public abstract class AbstractDao implements Bean {
     }
 
     protected <C> List<C> toList(SearchResponse response, final Function<SearchHit, C> mapper) {
-
         if (response.getHits() == null || response.getHits().getTotalHits() == 0) return null;
-
         return Arrays.stream(response.getHits().getHits())
                 .map(hit -> mapper.apply(hit))
                 .filter(Objects::nonNull)
@@ -101,25 +101,48 @@ public abstract class AbstractDao implements Bean {
     }
 
     protected Stream<SearchHit> toStream(SearchResponse response) {
-
         if (response.getHits() == null || response.getHits().getTotalHits() == 0) return Stream.empty();
-
         return Arrays.stream(response.getHits().getHits());
     }
 
     protected <C extends LocalEntity<String>> List<C> toList(SearchResponse response, Class<? extends C> clazz) {
-        ObjectMapper objectMapper = getObjectMapper();
+        final ObjectMapper objectMapper = getObjectMapper();
+        return toList(response, hit -> readValueOrNull(objectMapper, hit, clazz));
+    }
 
-        return toList(response, hit -> {
-            try {
-                return objectMapper.readValue(hit.getSourceRef().streamInput(), clazz);
+    protected <C extends LocalEntity<String>> List<C> toList(SearchRequestBuilder request, Class<? extends C> clazz) {
 
-            }
-            catch(IOException e) {
-                logger.warn(String.format("Unable to deserialize source [%s/%s/%s] into [%s]: %s", hit.getIndex(), hit.getType(), hit.getId(), clazz.getName(), e.getMessage()));
-                return null;
-            }
-        });
+        final List<C> result = Lists.newArrayList();
+        final ObjectMapper objectMapper = getObjectMapper();
+
+        int size = this.pluginSettings.getIndexBulkSize();
+        request.setSize(size);
+
+        long total = -1;
+        int from = 0;
+        do {
+            request.setFrom(from);
+            SearchResponse response = request.execute().actionGet();
+            toStream(response)
+                    .map(hit -> readValueOrNull(objectMapper, hit, clazz))
+                    .filter(Objects::nonNull)
+                    .forEach(result::add);
+
+            if (total == -1) total = response.getHits().getTotalHits();
+            from += size;
+        } while(from<total);
+
+        return result;
+    }
+
+    protected <C> C readValueOrNull(ObjectMapper objectMapper, SearchHit hit, Class<C> clazz) {
+        try {
+            return objectMapper.readValue(hit.getSourceRef().streamInput(), clazz);
+        }
+        catch(IOException e) {
+            logger.warn(String.format("Unable to deserialize source [%s/%s/%s] into [%s]: %s", hit.getIndex(), hit.getType(), hit.getId(), clazz.getName(), e.getMessage()));
+            return null;
+        }
     }
 
     protected Set<String> executeAndGetIds(SearchResponse response) {

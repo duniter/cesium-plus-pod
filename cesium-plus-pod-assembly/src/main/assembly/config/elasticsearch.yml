@@ -130,8 +130,8 @@ duniter.blockchain.enable: true
 #
 # Enabling blockchain user event indexation ? (default: ${duniter.blockchain.enable})
 #
-#duniter.blockchain.event.user.enable: false
-#duniter.blockchain.event.admin.enable: false
+# duniter.blockchain.event.user.enable: false
+# duniter.blockchain.event.admin.enable: false
 #
 # Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
 #
@@ -161,7 +161,7 @@ duniter.port: 10901
 #
 # duniter.software.name: cesium-plus-pod
 #
-# ---------------------------------- Cesium+ Pod >  security module -------------------
+# ---------------------------------- Cesium+ Pod > security module -------------------
 #
 # Keyring, use to sign emitted documents (user events, subscription, etc.).
 # If not set, random keys will be generated.
@@ -213,7 +213,7 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.p2p.peering.enable: false
 #
-# Define targeted API (for peers slection) where to send the peer document (if peering is enable). (Default: ["ES_CORE_API"])
+# Define targeted API (for peers selection) where to send the peer document (if peering is enable). (Default: ["ES_CORE_API"])
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
 #
 # duniter.p2p.peering.targetedApis: [

@@ -23,6 +23,7 @@ package org.duniter.elasticsearch.service;
  */
 
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -49,11 +50,12 @@ import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
+import javax.websocket.Endpoint;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -254,48 +256,51 @@ public class NetworkService extends AbstractService {
         // Retrieve the currency to use
         currency = blockchainService.safeGetCurrency(currency);
 
-        List<NetworkPeers.Peer> result = null;
+        final List<Peer> peers = Lists.newArrayList();
         try {
 
             // Discovery enable: use index '/<currency>/peer'
             if (pluginSettings.enableSynchroDiscovery()) {
-                result = peerDao.getBmaPeersByCurrencyId(currency, null);
+                peers.addAll(peerDao.getUpPeersByCurrencyId(currency, null));
             }
 
             // Discovery disable, so get it from Duniter node
             else {
                 List<Peer> configIncludedPeers = getConfigIncludesPeers(currency);
-
-                // TODO: review this code !
                 if (CollectionUtils.isNotEmpty(configIncludedPeers)) {
-                    final long now = Math.round(System.currentTimeMillis() / 1000);
-                    configIncludedPeers.stream().forEach(peer -> {
-                        try {
-                            NetworkPeering peering = networkRemoteService.getPeering(peer);
-                            peer.setPubkey(peering.getPubkey());
-                            peer.setCurrency(peering.getCurrency());
-                            Peer.Stats stats = peer.getStats();
-                            stats.setStatus(Peer.PeerStatus.UP);
-                            stats.setLastUpTime(now);
-                            String blockstamp = peering.getBlock();
-                            if (StringUtils.isNotBlank(blockstamp)) {
-                                String[] blockParts = blockstamp.split("-");
-                                stats.setBlockNumber(Integer.parseInt(blockParts[0]));
-                                stats.setBlockHash(blockParts[1]);
-                            }
-                        } catch(Exception e) {
-                            logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
-                        }
-                    });
-
-                    result = Peers.toBmaPeers(configIncludedPeers);
+                    configIncludedPeers.stream()
+                            // Update config peers, by calling /network/peering
+                            .map(this::updatePeering)
+                            // Filter on UP peers
+                            .filter(Peers::isReacheable)
+                            .forEach(peer -> peers.add(peer));
                 }
             }
-            return result;
+
+            // Add the pod itself
+            if (StringUtils.isNotBlank(pluginSettings.getClusterRemoteHost())) {
+                NetworkPeering peering = getPeering(currency, true);
+                if (peering != null) {
+
+                    Stream.of(peering.getEndpoints())
+                        .forEach(ep -> {
+                            Peer peerEndpoint = Peer.newBuilder()
+                                    .setDns(pluginSettings.getClusterRemoteHost())
+                                    .setPort(pluginSettings.getClusterRemotePort())
+                                    .setUseSsl(pluginSettings.getClusterRemoteUseSsl())
+                                    .setEndpoint(ep)
+                                    .build();
+                            Peers.setPeeringAndStats(peerEndpoint, peering);
+                            peers.add(peerEndpoint);
+                        });
+                }
+            }
+
+            return Peers.toBmaPeers(peers);
         }
         catch (Exception e) {
             logger.error("Could not get peers (BMA format)", e);
-            return result;
+            return null;
         }
 
     }
@@ -317,29 +322,16 @@ public class NetworkService extends AbstractService {
             else {
                 List<Peer> configIncludedPeers = getConfigIncludesPeers(currency);
 
-                // TODO: review this code !
                 if (CollectionUtils.isNotEmpty(configIncludedPeers)) {
-                    final long now = Math.round(System.currentTimeMillis() / 1000);
-                    configIncludedPeers.stream().forEach(peer -> {
-                        try {
-                            NetworkPeering peering = networkRemoteService.getPeering(peer);
-                            peer.setPubkey(peering.getPubkey());
-                            peer.setCurrency(peering.getCurrency());
-                            Peer.Stats stats = peer.getStats();
-                            stats.setStatus(Peer.PeerStatus.UP);
-                            stats.setLastUpTime(now);
-                            String blockstamp = peering.getBlock();
-                            if (StringUtils.isNotBlank(blockstamp)) {
-                                String[] blockParts = blockstamp.split("-");
-                                stats.setBlockNumber(Integer.parseInt(blockParts[0]));
-                                stats.setBlockHash(blockParts[1]);
-                            }
-                        } catch(Exception e) {
-                            logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
-                        }
-                    });
 
-                    result = configIncludedPeers.stream().map(Peers::toWs2pHead).collect(Collectors.toList());
+                    result = configIncludedPeers.stream()
+                            // Update config peers, by calling /network/peering
+                            .map(this::updatePeering)
+                            .filter(Peers::isReacheable)
+                            // Convert peer into WS2P head
+                            // FIXME: miss message & signature fields !
+                            .map(Peers::toWs2pHead).collect(Collectors.toList())
+                        ;
                 }
             }
             return result;
@@ -665,4 +657,17 @@ public class NetworkService extends AbstractService {
         Preconditions.checkNotNull(apis);
         apis.forEach(this::addPublishEndpointApi);
     }
+
+    protected Peer updatePeering(Peer peer)  {
+        try {
+            NetworkPeering peering = networkRemoteService.getPeering(peer);
+            Peers.setPeeringAndStats(peer, peering);
+        } catch(Exception e) {
+            logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
+            peer.getStats().setStatus(Peer.PeerStatus.DOWN);
+        }
+        return peer;
+    }
+
+
 }
