@@ -33,4 +33,11 @@ public interface CurrencyExtendDao extends CurrencyDao, IndexTypeDao<CurrencyExt
 
 
     String getDefaultId();
+
+    /**
+     * Update the currency member count
+     * @param currency
+     * @param memberCount
+     */
+    void updateMemberCount(String currency, int memberCount);
 }

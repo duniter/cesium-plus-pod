@@ -92,6 +92,7 @@ public class BlockchainService extends AbstractService {
     private static Map<String, BlockchainParameters> blockchainParametersCurrencyId = new ConcurrentHashMap<>();
     private BlockDao blockDao;
     private CurrencyExtendDao currencyDao;
+    private PeerService peerService;
 
     @Inject
     public BlockchainService(Duniter4jClient client,
@@ -99,11 +100,13 @@ public class BlockchainService extends AbstractService {
                              ThreadPool threadPool,
                              BlockDao blockDao,
                              CurrencyDao currencyDao,
+                             PeerService peerService,
                              final ServiceLocator serviceLocator){
         super("duniter.blockchain", client, settings);
         this.client = client;
         this.blockDao = blockDao;
         this.currencyDao = (CurrencyExtendDao) currencyDao;
+        this.peerService = peerService;
         threadPool.scheduleOnStarted(() -> {
             blockchainRemoteService = serviceLocator.getBlockchainRemoteService();
             setIsReady(true);
@@ -163,14 +166,7 @@ public class BlockchainService extends AbstractService {
         long timeStart = System.currentTimeMillis();
 
         try {
-            // Get the blockchain name from node
-            BlockchainParameters parameter = blockchainRemoteService.getParameters(peer);
-            if (parameter == null) {
-                progressionModel.setStatus(ProgressionModel.Status.FAILED);
-                logger.error(I18n.t("duniter4j.blockIndexerService.indexLastBlocks.remoteParametersError",peer));
-                return this;
-            }
-            String currencyName = parameter.getCurrency();
+            String currencyName = peerService.getCurrency(peer);
 
             progressionModel.setTask(I18n.t("duniter4j.blockIndexerService.indexLastBlocks.task", currencyName, peer));
             logger.info(I18n.t("duniter4j.blockIndexerService.indexLastBlocks.task", currencyName, peer));
@@ -276,14 +272,7 @@ public class BlockchainService extends AbstractService {
         long timeStart = System.currentTimeMillis();
 
         try {
-            // Get the blockchain name from node
-            BlockchainParameters parameter = blockchainRemoteService.getParameters(peer);
-            if (parameter == null) {
-                progressionModel.setStatus(ProgressionModel.Status.FAILED);
-                logger.error(I18n.t("duniter4j.blockIndexerService.indexBlocksRange.remoteParametersError",peer));
-                return this;
-            }
-            String currencyName = parameter.getCurrency();
+            String currencyName = peerService.getCurrency(peer);
 
             progressionModel.setTask(I18n.t("duniter4j.blockIndexerService.indexBlocksRange.task", currencyName, peer, firstNumber, lastNumber));
             logger.info(I18n.t("duniter4j.blockIndexerService.indexBlocksRange.task", currencyName, peer, firstNumber, lastNumber));
@@ -566,7 +555,7 @@ public class BlockchainService extends AbstractService {
         Set<String> missingBlockNumbers = new LinkedHashSet<>();
 
         for (int curNumber = firstNumber; curNumber <= lastNumber; curNumber++) {
-            if (curNumber != 0 && curNumber % 1000 == 0) {
+            if (curNumber != 0 && curNumber % 10000 == 0) {
 
                 // Check is stopped
                 if (progressionModel.isCancel()) {
@@ -851,7 +840,7 @@ public class BlockchainService extends AbstractService {
     }
 
     private void reportIndexBlocksProgress(ProgressionModel progressionModel, String currencyName, Peer peer, int firstNumber, int lastNumber, int curNumber) {
-        int pct = (curNumber - firstNumber) * 100 / (lastNumber - firstNumber);
+        int pct = Math.min((curNumber - firstNumber) * 100 / (lastNumber - firstNumber), 100);
         progressionModel.setCurrent(pct);
 
         progressionModel.setMessage(I18n.t("duniter4j.blockIndexerService.indexLastBlocks.progress", currencyName, peer, curNumber, lastNumber, pct));
@@ -867,9 +856,7 @@ public class BlockchainService extends AbstractService {
         // Check if previous block exists
         BlockchainBlock block = getBlockById(currencyName, number);
         boolean blockExists = block != null;
-        if (!blockExists) {
-            return blockExists;
-        }
+        if (!blockExists) return false;
         return ObjectUtils.equals(block.getHash(), hash);
     }
 

@@ -256,12 +256,12 @@ public class NetworkService extends AbstractService {
         // Retrieve the currency to use
         currency = blockchainService.safeGetCurrency(currency);
 
-        final List<Peer> peers = Lists.newArrayList();
+        final List<Peer> endpointsAsPeer = Lists.newArrayList();
         try {
 
             // Discovery enable: use index '/<currency>/peer'
             if (pluginSettings.enableSynchroDiscovery()) {
-                peers.addAll(peerDao.getUpPeersByCurrencyId(currency, null));
+                endpointsAsPeer.addAll(peerDao.getUpPeersByCurrencyId(currency, null));
             }
 
             // Discovery disable, so get it from Duniter node
@@ -273,7 +273,7 @@ public class NetworkService extends AbstractService {
                             .map(this::updatePeering)
                             // Filter on UP peers
                             .filter(Peers::isReacheable)
-                            .forEach(peer -> peers.add(peer));
+                            .forEach(peer -> endpointsAsPeer.add(peer));
                 }
             }
 
@@ -281,22 +281,22 @@ public class NetworkService extends AbstractService {
             if (StringUtils.isNotBlank(pluginSettings.getClusterRemoteHost())) {
                 NetworkPeering peering = getPeering(currency, true);
                 if (peering != null) {
-
-                    Stream.of(peering.getEndpoints())
-                        .forEach(ep -> {
-                            Peer peerEndpoint = Peer.newBuilder()
+                    List<Peer> clusterEndpoints = Stream.of(peering.getEndpoints())
+                        .map(ep -> Peer.newBuilder()
                                     .setDns(pluginSettings.getClusterRemoteHost())
                                     .setPort(pluginSettings.getClusterRemotePort())
                                     .setUseSsl(pluginSettings.getClusterRemoteUseSsl())
                                     .setEndpoint(ep)
-                                    .build();
-                            Peers.setPeeringAndStats(peerEndpoint, peering);
-                            peers.add(peerEndpoint);
-                        });
+                                    .setPubkey(peering.getPubkey())
+                                    .setPeering(peering)
+                                    .setStats(peering)
+                                    .build()
+                        ).collect(Collectors.toList());
+                    endpointsAsPeer.addAll(clusterEndpoints);
                 }
             }
 
-            return Peers.toBmaPeers(peers);
+            return Peers.toBmaPeers(endpointsAsPeer);
         }
         catch (Exception e) {
             logger.error("Could not get peers (BMA format)", e);
@@ -410,7 +410,7 @@ public class NetworkService extends AbstractService {
             currency = currentBlock.getCurrency();
         }
 
-        result.setVersion(Protocol.VERSION);
+        result.setVersion(Integer.valueOf(Protocol.PEER_VERSION));
         result.setCurrency(currency);
         result.setBlock(String.format("%s-%s", currentBlock.getNumber(), currentBlock.getHash()));
         result.setPubkey(pluginSettings.getNodePubkey());
@@ -418,17 +418,17 @@ public class NetworkService extends AbstractService {
 
         // Add endpoints
         if (CollectionUtils.isNotEmpty(publishedEndpointApis)) {
-            List<NetworkPeering.Endpoint> endpoints = Lists.newArrayList();
-            for (EndpointApi endpointApi: publishedEndpointApis) {
-                NetworkPeering.Endpoint ep = new NetworkPeering.Endpoint();
-                ep.setDns(pluginSettings.getClusterRemoteHost());
-                ep.setApi(endpointApi);
-                ep.setPort(pluginSettings.getClusterRemotePort());
-                endpoints.add(ep);
-            }
+            List<NetworkPeering.Endpoint> endpoints = publishedEndpointApis.stream()
+                    .map(endpointApi -> {
+                        NetworkPeering.Endpoint ep = new NetworkPeering.Endpoint();
+                        ep.setDns(pluginSettings.getClusterRemoteHost());
+                        ep.setApi(endpointApi);
+                        ep.setPort(pluginSettings.getClusterRemotePort());
+                        return ep;
+                    })
+                    .collect(Collectors.toList());
             result.setEndpoints(endpoints.toArray(new NetworkPeering.Endpoint[endpoints.size()]));
         }
-
 
         // Compute raw, then sign it
         String raw = result.toString();
@@ -661,7 +661,8 @@ public class NetworkService extends AbstractService {
     protected Peer updatePeering(Peer peer)  {
         try {
             NetworkPeering peering = networkRemoteService.getPeering(peer);
-            Peers.setPeeringAndStats(peer, peering);
+            Peers.setPeering(peer, peering);
+            Peers.setStats(peer, peering);
         } catch(Exception e) {
             logger.error(String.format("[%s] Error while getting peering document: %s", peer, e.getMessage()), e);
             peer.getStats().setStatus(Peer.PeerStatus.DOWN);

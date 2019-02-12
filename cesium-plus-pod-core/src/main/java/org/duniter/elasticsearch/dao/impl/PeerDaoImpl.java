@@ -315,14 +315,16 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         NestedQueryBuilder statsQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
                 QueryBuilders.boolQuery()
                         // lastUpTime < upTimeLimit
-                    .must(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lte(upTimeLimitInSec))
+                    .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lt(upTimeLimitInSec))
                         // status = UP
-                    .must(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
+                    .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
         query.must(statsQuery);
 
         searchRequest.setQuery(QueryBuilders.constantScoreQuery(query));
 
         BulkRequestBuilder bulkRequest = client.prepareBulk();
+
+        long firstDownTime = System.currentTimeMillis();
 
         // Execute query, while there is some data
         try {
@@ -343,7 +345,10 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     // Add deletion to bulk
                     bulkRequest.add(
                             client.prepareUpdate(currencyName, TYPE, searchHit.getId())
-                            .setDoc(String.format("{\"%s\": {\"%s\": \"%s\"}}", Peer.PROPERTY_STATS, Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.DOWN.name()).getBytes())
+                            .setDoc(String.format("{\"%s\": {\"%s\": \"%s\", \"%s\": %s}}", Peer.PROPERTY_STATS,
+                                    Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.DOWN.name(),
+                                    Peer.Stats.PROPERTY_FIRST_DOWN_TIME, firstDownTime
+                            ).getBytes())
                     );
                     counter++;
 
@@ -521,10 +526,16 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                         .field("index", "not_analyzed")
                         .endObject()
 
-                        // stats.lastUP
+                        // stats.lastUpTime
                         .startObject(Peer.Stats.PROPERTY_LAST_UP_TIME)
-                        .field("type", "integer")
+                        .field("type", "long")
                         .endObject()
+
+                        // stats.firstDownTime
+                        .startObject(Peer.Stats.PROPERTY_FIRST_DOWN_TIME)
+                        .field("type", "long")
+                        .endObject()
+
 
                     .endObject()
                     .endObject()
@@ -553,6 +564,12 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
                         // peering.signature
                         .startObject(Peer.Peering.PROPERTY_SIGNATURE)
+                        .field("type", "string")
+                        .field("index", "not_analyzed")
+                        .endObject()
+
+                        // peering.raw
+                        .startObject(Peer.Peering.PROPERTY_RAW)
                         .field("type", "string")
                         .field("index", "not_analyzed")
                         .endObject()

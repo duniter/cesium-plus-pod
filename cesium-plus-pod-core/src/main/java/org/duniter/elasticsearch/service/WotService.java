@@ -222,6 +222,9 @@ public class WotService extends AbstractService {
             memberDao.updateAsWasMember(currency, wasMemberPubkeys);
         }
 
+        // Update currency member count
+        currencyDao.updateMemberCount(currency, members.size());
+
         logger.info(String.format("[%s] Indexing WoT members [OK]", currency));
 
         return members;

@@ -41,6 +41,7 @@ import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.exception.AccessDeniedException;
+import org.duniter.elasticsearch.exception.DocumentNotFoundException;
 import org.duniter.elasticsearch.exception.DuplicateIndexIdException;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
@@ -114,28 +115,29 @@ public class CurrencyService extends AbstractService {
      * @return the created blockchain
      */
     public Currency indexCurrencyFromPeer(Peer peer, boolean autoReconnect) {
+
         if (!autoReconnect) {
             return indexCurrencyFromPeer(peer);
         }
 
-        while(true) {
+        while (true) {
             try {
                 return indexCurrencyFromPeer(peer);
-            } catch (HttpConnectException | HttpTimeoutException e) {
+            } catch (HttpConnectException | HttpTimeoutException | DocumentNotFoundException e) {
                 // log then retry
                 logger.warn(String.format("[%s] Unable to connect. Retrying in 10s...", peer.toString()));
             }
 
             try {
                 Thread.sleep(10 * 1000); // wait 10s
-            } catch(Exception e) {
+            } catch (Exception e) {
                 throw new TechnicalException(e);
             }
         }
     }
 
     /**
-     * Retrieve the blockchain data, from peer
+     * Add a new currency record, from a peer(by getting blockchain parameters)
      *
      * @param peer
      * @return the created blockchain
@@ -145,11 +147,23 @@ public class CurrencyService extends AbstractService {
         waitReady();
 
         BlockchainParameters parameters = blockchainRemoteService.getParameters(peer);
+        Currency result;
+
+        // Check not already existing
+        String currency = parameters.getCurrency();
+        if (currencyDao.isExists(currency)) {
+            result = (Currency)currencyDao.getById(currency);
+            if (result == null) {
+                throw new DocumentNotFoundException(String.format("Currency {%s} not found. Cluster may be not fully started..."));
+            }
+            return result;
+        }
+
         BlockchainBlock firstBlock = blockchainRemoteService.getBlock(peer, 0l);
         BlockchainBlock currentBlock = blockchainRemoteService.getCurrentBlock(peer);
         Long lastUD = blockchainRemoteService.getLastUD(peer);
 
-        Currency result = new Currency();
+        result = new Currency();
         result.setId(parameters.getCurrency());
         result.setFirstBlockSignature(firstBlock.getSignature());
         result.setMembersCount(currentBlock.getMembersCount());
@@ -160,6 +174,11 @@ public class CurrencyService extends AbstractService {
         save(result);
 
         return result;
+    }
+
+    public void updateMemberCount(String currency, int memberCount){
+
+        this.currencyDao.updateMemberCount(currency, memberCount);
     }
 
     /**

@@ -26,6 +26,17 @@
   <dependencies>
     <dependency>
       <groupId>org.duniter</groupId>
+      <artifactId>duniter4j-core-shared</artifactId>
+      <version>${duniter4j.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>javax.websocket</groupId>
+          <artifactId>javax.websocket-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.duniter</groupId>
       <artifactId>duniter4j-core-client</artifactId>
       <version>${duniter4j.version}</version>
       <exclusions>
@@ -57,6 +68,10 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
       <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jcl-over-slf4j</artifactId>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>

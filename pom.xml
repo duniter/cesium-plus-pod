@@ -29,7 +29,7 @@
     <signatureVersion>1.0</signatureVersion>
 
     <!-- Commons versions -->
-    <duniter4j.version>1.2.9</duniter4j.version>
+    <duniter4j.version>1.2.10</duniter4j.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.6</slf4j.version>
     <guava.version>22.0</guava.version>
@@ -160,11 +160,6 @@
     <dependencies>
       <dependency>
         <groupId>org.duniter</groupId>
-        <artifactId>duniter4j-core-shared</artifactId>
-        <version>${duniter4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.duniter</groupId>
         <artifactId>duniter4j-core-client</artifactId>
         <version>${duniter4j.version}</version>
       </dependency>
@@ -182,6 +177,11 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-log4j12</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>jcl-over-slf4j</artifactId>
         <version>${slf4j.version}</version>
       </dependency>
       <dependency>

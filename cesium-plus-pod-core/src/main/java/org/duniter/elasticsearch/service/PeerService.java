@@ -31,9 +31,11 @@ import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.local.NetworkService;
+import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
@@ -98,21 +100,28 @@ public class PeerService extends AbstractService  {
         delegate.setCurrencyMainPeer(currency, peer);
     }
 
+    public String getCurrency(Peer peer) {
+        if (peer.getCurrency() != null) return peer.getCurrency();
+
+        // Get the blockchain name from node
+        BlockchainParameters parameter = blockchainRemoteService.getParameters(peer);
+        if (parameter == null) {
+            throw new TechnicalException(I18n.t("duniter4j.es.networkService.indexPeers.remoteParametersError", peer));
+        }
+        String currency = parameter.getCurrency();
+        peer.setCurrency(currency);
+
+        return currency;
+
+    }
+
     public PeerService indexPeers(Peer peer) {
+        Preconditions.checkNotNull(peer);
 
         try {
-            // Get the blockchain name from node
-            BlockchainParameters parameter = blockchainRemoteService.getParameters(peer);
-            if (parameter == null) {
-                logger.error(I18n.t("duniter4j.es.networkService.indexPeers.remoteParametersError", peer));
-                return this;
-            }
-            String currency = parameter.getCurrency();
-
-            indexPeers(currency, peer);
-
+            indexPeers(getCurrency(peer), peer);
         } catch(Exception e) {
-            logger.error("Error during indexAllPeers: " + e.getMessage(), e);
+            logger.error("Error during indexPeers: " + e.getMessage(), e);
         }
 
         return this;
@@ -146,7 +155,7 @@ public class PeerService extends AbstractService  {
             delegate.updatePeersAsDown(currency, filterDef.filterEndpoints);
             logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
         } catch(Exception e) {
-            logger.error("Error during indexBlocksFromNode: " + e.getMessage(), e);
+            logger.error("Error during indexPeers: " + e.getMessage(), e);
         }
 
         return this;
@@ -192,13 +201,8 @@ public class PeerService extends AbstractService  {
     }
 
     public void listenAndIndexPeers(final Peer mainPeer) {
-        // Get the blockchain name from node
-        BlockchainParameters parameter = blockchainRemoteService.getParameters(mainPeer);
-        if (parameter == null) {
-            logger.error(I18n.t("duniter4j.es.networkService.indexPeers.remoteParametersError", mainPeer));
-            return;
-        }
-        String currency = parameter.getCurrency();
+        Preconditions.checkNotNull(mainPeer);
+        String currency = getCurrency(mainPeer);
 
         // Default filter
         NetworkService.Filter filterDef = new NetworkService.Filter();

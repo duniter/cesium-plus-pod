@@ -58,7 +58,7 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
-    public org.duniter.core.client.model.local.Currency create(final org.duniter.core.client.model.local.Currency currency) {
+    public Currency create(final Currency currency) {
 
         try {
 
@@ -83,7 +83,7 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
-    public org.duniter.core.client.model.local.Currency update(final org.duniter.core.client.model.local.Currency currency) {
+    public Currency update(final Currency currency) {
         try {
 
             if (currency instanceof org.duniter.core.client.model.elasticsearch.Currency) {
@@ -110,7 +110,15 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
-    public void remove(final org.duniter.core.client.model.local.Currency currency) {
+    public void updateMemberCount(final String currency, int memberCount) {
+        client.prepareUpdate(INDEX, RECORD_TYPE, currency)
+                .setDoc(String.format("{\"%s\": %s}", Currency.PROPERTY_MEMBER_COUNT,
+                        memberCount
+                ).getBytes()).execute().actionGet();
+    }
+
+    @Override
+    public void remove(final Currency currency) {
         Preconditions.checkNotNull(currency);
         Preconditions.checkArgument(StringUtils.isNotBlank(currency.getId()));
 
@@ -119,8 +127,10 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
-    public org.duniter.core.client.model.local.Currency getById(String currencyId) {
-        return client.getSourceByIdOrNull(INDEX, RECORD_TYPE, currencyId, org.duniter.core.client.model.elasticsearch.Currency.class);
+    public Currency getById(String currencyId) {
+        org.duniter.core.client.model.elasticsearch.Currency result = client.getSourceById(INDEX, RECORD_TYPE, currencyId, org.duniter.core.client.model.elasticsearch.Currency.class);
+        result.setId(currencyId);
+        return result;
     }
 
     @Override
@@ -149,7 +159,7 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
 
     @Override
     public long getLastUD(String currencyId) {
-        org.duniter.core.client.model.local.Currency currency = getById(currencyId);
+        Currency currency = getById(currencyId);
         if (currency == null) {
             return -1;
         }
@@ -178,29 +188,24 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
                     .startObject(RECORD_TYPE)
                     .startObject("properties")
 
-                    // currency
-                    .startObject("currency")
-                    .field("type", "string")
-                    .endObject()
-
                     // firstBlockSignature
-                    .startObject("firstBlockSignature")
+                    .startObject(Currency.PROPERTY_FIRST_BLOCK_SIGNATURE)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
 
                     // member count
-                    .startObject("membersCount")
-                    .field("type", "long")
+                    .startObject(Currency.PROPERTY_MEMBER_COUNT)
+                    .field("type", "integer")
                     .endObject()
 
                     // lastUD
-                    .startObject("lastUD")
+                    .startObject(Currency.PROPERTY_LAST_UD)
                     .field("type", "long")
                     .endObject()
 
                     // unitbase
-                    .startObject("unitbase")
+                    .startObject(Currency.PROPERTY_UNITBASE)
                     .field("type", "integer")
                     .endObject()
 
