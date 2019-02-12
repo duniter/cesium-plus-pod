@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.dao;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -93,7 +94,7 @@ public abstract class AbstractDao implements Bean {
     }
 
     protected <C> List<C> toList(SearchResponse response, final Function<SearchHit, C> mapper) {
-        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return null;
+        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return ImmutableList.of();
         return Arrays.stream(response.getHits().getHits())
                 .map(hit -> mapper.apply(hit))
                 .filter(Objects::nonNull)
