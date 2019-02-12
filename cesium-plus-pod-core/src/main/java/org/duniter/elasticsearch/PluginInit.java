@@ -157,7 +157,6 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Define the main peer for this currency (will fill a cache in PeerService)
             injector.getInstance(PeerService.class)
-                    .updateMapping(currencyId)
                     .setCurrencyMainPeer(currencyId, peer);
 
             // Add access security rules, for the currency indices

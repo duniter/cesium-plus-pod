@@ -321,7 +321,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
-        long firstDownTime = System.currentTimeMillis();
+        int firstDownTime = Math.round(System.currentTimeMillis() / 1000);
 
         // Execute query, while there is some data
         try {
@@ -541,12 +541,12 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
                     // stats.lastUpTime
                     .startObject(Peer.Stats.PROPERTY_LAST_UP_TIME)
-                    .field("type", "long")
+                    .field("type", "integer")
                     .endObject()
 
                     // stats.firstDownTime
                     .startObject(Peer.Stats.PROPERTY_FIRST_DOWN_TIME)
-                    .field("type", "long")
+                    .field("type", "integer")
                     .endObject()
 
 
@@ -599,61 +599,5 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         }
     }
 
-    @Override
-    public void updateMapping(String currency) {
-        if (!needMappingUpdate(currency)) return; // Skip if not need update
 
-        if (client.admin().indices().prepareExists(currency).execute().actionGet().isExists()) {
-            client.admin().indices().prepareClose(currency).execute().actionGet();
-            client.admin().indices().prepareUpdateSettings(currency).setSettings(pluginSettings.getSettings()).execute().actionGet();
-            client.admin().indices().prepareOpen(currency).execute().actionGet();
-
-            try {
-                XContentBuilder mapping = XContentFactory.jsonBuilder().startObject();
-                startTypeMappingProperties(mapping);
-                mapping.endObject();
-                client.admin().indices().preparePutMapping(currency).setType(TYPE).setUpdateAllTypes(true).setSource(mapping).execute().actionGet();
-            }catch(IOException e) {
-                throw new TechnicalException("Error while getting mapping for peer index: " + e.getMessage(), e);
-            }
-        } else {
-            client.admin().indices().prepareCreate(currency).addMapping(TYPE, createTypeMapping()).setSettings(pluginSettings.getSettings()).execute().actionGet();
-        }
-    }
-
-    protected boolean needMappingUpdate(String currency) {
-
-        if (!client.existsIndex(currency)) return false;
-
-        boolean needUpdate = false;
-
-        GetFieldMappingsResponse response = client.admin().indices().prepareGetFieldMappings(currency).setTypes(TYPE, OLD_TYPE)
-                .setFields(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME,
-                        Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME)
-                .execute().actionGet();
-
-        GetFieldMappingsResponse.FieldMappingMetaData fieldMeta = null;
-        fieldMeta = response.fieldMappings(currency, TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
-
-        // New index not found: check old index
-        if (fieldMeta == null) {
-            // Check 'lastUpTime' has a long type
-            fieldMeta = response.fieldMappings(currency, OLD_TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
-            if (fieldMeta != null) {
-                Map<String, Object> fieldMapping = (Map<String, Object>) fieldMeta.sourceAsMap().get(Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
-                String fieldType = (String) fieldMapping.get("type");
-                needUpdate = !"long".equals(fieldType);
-            }
-
-            // Check 'lastUpTime' has a long type
-            fieldMeta = response.fieldMappings(currency, OLD_TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME);
-            if (!needUpdate && fieldMeta != null) {
-                Map<String, Object> fieldMapping = (Map<String, Object>) fieldMeta.sourceAsMap().get(Peer.Stats.PROPERTY_LAST_UP_TIME);
-                String fieldType = (String) fieldMapping.get("type");
-                needUpdate = !"long".equals(fieldType);
-            }
-        }
-
-        return needUpdate;
-    }
 }

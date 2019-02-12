@@ -29,7 +29,7 @@
     <signatureVersion>1.0</signatureVersion>
 
     <!-- Commons versions -->
-    <duniter4j.version>1.2.10</duniter4j.version>
+    <duniter4j.version>1.2.11</duniter4j.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.6</slf4j.version>
     <guava.version>22.0</guava.version>

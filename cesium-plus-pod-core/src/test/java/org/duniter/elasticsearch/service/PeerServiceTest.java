@@ -82,7 +82,7 @@ public class PeerServiceTest {
                 .setPubkey(resource.getFixtures().getUserPublicKey())
                 .setCurrency(resource.getFixtures().getCurrency())
                 .build();
-        peer1.getStats().setLastUpTime(System.currentTimeMillis());
+        peer1.getStats().setLastUpTime(System.currentTimeMillis()/1000);
 
         // Second peer
         Peer peer2 = new Peer.Builder()
@@ -91,7 +91,7 @@ public class PeerServiceTest {
                 .setPubkey(resource.getFixtures().getUserPublicKey())
                 .setCurrency(resource.getFixtures().getCurrency())
                 .build();
-        peer2.getStats().setLastUpTime(peer1.getStats().getLastUpTime() - 1000); // Set UP just 1 sec before the first peer
+        peer2.getStats().setLastUpTime(peer1.getStats().getLastUpTime() - 1); // Set UP just 1 sec before the first peer
 
         // Save peers
         localService.save(peer1.getCurrency(), ImmutableList.of(peer1, peer2));

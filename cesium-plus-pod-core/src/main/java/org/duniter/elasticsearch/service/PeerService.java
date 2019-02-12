@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.service;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
@@ -37,7 +38,6 @@ import org.duniter.core.util.Preconditions;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
-import org.duniter.elasticsearch.dao.PeerDao;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
@@ -68,7 +68,7 @@ public class PeerService extends AbstractService  {
                        final ServiceLocator serviceLocator){
         super("duniter.network.peer", client, settings, cryptoService);
         this.threadPool = threadPool;
-        this.peerDao = (PeerDao) peerDao;
+        this.peerDao = peerDao;
         threadPool.scheduleOnStarted(() -> {
             this.blockchainRemoteService = serviceLocator.getBlockchainRemoteService();
             this.networkService = serviceLocator.getNetworkService();
@@ -97,12 +97,6 @@ public class PeerService extends AbstractService  {
 
     public PeerService setCurrencyMainPeer(String currency, Peer peer) {
         delegate.setCurrencyMainPeer(currency, peer);
-        return this;
-    }
-
-    public PeerService updateMapping(String currency) {
-
-        peerDao.updateMapping(currency);
         return this;
     }
 
