@@ -27,7 +27,9 @@ package org.duniter.elasticsearch.dao;
  */
 public interface PeerDao extends org.duniter.core.client.dao.PeerDao, TypeDao<PeerDao>{
 
-    String TYPE = "peer";
+    String OLD_TYPE = "peer";
 
+    String TYPE = "peer2";
 
+    void updateMapping(String currency);
 }

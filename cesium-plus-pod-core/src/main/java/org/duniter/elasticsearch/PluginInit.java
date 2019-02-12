@@ -156,7 +156,9 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             peer.setCurrency(currencyId);
 
             // Define the main peer for this currency (will fill a cache in PeerService)
-            injector.getInstance(PeerService.class).setCurrencyMainPeer(currencyId, peer);
+            injector.getInstance(PeerService.class)
+                    .updateMapping(currencyId)
+                    .setCurrencyMainPeer(currencyId, peer);
 
             // Add access security rules, for the currency indices
             injector.getInstance(RestSecurityController.class)
@@ -216,6 +218,8 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .allowPostSearchIndexType(
                             currencyId,
                             SynchroExecutionDao.TYPE);
+
+
 
             /* TODO à décommenter quand les pending seront sauvegardés
             injector.getInstance(DocStatService.class)

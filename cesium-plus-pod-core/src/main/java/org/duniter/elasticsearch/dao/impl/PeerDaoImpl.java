@@ -25,7 +25,6 @@ package org.duniter.elasticsearch.dao.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import org.duniter.core.client.model.bma.EndpointApi;
-import org.duniter.core.client.model.bma.NetworkPeers;
 import org.duniter.core.client.model.bma.NetworkWs2pHeads;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.model.local.Peers;
@@ -35,6 +34,7 @@ import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.AbstractDao;
 import org.duniter.elasticsearch.dao.PeerDao;
+import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
@@ -53,10 +53,7 @@ import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation;
 import org.elasticsearch.search.aggregations.metrics.max.Max;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -415,7 +412,23 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         try {
             XContentBuilder mapping = XContentFactory.jsonBuilder()
                     .startObject()
-                    .startObject(TYPE)
+                    .startObject(TYPE);
+
+            startTypeMappingProperties(mapping);
+
+            mapping.endObject().endObject();
+
+            return mapping;
+        }
+        catch(IOException ioe) {
+            throw new TechnicalException("Error while getting mapping for peer index: " + ioe.getMessage(), ioe);
+        }
+    }
+
+    protected XContentBuilder startTypeMappingProperties(XContentBuilder mapping) {
+
+        try {
+            mapping
                     .startObject("properties")
 
                     // currency
@@ -462,79 +475,79 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     //.field("dynamic", "false")
                     .startObject("properties")
 
-                        // stats.software
-                        .startObject(Peer.Stats.PROPERTY_SOFTWARE)
-                        .field("type", "string")
-                        .endObject()
+                    // stats.software
+                    .startObject(Peer.Stats.PROPERTY_SOFTWARE)
+                    .field("type", "string")
+                    .endObject()
 
-                        // stats.version
-                        .startObject(Peer.Stats.PROPERTY_VERSION)
-                        .field("type", "string")
-                        .endObject()
+                    // stats.version
+                    .startObject(Peer.Stats.PROPERTY_VERSION)
+                    .field("type", "string")
+                    .endObject()
 
-                        // stats.status
-                        .startObject(Peer.Stats.PROPERTY_STATUS)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
+                    // stats.status
+                    .startObject(Peer.Stats.PROPERTY_STATUS)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
 
-                        // stats.blockNumber
-                        .startObject("blockNumber")
-                        .field("type", "integer")
-                        .endObject()
+                    // stats.blockNumber
+                    .startObject("blockNumber")
+                    .field("type", "integer")
+                    .endObject()
 
-                        // stats.blockHash
-                        .startObject("blockHash")
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
+                    // stats.blockHash
+                    .startObject("blockHash")
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
 
-                        // stats.error
-                        .startObject("error")
-                        .field("type", "string")
-                        .endObject()
+                    // stats.error
+                    .startObject("error")
+                    .field("type", "string")
+                    .endObject()
 
-                        // stats.medianTime
-                        .startObject("medianTime")
-                        .field("type", "integer")
-                        .endObject()
+                    // stats.medianTime
+                    .startObject("medianTime")
+                    .field("type", "integer")
+                    .endObject()
 
-                        // stats.hardshipLevel
-                        .startObject("hardshipLevel")
-                        .field("type", "integer")
-                        .endObject()
+                    // stats.hardshipLevel
+                    .startObject("hardshipLevel")
+                    .field("type", "integer")
+                    .endObject()
 
-                        // stats.consensusPct
-                        .startObject("consensusPct")
-                        .field("type", "integer")
-                        .endObject()
+                    // stats.consensusPct
+                    .startObject("consensusPct")
+                    .field("type", "integer")
+                    .endObject()
 
-                        // stats.uid
-                        .startObject(Peer.Stats.PROPERTY_UID)
-                        .field("type", "string")
-                        .endObject()
+                    // stats.uid
+                    .startObject(Peer.Stats.PROPERTY_UID)
+                    .field("type", "string")
+                    .endObject()
 
-                        // stats.mainConsensus
-                        .startObject("mainConsensus")
-                        .field("type", "boolean")
-                        .field("index", "not_analyzed")
-                        .endObject()
+                    // stats.mainConsensus
+                    .startObject("mainConsensus")
+                    .field("type", "boolean")
+                    .field("index", "not_analyzed")
+                    .endObject()
 
-                        // stats.forkConsensus
-                        .startObject("forkConsensus")
-                        .field("type", "boolean")
-                        .field("index", "not_analyzed")
-                        .endObject()
+                    // stats.forkConsensus
+                    .startObject("forkConsensus")
+                    .field("type", "boolean")
+                    .field("index", "not_analyzed")
+                    .endObject()
 
-                        // stats.lastUpTime
-                        .startObject(Peer.Stats.PROPERTY_LAST_UP_TIME)
-                        .field("type", "long")
-                        .endObject()
+                    // stats.lastUpTime
+                    .startObject(Peer.Stats.PROPERTY_LAST_UP_TIME)
+                    .field("type", "long")
+                    .endObject()
 
-                        // stats.firstDownTime
-                        .startObject(Peer.Stats.PROPERTY_FIRST_DOWN_TIME)
-                        .field("type", "long")
-                        .endObject()
+                    // stats.firstDownTime
+                    .startObject(Peer.Stats.PROPERTY_FIRST_DOWN_TIME)
+                    .field("type", "long")
+                    .endObject()
 
 
                     .endObject()
@@ -546,44 +559,101 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                     //.field("dynamic", "false")
                     .startObject("properties")
 
-                        // peering.version
-                        .startObject(Peer.Peering.PROPERTY_VERSION)
-                        .field("type", "string")
-                        .endObject()
-
-                        // peering.blockNumber
-                        .startObject(Peer.Peering.PROPERTY_BLOCK_NUMBER)
-                        .field("type", "integer")
-                        .endObject()
-
-                        // peering.blockHash
-                        .startObject(Peer.Peering.PROPERTY_BLOCK_HASH)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
-
-                        // peering.signature
-                        .startObject(Peer.Peering.PROPERTY_SIGNATURE)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
-
-                        // peering.raw
-                        .startObject(Peer.Peering.PROPERTY_RAW)
-                        .field("type", "string")
-                        .field("index", "not_analyzed")
-                        .endObject()
-
-                    .endObject()
+                    // peering.version
+                    .startObject(Peer.Peering.PROPERTY_VERSION)
+                    .field("type", "string")
                     .endObject()
 
+                    // peering.blockNumber
+                    .startObject(Peer.Peering.PROPERTY_BLOCK_NUMBER)
+                    .field("type", "integer")
                     .endObject()
-                    .endObject().endObject();
+
+                    // peering.blockHash
+                    .startObject(Peer.Peering.PROPERTY_BLOCK_HASH)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
+
+                    // peering.signature
+                    .startObject(Peer.Peering.PROPERTY_SIGNATURE)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
+
+                    // peering.raw
+                    .startObject(Peer.Peering.PROPERTY_RAW)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
+
+                .endObject()
+                .endObject()
+
+            .endObject();
 
             return mapping;
         }
         catch(IOException ioe) {
             throw new TechnicalException("Error while getting mapping for peer index: " + ioe.getMessage(), ioe);
         }
+    }
+
+    @Override
+    public void updateMapping(String currency) {
+        if (!needMappingUpdate(currency)) return; // Skip if not need update
+
+        if (client.admin().indices().prepareExists(currency).execute().actionGet().isExists()) {
+            client.admin().indices().prepareClose(currency).execute().actionGet();
+            client.admin().indices().prepareUpdateSettings(currency).setSettings(pluginSettings.getSettings()).execute().actionGet();
+            client.admin().indices().prepareOpen(currency).execute().actionGet();
+
+            try {
+                XContentBuilder mapping = XContentFactory.jsonBuilder().startObject();
+                startTypeMappingProperties(mapping);
+                mapping.endObject();
+                client.admin().indices().preparePutMapping(currency).setType(TYPE).setUpdateAllTypes(true).setSource(mapping).execute().actionGet();
+            }catch(IOException e) {
+                throw new TechnicalException("Error while getting mapping for peer index: " + e.getMessage(), e);
+            }
+        } else {
+            client.admin().indices().prepareCreate(currency).addMapping(TYPE, createTypeMapping()).setSettings(pluginSettings.getSettings()).execute().actionGet();
+        }
+    }
+
+    protected boolean needMappingUpdate(String currency) {
+
+        if (!client.existsIndex(currency)) return false;
+
+        boolean needUpdate = false;
+
+        GetFieldMappingsResponse response = client.admin().indices().prepareGetFieldMappings(currency).setTypes(TYPE, OLD_TYPE)
+                .setFields(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME,
+                        Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME)
+                .execute().actionGet();
+
+        GetFieldMappingsResponse.FieldMappingMetaData fieldMeta = null;
+        fieldMeta = response.fieldMappings(currency, TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
+
+        // New index not found: check old index
+        if (fieldMeta == null) {
+            // Check 'lastUpTime' has a long type
+            fieldMeta = response.fieldMappings(currency, OLD_TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
+            if (fieldMeta != null) {
+                Map<String, Object> fieldMapping = (Map<String, Object>) fieldMeta.sourceAsMap().get(Peer.Stats.PROPERTY_FIRST_DOWN_TIME);
+                String fieldType = (String) fieldMapping.get("type");
+                needUpdate = !"long".equals(fieldType);
+            }
+
+            // Check 'lastUpTime' has a long type
+            fieldMeta = response.fieldMappings(currency, OLD_TYPE, Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME);
+            if (!needUpdate && fieldMeta != null) {
+                Map<String, Object> fieldMapping = (Map<String, Object>) fieldMeta.sourceAsMap().get(Peer.Stats.PROPERTY_LAST_UP_TIME);
+                String fieldType = (String) fieldMapping.get("type");
+                needUpdate = !"long".equals(fieldType);
+            }
+        }
+
+        return needUpdate;
     }
 }
