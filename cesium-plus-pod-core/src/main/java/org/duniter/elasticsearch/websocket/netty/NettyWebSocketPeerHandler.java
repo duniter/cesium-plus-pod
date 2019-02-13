@@ -23,7 +23,12 @@ package org.duniter.elasticsearch.websocket.netty;
  */
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import org.duniter.core.client.model.bma.NetworkPeers;
+import org.duniter.core.client.model.bma.jackson.JacksonUtils;
+import org.duniter.core.client.model.local.Peer;
+import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.PeerDao;
 import org.duniter.elasticsearch.http.netty.NettyWebSocketServer;
@@ -155,7 +160,12 @@ public class NettyWebSocketPeerHandler extends NettyBaseWebSocketEndpoint implem
         if (!event.hasSource()) return; // Skip
 
         try {
-            session.sendText(event.getSourceText());
+            ObjectMapper objectMapper = JacksonUtils.getThreadObjectMapper();
+            Peer peer = objectMapper.readValue(event.getSource().array(), Peer.class);
+            if (Peers.isReacheable(peer)) {
+                NetworkPeers.Peer bmaPeer = Peers.toBmaPeer(peer);
+                session.sendText(objectMapper.writeValueAsString(bmaPeer));
+            }
 
         } catch(Exception e) {
             logger.error(String.format("[%s] Cannot sent websocket response {%s} to session {%s}: %s", currency, PATH, session.getId(), e.getMessage()), e);
