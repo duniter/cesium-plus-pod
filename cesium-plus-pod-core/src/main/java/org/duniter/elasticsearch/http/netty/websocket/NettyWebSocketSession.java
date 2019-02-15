@@ -33,10 +33,12 @@ public class NettyWebSocketSession {
     }
 
     public void sendText(String text) {
+        if (!channel.isOpen()) return; // Skip if channel is closed
         channel.write(new TextWebSocketFrame(text));
     }
 
     public void sendBinary(ChannelBuffer buffer) {
+        if (!channel.isOpen()) return; // Skip if channel is closed
         BinaryWebSocketFrame frame = new BinaryWebSocketFrame();
         frame.setBinaryData(buffer);
         channel.write(frame);

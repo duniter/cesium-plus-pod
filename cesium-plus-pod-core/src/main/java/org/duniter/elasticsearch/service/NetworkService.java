@@ -23,7 +23,6 @@ package org.duniter.elasticsearch.service;
  */
 
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -50,7 +49,6 @@ import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
-import javax.websocket.Endpoint;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -69,9 +67,9 @@ public class NetworkService extends AbstractService {
     private Map<String, NetworkPeering> peeringByCurrencyCache = Maps.newHashMap();
 
     // API where to sendBlock the peer document
-    private final static Set<EndpointApi> targetPeersEndpointApis = Sets.newHashSet();
+    private final static Set<EndpointApi> registeredPeeringTargetedApis = Sets.newHashSet();
     // API to include inside the peer document
-    private final static Set<EndpointApi> publishedEndpointApis = Sets.newHashSet();
+    private final static Set<EndpointApi> registeredPeeringPublishedApis = Sets.newHashSet();
 
     private final ThreadPool threadPool;
     private final PeerDao peerDao;
@@ -104,19 +102,11 @@ public class NetworkService extends AbstractService {
             setIsReady(true);
         });
 
-        // If published API defined in settings, use this list
-        if (CollectionUtils.isNotEmpty(pluginSettings.getPeeringPublishedApis())) {
-            addAllPublishEndpointApis(pluginSettings.getPeeringPublishedApis());
-        }
-        // Else (nothing in settings), register ES_CORE_API as published API
-        else {
-            addPublishEndpointApi(EndpointApi.ES_CORE_API);
-        }
+        // Register ES_CORE_API as published API, inside the peering document
+        registerPeeringPublishApi(EndpointApi.ES_CORE_API);
 
-        // If targeted API defined in settings, use this list
-        if (CollectionUtils.isNotEmpty(pluginSettings.getPeeringTargetedApis())) {
-            addAllTargetPeerEndpointApis(pluginSettings.getPeeringTargetedApis());
-        }
+        // Register ES_CORE_API as target API, for peering document
+        registerPeeringTargetApi(EndpointApi.ES_CORE_API);
     }
 
     protected List<Peer> getConfigIncludesPeers(final String currencyId) {
@@ -367,24 +357,44 @@ public class NetworkService extends AbstractService {
         }
     }
 
-    public void addTargetPeerEndpointApi(EndpointApi api) {
+    public void registerPeeringTargetApi(EndpointApi api) {
         Preconditions.checkNotNull(api);
 
-        if (!targetPeersEndpointApis.contains(api)) {
-            targetPeersEndpointApis.add(api);
+        if (!registeredPeeringTargetedApis.contains(api)) {
+            if (pluginSettings.enablePeering() && CollectionUtils.isEmpty(pluginSettings.getPeeringTargetedApis())) {
+                logger.info(String.format("Adding {%s} as target endpoint for the peering document.", api.name()));
+            }
+            registeredPeeringTargetedApis.add(api);
         }
     }
 
+    public Set<EndpointApi> getPeeringTargetedApis() {
+        Set<EndpointApi> configOverride = pluginSettings.getPeeringTargetedApis();
+        if (CollectionUtils.isNotEmpty(configOverride)) {
+            return configOverride;
+        }
 
-    public void addPublishEndpointApi(EndpointApi api) {
+        return registeredPeeringTargetedApis;
+    }
+
+    public void registerPeeringPublishApi(EndpointApi api) {
         Preconditions.checkNotNull(api);
 
-        if (!publishedEndpointApis.contains(api)) {
-            if (pluginSettings.enablePeering()) {
-                logger.debug(String.format("Adding {%s} as published endpoint", api.name()));
+        if (!registeredPeeringPublishedApis.contains(api)) {
+            if (pluginSettings.enablePeering() && CollectionUtils.isEmpty(pluginSettings.getPeeringPublishedApis())) {
+                logger.info(String.format("Adding {%s} as published endpoint, inside the peering document.", api.name()));
             }
-            publishedEndpointApis.add(api);
+            registeredPeeringPublishedApis.add(api);
         }
+    }
+
+    public Set<EndpointApi> getPeeringPublishedApis() {
+        Set<EndpointApi> configOverride = pluginSettings.getPeeringPublishedApis();
+        if (CollectionUtils.isNotEmpty(configOverride)) {
+            return configOverride;
+        }
+
+        return registeredPeeringPublishedApis;
     }
 
     public NetworkPeering getPeering(String currency, boolean useCache) {
@@ -417,8 +427,9 @@ public class NetworkService extends AbstractService {
         result.setStatus("UP");
 
         // Add endpoints
-        if (CollectionUtils.isNotEmpty(publishedEndpointApis)) {
-            List<NetworkPeering.Endpoint> endpoints = publishedEndpointApis.stream()
+        Collection<EndpointApi> publishedApis = getPeeringPublishedApis();
+        if (CollectionUtils.isNotEmpty(publishedApis)) {
+            List<NetworkPeering.Endpoint> endpoints = publishedApis.stream()
                     .map(endpointApi -> {
                         NetworkPeering.Endpoint ep = new NetworkPeering.Endpoint();
                         ep.setDns(pluginSettings.getClusterRemoteHost());
@@ -428,6 +439,9 @@ public class NetworkService extends AbstractService {
                     })
                     .collect(Collectors.toList());
             result.setEndpoints(endpoints.toArray(new NetworkPeering.Endpoint[endpoints.size()]));
+        }
+        else {
+            logger.warn("No endpoint apis to publish inside peering document.");
         }
 
         // Compute raw, then sign it
@@ -450,40 +464,41 @@ public class NetworkService extends AbstractService {
 
     public NetworkService startPublishingPeerDocumentToNetwork() {
 
-        if (CollectionUtils.isEmpty(publishedEndpointApis)) {
+        if (CollectionUtils.isEmpty(getPeeringPublishedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to publish)");
             return this;
         }
-        if (CollectionUtils.isEmpty(targetPeersEndpointApis)) {
+        if (CollectionUtils.isEmpty(getPeeringTargetedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to target)");
             return this;
         }
 
         // Launch once, at startup (after a delay)
         threadPool.schedule(() -> {
-                logger.info(String.format("Publishing endpoints %s to targeted peers %s", publishedEndpointApis, targetPeersEndpointApis));
-                boolean launchAtStartup;
-                try {
-                    // wait for some peers
-                    launchAtStartup = waitPeersReady(targetPeersEndpointApis);
-                } catch (InterruptedException e) {
-                    return; // stop
-                }
+            if (logger.isInfoEnabled()) {
+                logger.info(String.format("Publishing endpoints %s to targeted peers %s", getPeeringPublishedApis(), getPeeringTargetedApis()));
+            }
+            boolean launchAtStartup;
+            try {
+                // wait for some peers
+                launchAtStartup = waitPeersReady(getPeeringTargetedApis());
+            } catch (InterruptedException e) {
+                return; // stop
+            }
 
-                if (launchAtStartup) {
-                    publishPeerDocumentToNetwork();
-                }
+            if (launchAtStartup) {
+                publishPeerDocumentToNetwork();
+            }
 
-                // Schedule next execution
-                threadPool.scheduleAtFixedRate(
-                        this::publishPeerDocumentToNetwork,
-                        pluginSettings.getPeeringInterval() * 1000,
-                        pluginSettings.getPeeringInterval() * 1000 /* convert in ms */,
-                        TimeUnit.MILLISECONDS);
-            },
-            30 * 1000 /*wait 30 s */ ,
-            TimeUnit.MILLISECONDS
-        );
+            // Schedule next execution
+            threadPool.scheduleAtFixedRate(
+                    this::publishPeerDocumentToNetwork,
+                    pluginSettings.getPeeringInterval() * 1000,
+                    pluginSettings.getPeeringInterval() * 1000 /* convert in ms */,
+                    TimeUnit.MILLISECONDS);
+        },
+        30 * 1000 /*wait 30 s */ ,
+        TimeUnit.MILLISECONDS);
 
         return this;
     }
@@ -600,8 +615,11 @@ public class NetworkService extends AbstractService {
             return;
         }
 
-        if (CollectionUtils.isEmpty(targetPeersEndpointApis) ||
-            CollectionUtils.isEmpty(publishedEndpointApis)) {
+        Set<EndpointApi> targetedApis = getPeeringTargetedApis();
+        Set<EndpointApi> publishedApis = getPeeringTargetedApis();
+
+        if (CollectionUtils.isEmpty(targetedApis) ||
+            CollectionUtils.isEmpty(publishedApis)) {
             logger.warn("Skipping the publication of peer document (no targeted API, or no API to publish)");
             return;
         }
@@ -612,18 +630,21 @@ public class NetworkService extends AbstractService {
             logger.debug(String.format("[%s] Publishing peer document to network... {peers discovery: %s}", currencyId, pluginSettings.enableSynchroDiscovery()));
 
             // Create a new peer document (will add it to cache)
-            String peerDocument = getPeering(currencyId, false/*force new peering*/).toString();
+            NetworkPeering peeringDocument = getPeering(currencyId, false/*force new peering*/);
 
-            // Get peers for targeted APIs
-            Collection<Peer> peers = getPeersFromApis(currencyId, targetPeersEndpointApis);
+            if (peeringDocument != null) {
 
-            if (CollectionUtils.isNotEmpty(peers)) {
-                // Send document to every peers
-                long count = peers.stream().map(p -> this.safePublishPeerDocumentToPeer(currencyId, p, peerDocument)).filter(Boolean.TRUE::equals).count();
+                // Get peers for targeted APIs
+                Collection<Peer> peers = getPeersFromApis(currencyId, targetedApis);
 
-                logger.info(String.format("[%s] Peering document sent to %s/%s peers", currencyId, count, peers.size()));
-            } else {
-                logger.debug(String.format("[%s] Peering document not published to network: no peers with targeted apis %s", currencyId, targetPeersEndpointApis));
+                if (CollectionUtils.isNotEmpty(peers)) {
+                    // Send document to every peers
+                    long count = peers.stream().map(p -> this.safePublishPeerDocumentToPeer(currencyId, p, peeringDocument.toString())).filter(Boolean.TRUE::equals).count();
+
+                    logger.info(String.format("[%s] Peering document sent to %s/%s peers", currencyId, count, peers.size()));
+                } else {
+                    logger.debug(String.format("[%s] Peering document not published to network: no peers with targeted apis %s", currencyId, targetedApis));
+                }
             }
         });
     }
@@ -646,16 +667,6 @@ public class NetworkService extends AbstractService {
             return false;
         }
 
-    }
-
-    protected void addAllTargetPeerEndpointApis(Collection<EndpointApi> apis) {
-        Preconditions.checkNotNull(apis);
-        apis.forEach(this::addTargetPeerEndpointApi);
-    }
-
-    protected void addAllPublishEndpointApis(Collection<EndpointApi> apis) {
-        Preconditions.checkNotNull(apis);
-        apis.forEach(this::addPublishEndpointApi);
     }
 
     protected Peer updatePeering(Peer peer)  {

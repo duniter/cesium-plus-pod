@@ -31,12 +31,10 @@ public class WebSocketRequestHandler extends SimpleChannelHandler {
         }
 
         ChannelFuture future = handshaker.handshake(request.getChannel(), request.request());
-        future.addListener(new ChannelFutureListener() {
-            public void operationComplete(ChannelFuture future) {
-                // Session is open
-                session = new NettyWebSocketSession(future.getChannel(), request.params());
-                endpoint.onOpen(session);
-            }
+        future.addListener(channelFuture -> {
+            // Session is open
+            session = new NettyWebSocketSession(channelFuture.getChannel(), request.params());
+            endpoint.onOpen(session);
         });
         return future;
     }

@@ -324,11 +324,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * Endpoint API to publish, in the emitted peer document. By default, plugins will defined their own API
      * @return
      */
-    public Collection<EndpointApi> getPeeringPublishedApis() {
+    public Set<EndpointApi> getPeeringPublishedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.publishedApis");
         if (CollectionUtils.isEmpty(targetedApis)) return null;
 
-        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toSet());
     }
 
     /**
@@ -336,13 +336,13 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * This API should accept a POST request to '/network/peering' (like Duniter node, but can also be a pod)
      * @return
      */
-    public Collection<EndpointApi> getPeeringTargetedApis() {
+    public Set<EndpointApi> getPeeringTargetedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
                 EndpointApi.ES_CORE_API.name()
         });
         if (CollectionUtils.isEmpty(targetedApis)) return null;
 
-        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toSet());
     }
 
     /**
