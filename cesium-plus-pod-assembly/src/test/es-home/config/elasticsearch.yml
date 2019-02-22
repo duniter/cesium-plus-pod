@@ -14,7 +14,6 @@
 #
 # Use a descriptive name for your cluster:
 #
-# cluster.name: my-application
 cluster.name: cesium-plus-cluster-DEV
 #
 # Host + port, to join your cluster, from external network
@@ -107,7 +106,7 @@ http.cors.enabled: true
 #
 # action.destructive_requires_name: true
 #
-# Security to isolate plugin classpath - /!\ WARNING: should be DISABLE for Cesium+ Pod
+# Security to isolate plugin classpath - /!\ WARNING: should be DISABLE
 #
 security.manager.enabled: false
 #
@@ -128,9 +127,18 @@ duniter.string.analyzer: french
 # Enabling blockchain synchronization (default: false)
 #
 duniter.blockchain.enable: true
-duniter.blockchain.peer.enable: true
-duniter.blockchain.event.user.enable: false
-duniter.blockchain.event.admin.enable: false
+#
+# Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
+#
+# duniter.blockchain.peer.enable: false
+#
+# Enable user event on blockchain ? (default: true)
+#
+# duniter.blockchain.event.user.enable: false
+#
+# Enable events for the node admin (e.g. node start/stop) (default: true)
+#
+# duniter.blockchain.event.admin.enable: false
 #
 # Force blockchain full synchronization - /!\ WARNING: all user events will be reset to 'unread'
 #
@@ -143,7 +151,9 @@ duniter.blockchain.event.admin.enable: false
 duniter.host: g1.duniter.fr
 duniter.port: 443
 duniter.useSsl: true
-
+#
+# Network timeout, in millisecond (default: 20000 = 20s)
+#
 duniter.network.timeout: 5000
 #
 # Compute statistics on indices (each hour) ? (default: true)
@@ -154,7 +164,7 @@ duniter.network.timeout: 5000
 #
 # duniter.software.name: cesium-plus-pod
 #
-# ---------------------------------- Cesium+ Pod >  security module -------------------
+# ---------------------------------- Cesium+ Pod > security module -------------------
 #
 # Keyring, use to sign emitted documents (user events, subscription, etc.).
 # If not set, random keys will be generated.
@@ -182,7 +192,7 @@ duniter.security.enable: true
 #
 # Enable discovery on network peers, to automatically synchronize this peers (default: true)
 #
-duniter.p2p.discovery.enable: true
+# duniter.p2p.discovery.enable: false
 #
 # Pass a list of hosts to always synchronize (default: <empty>)
 #
@@ -202,9 +212,13 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.p2p.fullResyncAtStartup: true
 #
+# Peer API to index (default : ["BASIC_MERKLE_API", "BMAS", "WS2P" ] UNION ${duniter.p2p.peering.targetedApis} UNION ${duniter.p2p.peering.publishedApis})
+#
+# duniter.p2p.peer.indexedApis: ["BASIC_MERKLE_API", "BMAS", "WS2P", "ES_CORE_API", "ES_USER_API", "ES_SUBSCRIPTION_API"]
+#
 # Enable publishing of pod endpoints to the network (see the peer document in Duniter protocol). (Default: '${duniter.p2p.enable}')
 #
-duniter.p2p.peering.enable: true
+# duniter.p2p.peering.enable: false
 #
 # Define targeted API (for peers selection) where to send the peer document (if peering is enable). (Default: ["BASIC_MERKLED_API", "BMAS"])
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
@@ -221,7 +235,7 @@ duniter.p2p.peering.targetedApis: [
 #
 # Interval for publishing peer document to the network, in seconds. (Default: 7200 =2h)
 #
-#duniter.p2p.peering.interval: 60
+duniter.p2p.peering.interval: 60
 #
 # ---------------------------------- Cesium+ Pod > document moderation ---------------
 #
@@ -235,7 +249,7 @@ duniter.p2p.peering.targetedApis: [
 #
 # Allow admin (define in duniter.keyring) to delete documents ? (default: true)
 #
-# duniter.document.allowAdminDeletion: true
+# duniter.document.allowAdminDeletion: false
 #
 # ---------------------------------- Cesium+ Pod > Mail module -----------------------
 #
@@ -266,21 +280,35 @@ duniter.mail.enable: false
 #
 # duniter.mail.admin: user@domain.com
 #
-# Mail: subject prefix
+# Mail: subject prefix (default: '[Cesium+]')
 #
 # duniter.mail.subject.prefix: '[Cesium+]'
-
+#
 # ---------------------------------- Cesium+ Pod > Websocket server ----------------------
 #
 # Websocket port (default: ${http.port})
 #
-#duniter.ws.port: 9400-9410
+# duniter.ws.port: 9400-9410
+#
+# ---------------------------------- Cesium+ Pod > User module ---------------------------
+#
+# Enable user module (Allow to store User profile, private message, page, group...) (default: true)
+#
+duniter.user.enable: true
+#
+# Endpoint API for user data (use by P2P synchronization) (default: ES_USER_API)
+#
+# duniter.user.api: MY_CUSTOM_API
 #
 # ---------------------------------- Cesium+ Pod > Subscription module -------------------
 #
-# Enable subscription module (Need to enable mail features)
+# Enable subscription module (Need to enable mail features) (default: true)
 #
 # duniter.subscription.enable: false
+#
+# Endpoint API for subscription data (use by P2P synchronization) (default: ES_SUBSCRIPTION_API)
+#
+# duniter.subscription.api: MY_CUSTOM_API
 #
 # Options to debug this features (DEV only)
 #
@@ -298,6 +326,10 @@ duniter.mail.enable: false
 # Email subscription: URL to a Cesium site, for links in the email content (default: https://g1.duniter.fr)
 #
 # duniter.subscription.email.link.url: 'https://domain.com/cesium'
+#
+# Name of the button in the email, to access to notifications (default: 'Cesium')
+#
+# duniter.subscription.email.link.name: 'View online'
 #
 # ---------------------------------- Cesium+ Pod > Share module -------------------
 #

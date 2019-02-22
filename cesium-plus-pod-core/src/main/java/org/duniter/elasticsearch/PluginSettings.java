@@ -87,7 +87,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
         this.settings = settings;
         this.cryptoService = cryptoService;
-        this.applicationConfig = new ApplicationConfig();
+        this.applicationConfig = new ApplicationConfig("duniter4j.config");
 
         // Cascade the application config to the client module
         clientConfig = new org.duniter.core.client.config.Configuration(this.applicationConfig);
@@ -541,11 +541,14 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     protected void initVersion(ApplicationConfig applicationConfig) {
         // Override application version
-        String implementationVersion = this.getClass().getPackage().getSpecificationVersion();
-        if (implementationVersion != null) {
+        String newVersion = this.getClass().getPackage().getImplementationVersion();
+        if (newVersion == null) {
+            newVersion = this.getClass().getPackage().getSpecificationVersion();
+        }
+        if (newVersion != null) {
             applicationConfig.setDefaultOption(
                     ConfigurationOption.VERSION.getKey(),
-                    implementationVersion);
+                    newVersion);
         }
     }
 
