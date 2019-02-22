@@ -23,6 +23,7 @@ package org.duniter.elasticsearch.user;
  */
 
 import org.duniter.elasticsearch.service.DocStatService;
+import org.duniter.elasticsearch.service.NetworkService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.dao.group.GroupCommentDao;
 import org.duniter.elasticsearch.user.dao.group.GroupIndexDao;
@@ -64,6 +65,8 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     @Override
     protected void doStart() {
+        configureNetwork();
+
         threadPool.scheduleOnClusterReady(() -> {
             createIndices();
 
@@ -83,8 +86,13 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     }
 
-    protected void createIndices() {
+    protected void configureNetwork() {
+        // Register API to network service
+        injector.getInstance(NetworkService.class)
+                .registerPeeringPublishApi(pluginSettings.getUserEndpointApi());
+    }
 
+    protected void createIndices() {
         // Reload all indices
         if (pluginSettings.reloadAllIndices()) {
             if (logger.isInfoEnabled()) {

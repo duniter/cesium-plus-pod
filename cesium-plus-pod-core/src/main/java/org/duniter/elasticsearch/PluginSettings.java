@@ -73,6 +73,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private String clusterRemoteUrl;
     private final CryptoService cryptoService;
 
+    private final EndpointApi coreEnpointApi;
 
     /**
      * Delegate application config.
@@ -95,6 +96,18 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
         // Set the default bundle name
         addI18nBundleName(getI18nBundleName());
+
+        // Allow to redefine user api
+        EndpointApi endpointApi = EndpointApi.ES_CORE_API; // default value
+        String apiName = settings.get("duniter.core.api");
+        if (StringUtils.isNotBlank(apiName)) {
+            try {
+                endpointApi  = EndpointApi.valueOf(apiName);
+            } catch (Exception e) {
+                logger.warn(String.format("Invalid subscription endpoint API define ni settings {duniter.core.api: %s}. Will use default value {%s}", apiName, endpointApi));
+            }
+        }
+        this.coreEnpointApi = endpointApi;
     }
 
     @Override
@@ -228,6 +241,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     /* -- Other settings -- */
+
+    public EndpointApi getCoreEnpointApi() {
+        return coreEnpointApi;
+    }
 
     public boolean isIndexBulkEnable() {
         return settings.getAsBoolean("duniter.bulk.enable", true);

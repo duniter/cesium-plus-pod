@@ -23,17 +23,11 @@ package org.duniter.elasticsearch.subscription;
  */
 
 import org.duniter.elasticsearch.service.DocStatService;
+import org.duniter.elasticsearch.service.NetworkService;
 import org.duniter.elasticsearch.subscription.dao.SubscriptionIndexDao;
 import org.duniter.elasticsearch.subscription.dao.record.SubscriptionRecordDao;
 import org.duniter.elasticsearch.subscription.service.SubscriptionService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.duniter.elasticsearch.user.dao.group.GroupCommentDao;
-import org.duniter.elasticsearch.user.dao.group.GroupIndexDao;
-import org.duniter.elasticsearch.user.dao.group.GroupRecordDao;
-import org.duniter.elasticsearch.user.dao.page.PageCommentDao;
-import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
-import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
-import org.duniter.elasticsearch.user.service.*;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
@@ -62,6 +56,9 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     @Override
     protected void doStart() {
+        // Configure network
+        configureNetwork();
+
         threadPool.scheduleOnClusterReady(() -> {
             createIndices();
 
@@ -78,6 +75,12 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     @Override
     protected void doClose() {
 
+    }
+
+    protected void configureNetwork() {
+        // Register API to network service
+        injector.getInstance(NetworkService.class)
+                .registerPeeringPublishApi(pluginSettings.getSubscriptionEndpointApi());
     }
 
     protected void createIndices() {

@@ -103,10 +103,10 @@ public class NetworkService extends AbstractService {
         });
 
         // Register ES_CORE_API as published API, inside the peering document
-        registerPeeringPublishApi(EndpointApi.ES_CORE_API);
+        registerPeeringPublishApi(pluginSettings.getCoreEnpointApi());
 
         // Register ES_CORE_API as target API, for peering document
-        registerPeeringTargetApi(EndpointApi.ES_CORE_API);
+        registerPeeringTargetApi(pluginSettings.getCoreEnpointApi());
     }
 
     protected List<Peer> getConfigIncludesPeers(final String currencyId) {

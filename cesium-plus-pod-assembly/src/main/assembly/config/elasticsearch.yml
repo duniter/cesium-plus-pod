@@ -182,6 +182,10 @@ duniter.security.enable: true
 #
 # duniter.p2p.enable: false
 #
+# Endpoint API for core module (indices on blockchain, peers, etc) (default: ES_CORE_API)
+#
+# duniter.core.api: MY_CUSTOM_API
+#
 # Enable P2P synchronisation using websocket ? (default: true)
 #
 # duniter.p2p.ws.enable: false

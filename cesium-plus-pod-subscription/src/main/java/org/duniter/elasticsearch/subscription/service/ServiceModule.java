@@ -30,8 +30,5 @@ public class ServiceModule extends AbstractModule implements Module {
     @Override protected void configure() {
         // Subscription services
         bind(SubscriptionService.class).asEagerSingleton();
-
-        // Configure network
-        bind(NetworkServiceConfiguration.class).asEagerSingleton();
     }
 }
