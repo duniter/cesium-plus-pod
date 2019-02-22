@@ -112,9 +112,13 @@ security.manager.enabled: false
 #
 # ---------------------------------- Cesium+ Pod ---------------------------------
 #
-# Enable Cesium+ pod plugins (default: true)
+# Enable Cesium+ pod core plugin (default: true)
 #
 # duniter.enable: false
+#
+# Endpoint API for core module (indices on blockchain, peers, etc) (default: ES_CORE_API)
+#
+# duniter.core.api: MY_CUSTOM_API
 #
 # Delete then create all indices at startup - /!\ WARNING: DO NOT set to true in production
 #
@@ -181,10 +185,6 @@ duniter.security.enable: true
 # Enable P2P synchronize between ES peers ? (default: true)
 #
 # duniter.p2p.enable: false
-#
-# Endpoint API for core module (indices on blockchain, peers, etc) (default: ES_CORE_API)
-#
-# duniter.core.api: MY_CUSTOM_API
 #
 # Enable P2P synchronisation using websocket ? (default: true)
 #
