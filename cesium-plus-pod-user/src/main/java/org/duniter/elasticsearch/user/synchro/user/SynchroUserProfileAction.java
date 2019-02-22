@@ -31,12 +31,12 @@ import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.service.UserService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
 import java.util.Objects;
 
-public class SynchroUserProfileAction extends AbstractSynchroAction {
+public class SynchroUserProfileAction extends AbstractSynchroUserAction {
 
     @Inject
     public SynchroUserProfileAction(Duniter4jClient client,
@@ -44,7 +44,7 @@ public class SynchroUserProfileAction extends AbstractSynchroAction {
                                     CryptoService cryptoService,
                                     ThreadPool threadPool,
                                     SynchroService synchroService) {
-        super(UserService.INDEX, UserService.PROFILE_TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(UserService.INDEX, UserService.PROFILE_TYPE, client, pluginSettings, cryptoService, threadPool);
 
         setEnableUpdate(true); // with update
 

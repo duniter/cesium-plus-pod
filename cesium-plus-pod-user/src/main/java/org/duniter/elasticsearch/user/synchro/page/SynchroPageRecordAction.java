@@ -29,10 +29,10 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
 import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroPageRecordAction extends AbstractSynchroAction {
+public class SynchroPageRecordAction extends AbstractSynchroUserAction {
 
     @Inject
     public SynchroPageRecordAction(Duniter4jClient client,
@@ -40,7 +40,7 @@ public class SynchroPageRecordAction extends AbstractSynchroAction {
                                    CryptoService cryptoService,
                                    ThreadPool threadPool,
                                    SynchroService synchroService) {
-        super(PageIndexDao.INDEX, PageRecordDao.TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(PageIndexDao.INDEX, PageRecordDao.TYPE, client, pluginSettings, cryptoService, threadPool);
 
         setEnableUpdate(true); // with update
 

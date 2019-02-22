@@ -28,10 +28,10 @@ import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.service.MessageService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroMessageOutboxIndexAction extends AbstractSynchroAction {
+public class SynchroMessageOutboxIndexAction extends AbstractSynchroUserAction {
 
     @Inject
     public SynchroMessageOutboxIndexAction(Duniter4jClient client,
@@ -39,7 +39,7 @@ public class SynchroMessageOutboxIndexAction extends AbstractSynchroAction {
                                            CryptoService cryptoService,
                                            ThreadPool threadPool,
                                            SynchroService synchroService) {
-        super(MessageService.INDEX, MessageService.OUTBOX_TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(MessageService.INDEX, MessageService.OUTBOX_TYPE, client, pluginSettings, cryptoService, threadPool);
 
         setEnableUpdate(false); // no update
 

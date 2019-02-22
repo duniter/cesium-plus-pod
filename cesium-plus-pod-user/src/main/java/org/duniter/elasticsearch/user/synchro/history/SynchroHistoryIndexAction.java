@@ -31,10 +31,10 @@ import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.service.HistoryService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroHistoryIndexAction extends AbstractSynchroAction {
+public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
 
     private HistoryService service;
     @Inject
@@ -44,7 +44,7 @@ public class SynchroHistoryIndexAction extends AbstractSynchroAction {
                                      ThreadPool threadPool,
                                      SynchroService synchroService,
                                      HistoryService service) {
-        super(service.INDEX, service.DELETE_TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(service.INDEX, service.DELETE_TYPE, client, pluginSettings, cryptoService, threadPool);
         this.service = service;
 
         addValidationListener(this::onValidate);

@@ -45,8 +45,8 @@ public class Plugin extends org.elasticsearch.plugins.Plugin {
     private boolean enable;
 
     @Inject public Plugin(Settings settings) {
-        this.enable = settings.getAsBoolean("duniter.user.enabled", true);
         this.logger = Loggers.getLogger(Plugin.class.getName(), settings, new String[0]);
+        this.enable = settings.getAsBoolean("duniter.user.enable", true);
     }
 
     @Override

@@ -24,15 +24,15 @@ package org.duniter.elasticsearch.user.synchro.group;
 
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.group.GroupCommentDao;
 import org.duniter.elasticsearch.user.dao.group.GroupIndexDao;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroGroupCommentAction extends AbstractSynchroAction {
+public class SynchroGroupCommentAction extends AbstractSynchroUserAction {
 
     @Inject
     public SynchroGroupCommentAction(Duniter4jClient client,
@@ -40,7 +40,7 @@ public class SynchroGroupCommentAction extends AbstractSynchroAction {
                                      CryptoService cryptoService,
                                      ThreadPool threadPool,
                                      SynchroService synchroService) {
-        super(GroupIndexDao.INDEX, GroupCommentDao.TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(GroupIndexDao.INDEX, GroupCommentDao.TYPE, client, pluginSettings, cryptoService, threadPool);
 
         setEnableUpdate(true); // with update
 

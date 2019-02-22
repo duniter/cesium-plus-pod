@@ -30,10 +30,10 @@ import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.service.UserInvitationService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroInvitationCertificationIndexAction extends AbstractSynchroAction {
+public class SynchroInvitationCertificationIndexAction extends AbstractSynchroUserAction {
 
     private UserInvitationService service;
 
@@ -45,7 +45,7 @@ public class SynchroInvitationCertificationIndexAction extends AbstractSynchroAc
                                                      SynchroService synchroService,
                                                      UserInvitationService service) {
         super(UserInvitationService.INDEX, UserInvitationService.CERTIFICATION_TYPE, client,
-                pluginSettings.getDelegate(), cryptoService, threadPool);
+                pluginSettings, cryptoService, threadPool);
 
         this.service = service;
 

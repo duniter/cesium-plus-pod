@@ -30,10 +30,10 @@ import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.service.MessageService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
-public class SynchroMessageInboxIndexAction extends AbstractSynchroAction {
+public class SynchroMessageInboxIndexAction extends AbstractSynchroUserAction {
 
     private MessageService service;
     @Inject
@@ -43,7 +43,7 @@ public class SynchroMessageInboxIndexAction extends AbstractSynchroAction {
                                           ThreadPool threadPool,
                                           SynchroService synchroService,
                                           MessageService service) {
-        super(MessageService.INDEX, MessageService.INBOX_TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(MessageService.INDEX, MessageService.INBOX_TYPE, client, pluginSettings, cryptoService, threadPool);
 
         this.service = service;
 

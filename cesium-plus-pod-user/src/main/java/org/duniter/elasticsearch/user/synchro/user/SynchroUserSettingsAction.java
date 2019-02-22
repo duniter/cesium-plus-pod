@@ -26,19 +26,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.AccessDeniedException;
-import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
-import org.duniter.elasticsearch.user.dao.profile.UserSettingsDao;
 import org.duniter.elasticsearch.user.service.UserService;
-import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
+import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
 import java.util.Objects;
 
-public class SynchroUserSettingsAction extends AbstractSynchroAction {
+public class SynchroUserSettingsAction extends AbstractSynchroUserAction {
 
     @Inject
     public SynchroUserSettingsAction(Duniter4jClient client,
@@ -46,7 +44,7 @@ public class SynchroUserSettingsAction extends AbstractSynchroAction {
                                      CryptoService cryptoService,
                                      ThreadPool threadPool,
                                      SynchroService synchroService) {
-        super(UserService.INDEX, UserService.SETTINGS_TYPE, client, pluginSettings.getDelegate(), cryptoService, threadPool);
+        super(UserService.INDEX, UserService.SETTINGS_TYPE, client, pluginSettings, cryptoService, threadPool);
 
         setEnableUpdate(true); // with update
 

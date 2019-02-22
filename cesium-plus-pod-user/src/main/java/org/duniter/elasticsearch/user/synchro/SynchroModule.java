@@ -22,11 +22,6 @@ package org.duniter.elasticsearch.user.synchro;
  * #L%
  */
 
-import org.duniter.core.client.model.bma.EndpointApi;
-import org.duniter.core.util.CollectionUtils;
-import org.duniter.elasticsearch.service.NetworkService;
-import org.duniter.elasticsearch.service.PeerService;
-import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.synchro.group.SynchroGroupCommentAction;
 import org.duniter.elasticsearch.user.synchro.group.SynchroGroupRecordAction;
 import org.duniter.elasticsearch.user.synchro.history.SynchroHistoryIndexAction;
@@ -38,7 +33,6 @@ import org.duniter.elasticsearch.user.synchro.page.SynchroPageRecordAction;
 import org.duniter.elasticsearch.user.synchro.user.SynchroUserProfileAction;
 import org.duniter.elasticsearch.user.synchro.user.SynchroUserSettingsAction;
 import org.elasticsearch.common.inject.AbstractModule;
-import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Module;
 
 public class SynchroModule extends AbstractModule implements Module {

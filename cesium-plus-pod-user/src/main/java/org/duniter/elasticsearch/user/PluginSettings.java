@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.user;
 
 
 import org.duniter.core.client.model.bma.EndpointApi;
+import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.KeyPair;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -41,14 +42,29 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.PluginSettings delegate;
 
+    private final EndpointApi userEndpointApi;
+
     @Inject
     public PluginSettings(Settings settings,
                           org.duniter.elasticsearch.PluginSettings delegate) {
         super(settings);
         this.delegate = delegate;
 
+
         // Add i18n bundle name
         delegate.addI18nBundleName(getI18nBundleName());
+
+        // Allow to redefine user api
+        EndpointApi endpointApi = EndpointApi.ES_USER_API; // Default value
+        String apiName = settings.get("duniter.user.api");
+        if (StringUtils.isNotBlank(apiName)) {
+            try {
+                endpointApi  = EndpointApi.valueOf(apiName);
+            } catch (Exception e) {
+                logger.warn(String.format("Invalid user endpoint API define ni settings {duniter.user.api: %s}. Will use default value {%s}", apiName, endpointApi));
+            }
+        }
+        this.userEndpointApi = endpointApi;
     }
 
     @Override
@@ -114,6 +130,13 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsInt("duniter.synchro.timeOffsetInSec", 60*60 /*1 hour*/ );
     }
 
+    public EndpointApi getUserEndpointApi() {
+        return userEndpointApi;
+    }
+
+    public boolean enableUserModule() {
+        return settings.getAsBoolean("duniter.user.enable", Boolean.TRUE);
+    }
 
     public boolean getMailEnable() {
         return settings.getAsBoolean("duniter.mail.enable", Boolean.TRUE);

@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.subscription;
 
 
 import org.duniter.core.client.model.bma.EndpointApi;
+import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.KeyPair;
 import org.elasticsearch.common.component.*;
 import org.elasticsearch.common.inject.Inject;
@@ -38,13 +39,15 @@ import java.util.List;
  */
 public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
-    private org.duniter.elasticsearch.user.PluginSettings delegate;
-
     private static PluginSettings instance;
 
     public static final PluginSettings instance() {
         return instance;
     }
+
+    private org.duniter.elasticsearch.user.PluginSettings delegate;
+
+    private EndpointApi subscriptionEndpointApi;
 
     @Inject
     public PluginSettings(org.elasticsearch.common.settings.Settings settings,
@@ -54,6 +57,19 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
         // Add i18n bundle name
         delegate.addI18nBundleName(getI18nBundleName());
+
+
+        // Allow to redefine user api
+        EndpointApi endpointApi = EndpointApi.ES_SUBSCRIPTION_API; // default value
+        String apiName = settings.get("duniter.subscription.api");
+        if (StringUtils.isNotBlank(apiName)) {
+            try {
+                endpointApi  = EndpointApi.valueOf(apiName);
+            } catch (Exception e) {
+                logger.warn(String.format("Invalid subscription endpoint API define ni settings {duniter.subscription.api: %s}. Will use default value {%s}", apiName, endpointApi));
+            }
+        }
+        this.subscriptionEndpointApi = endpointApi;
 
         instance = this;
     }
@@ -93,6 +109,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     @Deprecated
     public String getCesiumUrl() {
         return this.settings.get("duniter.subscription.email.cesium.url", "https://g1.duniter.fr");
+    }
+
+    public EndpointApi getSubscriptionEndpointApi() {
+        return subscriptionEndpointApi;
     }
 
     public String getEmailLinkUrl() {

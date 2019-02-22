@@ -22,6 +22,8 @@ package org.duniter.elasticsearch.subscription.synchro;
  * #L%
  */
 
+import org.duniter.elasticsearch.subscription.synchro.execution.SynchroSubscriptionExecutionIndexAction;
+import org.duniter.elasticsearch.subscription.synchro.record.SynchroSubscriptionRecordAction;
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.inject.Module;
 
