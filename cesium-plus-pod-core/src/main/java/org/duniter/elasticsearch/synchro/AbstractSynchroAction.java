@@ -33,6 +33,7 @@ import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.HttpService;
+import org.duniter.core.client.service.exception.HttpNotFoundException;
 import org.duniter.core.client.service.exception.HttpUnauthorizeException;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
@@ -141,11 +142,19 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
         if (logger.isDebugEnabled()) {
             if (Record.PROPERTY_TIME.equals(versionFieldName)) {
-                logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {since %s}...", peer.getCurrency(), peer, toIndex, toType,
-                        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
-                                .format(new Date(fromTime * 1000))));
+                // Since a date
+                if (fromTime > 0) {
+                    logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {since %s}...", peer.getCurrency(), peer, toIndex, toType,
+                            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
+                                    .format(new Date(fromTime * 1000))));
+                }
+                // Force full synchro
+                else {
+                    logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {All}...", peer.getCurrency(), peer, toIndex, toType));
+                }
             }
             else {
+                // From a value
                 logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {where %s > %s}...", peer.getCurrency(), peer, toIndex, toType, versionFieldName, fromTime));
             }
         }
@@ -305,8 +314,8 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
             // Sort on "_doc" - see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/search-request-scroll.html
             String content = String.format("{\"query\":%s,\"size\":%s, \"sort\": [\"_doc\"]}",
-                    bos.bytes().toUtf8(),
-                    pluginSettings.getIndexBulkSize());
+                    bos.bytes().toUtf8(), // query
+                    pluginSettings.getIndexBulkSizeForSynchro());
             httpPost.setEntity(new StringEntity(content, "UTF-8"));
 
             if (trace) {
@@ -356,17 +365,39 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         ObjectMapper objectMapper = getObjectMapper();
 
         // DEV ONLY: skip
-        //if (!"user".equalsIgnoreCase(fromIndex) || !"profile".equalsIgnoreCase(fromType)) {
+        //if (!"history".equalsIgnoreCase(fromIndex) || !"delete".equalsIgnoreCase(fromType)) {
         //    return;
         //}
 
         long counter = 0;
         boolean stop = false;
         String scrollId = null;
+        int scrollCounter = 0;
+        int scrollMaxCount = 10;
         int total = 0;
         while(!stop) {
-            SearchScrollResponse response;
-            if (scrollId == null) {
+            SearchScrollResponse response = null;
+            // A scroll request already sent, so try to resue it
+            if (scrollId != null) {
+                try {
+                    HttpUriRequest request = createNextScrollRequest(peer, scrollId);
+                    response = executeAndParseRequest(peer, request);
+                }
+                catch(HttpNotFoundException e) {
+                    // Max try of scroll: stop here
+                    if (scrollCounter >= scrollMaxCount) throw e;
+
+                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll was closed. Retrying {%s/%s}...",
+                            peer.getCurrency(), peer,
+                            toIndex, toType, scrollCounter, scrollMaxCount));
+                    // Scroll was disable by node, so continue with a new scroll
+                    scrollId = null;
+                    counter = 0;
+                }
+            }
+            // Create a new scroll
+            if (scrollId == null){
+                scrollCounter++;
                 HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query);
                 response = executeAndParseRequest(peer, request);
                 if (response != null) {
@@ -376,10 +407,6 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                         logger.debug(String.format("[%s] [%s] [%s/%s] %s docs to check...", peer.getCurrency(), peer, toIndex, toType, total));
                     }
                 }
-            }
-            else {
-                HttpUriRequest request = createNextScrollRequest(peer, scrollId);
-                response =  executeAndParseRequest(peer, request);
             }
 
             if (response == null) {
@@ -412,12 +439,12 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
             String logPrefix = String.format("[%s] [%s] [%s/%s/%s]", peer.getCurrency(), peer, toIndex, toType, id);
 
+            counter++;
+
             if (source == null) {
                 logger.error(String.format("%s No source found. Skipping.", logPrefix));
             }
             else {
-                counter++;
-
                 // Save (create or update)
                 save(id, source,
                      objectMapper,

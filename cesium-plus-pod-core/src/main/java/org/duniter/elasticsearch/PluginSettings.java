@@ -251,7 +251,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public int getIndexBulkSize() {
-        return settings.getAsInt("duniter.bulk.size", 1000);
+        return settings.getAsInt("duniter.bulk.size", 500);
+    }
+
+    public int getIndexBulkSizeForSynchro() {
+        return settings.getAsInt("duniter.p2p.bulk.size", Math.min(getIndexBulkSize(), 250));
     }
 
     public int getNodeForkResyncWindow() {

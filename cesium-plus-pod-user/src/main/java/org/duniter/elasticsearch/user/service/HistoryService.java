@@ -30,6 +30,7 @@ import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.AccessDeniedException;
+import org.duniter.elasticsearch.exception.InvalidTimeException;
 import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.Message;
@@ -164,8 +165,11 @@ public class HistoryService extends AbstractService {
                 // Check same document issuer
                 client.checkSameDocumentIssuer(index, type, id, issuer);
             }
+
+            // Check time is valid - fix #27
+            verifyTimeForInsert(actualObj);
         }
-        catch(AccessDeniedException e) {
+        catch(AccessDeniedException | InvalidTimeException e) {
             // Check if admin ask the deletion
             // If deletion done by admin: continue if allow in settings
             if (!pluginSettings.isRandomNodeKeypair()
@@ -178,8 +182,7 @@ public class HistoryService extends AbstractService {
             }
         }
 
-        // Check time is valid - fix #27
-        verifyTimeForInsert(actualObj);
+
     }
 
     public void applyDocDelete(JsonNode actualObj) {

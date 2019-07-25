@@ -56,7 +56,7 @@ node.name: cesium-plus-node-DEV
 #
 # Set the bind address to a specific IP (IPv4 or IPv6):
 #
-# network.host: 192.168.0.28
+network.host: 192.168.0.28
 #
 # Set a custom port for HTTP:
 #
@@ -196,7 +196,7 @@ duniter.security.enable: true
 #
 # Enable discovery on network peers, to automatically synchronize this peers (default: true)
 #
-# duniter.p2p.discovery.enable: false
+duniter.p2p.discovery.enable: false
 #
 # Pass a list of hosts to always synchronize (default: <empty>)
 #
@@ -214,7 +214,7 @@ duniter.p2p.includes.endpoints: [
 #
 # Enable a full synchro. This will compare each documents from other peers.
 #
-# duniter.p2p.fullResyncAtStartup: true
+duniter.p2p.fullResyncAtStartup: true
 #
 # Peer API to index (default : ["BASIC_MERKLE_API", "BMAS", "WS2P" ] UNION ${duniter.p2p.peering.targetedApis} UNION ${duniter.p2p.peering.publishedApis})
 #
@@ -222,7 +222,7 @@ duniter.p2p.includes.endpoints: [
 #
 # Enable publishing of pod endpoints to the network (see the peer document in Duniter protocol). (Default: '${duniter.p2p.enable}')
 #
-# duniter.p2p.peering.enable: false
+duniter.p2p.peering.enable: false
 #
 # Define targeted API (for peers selection) where to send the peer document (if peering is enable). (Default: ["BASIC_MERKLED_API", "BMAS"])
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
