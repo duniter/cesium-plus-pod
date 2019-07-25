@@ -338,12 +338,33 @@ public class NetworkService extends AbstractService {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
+        // Make sure the peer's currency is indexed by the cluster
+        Currency currency = currencyDao.getById(peer.getCurrency());
+        if (currency == null) {
+            logger.debug(String.format("[%s] [%s] Peer used a unknown currency", peer.getCurrency(), peer));
+            return false;
+        }
+
+        // Make sure peer is not self
+        try {
+            NetworkPeering peering = httpService.executeRequest(peer, String.format("/%s/network/peering", peer.getCurrency()), NetworkPeering.class);
+
+            // Same pubkey as node's pubkey: skip
+            if (peering != null && peering.getPubkey().equals(pluginSettings.getNodePubkey())) {
+                logger.debug(String.format("[%s] [%s] Same pubkey as node's. Skipping synchronization (seems to be self)", peer.getCurrency(), peer));
+                return false;
+            }
+
+            // Peer is alive, fine !
+            return true;
+        }
+        catch(Exception e) {
+            // Unable to check peering, so continue
+        }
+
         try {
             // TODO: check version is compatible
             //String version = networkService.getVersion(peer);
-
-            Currency currency = currencyDao.getById(peer.getCurrency());
-            if (currency == null) return false;
 
             BlockchainBlock block = httpService.executeRequest(peer, String.format("/%s/block/0/_source", peer.getCurrency()), BlockchainBlock.class);
 
@@ -663,7 +684,7 @@ public class NetworkService extends AbstractService {
             return true;
         }
         catch(Exception e) {
-            logger.error(String.format("[%s] [%s] Error when sending peer document: %s", currencyId, peer, e.getMessage()));
+            if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Error when sending peer document: %s", currencyId, peer, e.getMessage()));
             return false;
         }
 
