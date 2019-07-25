@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.duniter.cesium</groupId>
     <artifactId>cesium-plus-pod</artifactId>
-    <version>1.3.3-SNAPSHOT</version>
+    <version>1.3.3</version>
   </parent>
 
   <artifactId>cesium-plus-pod-core</artifactId>
