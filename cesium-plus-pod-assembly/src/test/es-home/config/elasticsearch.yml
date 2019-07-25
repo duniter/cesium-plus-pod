@@ -56,7 +56,7 @@ node.name: cesium-plus-node-DEV
 #
 # Set the bind address to a specific IP (IPv4 or IPv6):
 #
-# network.host: 192.168.233.118
+# network.host: 192.168.0.28
 #
 # Set a custom port for HTTP:
 #
@@ -228,7 +228,7 @@ duniter.p2p.includes.endpoints: [
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
 #
 duniter.p2p.peering.targetedApis: [
-  "GCHANGE_API"
+ "ES_CORE_API"
 ]
 #
 # Define cluster API to publish (if peering is enable). By default, all compatible API
@@ -336,7 +336,6 @@ duniter.user.enable: true
 # duniter.subscription.email.link.name: 'View online'
 #
 # ---------------------------------- Cesium+ Pod > Share module -------------------
-#
 #
 # Share title: `og:site_name` (default: 'Cesium')
 #
