@@ -23,6 +23,7 @@ package org.duniter.elasticsearch.user.synchro.history;
  */
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.duniter.core.client.model.elasticsearch.DeleteRecord;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.NotFoundException;
@@ -50,6 +51,8 @@ public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
         addValidationListener(this::onValidate);
         addInsertionListener(this::onInsert);
 
+        setTimeFieldName(DeleteRecord.PROPERTY_TIME);
+
         synchroService.register(this);
     }
 
@@ -58,7 +61,7 @@ public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
     protected void onValidate(String deleteId, JsonNode source, SynchroActionResult result) {
         try {
             // Check if valid document
-            service.checkIsValidDeletion(source);
+            service.checkIsValidDeletion(source, true/* Allow old deletion documents*/);
 
         } catch(NotFoundException e) {
             // doc not exists: continue

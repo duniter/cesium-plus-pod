@@ -40,6 +40,6 @@ public class RestHistoryDeleteIndexAction extends AbstractRestPostIndexAction {
         super(settings, controller, client, securityController,
                 HistoryService.INDEX,
                 HistoryService.DELETE_TYPE,
-                json -> service.indexDeleteFromJson(json));
+                json -> service.indexDeleteFromJson(json, false));
     }
 }

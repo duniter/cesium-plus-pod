@@ -304,7 +304,8 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
         // Allow scroll search (need by synchro from other peers)
         injector.getInstance(RestSecurityController.class)
-                .allow(RestRequest.Method.POST, "^/_search/scroll$");
+                .allow(RestRequest.Method.POST, "^/_search/scroll$")
+                .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
     }
 
     protected void startIndexBlocks(Peer peer) {

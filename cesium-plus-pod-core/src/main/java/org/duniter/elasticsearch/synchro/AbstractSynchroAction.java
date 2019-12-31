@@ -35,6 +35,7 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.HttpService;
 import org.duniter.core.client.service.exception.HttpNotFoundException;
 import org.duniter.core.client.service.exception.HttpUnauthorizeException;
+import org.duniter.core.exception.BusinessException;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
@@ -73,7 +74,11 @@ import java.util.*;
 
 public abstract class AbstractSynchroAction extends AbstractService implements SynchroAction {
 
-    private static final String SCROLL_PARAM_VALUE = "1m";
+    private static final String SCROLL_TIME_TO_LIVE_SHORT = "1m";
+
+    private static final String SCROLL_TIME_TO_LIVE_LONG = "10m";
+
+    private static final int SCROLL_MAX_RETRY = 5;
 
     private static SynchroActionResult NULL_ACTION_RESULT = new NullSynchroActionResult();
 
@@ -301,8 +306,9 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     private HttpPost createScrollRequest(Peer peer,
                                          String fromIndex,
                                          String fromType,
-                                         QueryBuilder query) {
-        HttpPost httpPost = new HttpPost(httpService.getPath(peer, fromIndex, fromType, "_search?scroll=" + SCROLL_PARAM_VALUE));
+                                         QueryBuilder query,
+                                         String scrollTime) {
+        HttpPost httpPost = new HttpPost(httpService.getPath(peer, fromIndex, fromType, "_search?scroll=" + scrollTime));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
 
         try {
@@ -330,12 +336,13 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     }
 
     private HttpPost createNextScrollRequest(Peer peer,
-                                             String scrollId) {
+                                             String scrollId,
+                                             String scrollTime) {
 
         HttpPost httpPost = new HttpPost(httpService.getPath(peer, "_search", "scroll"));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
         httpPost.setEntity(new StringEntity(String.format("{\"scroll\": \"%s\", \"scroll_id\": \"%s\"}",
-                SCROLL_PARAM_VALUE,
+                scrollTime,
                 scrollId), "UTF-8"));
         return httpPost;
     }
@@ -349,6 +356,8 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             throw new TechnicalException(String.format("[%s] [%s] [%s/%s] Unable to access (%s).", peer.getCurrency(), peer, fromIndex, fromType, e.getMessage()), e);
         } catch (TechnicalException e) {
             throw new TechnicalException(String.format("[%s] [%s] [%s/%s] Unable to scroll request: %s", peer.getCurrency(), peer, fromIndex, fromType, e.getMessage()), e);
+        } catch (BusinessException e) {
+            throw e; // Keep HttpNotFoundException
         } catch (Exception e) {
             throw new TechnicalException(String.format("[%s] [%s] [%s/%s] Unable to parse response: ", peer.getCurrency(), peer, fromIndex, fromType, e.getMessage()), e);
         }
@@ -365,47 +374,62 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         ObjectMapper objectMapper = getObjectMapper();
 
         // DEV ONLY: skip
-        //if (!"history".equalsIgnoreCase(fromIndex) || !"delete".equalsIgnoreCase(fromType)) {
-        //    return;
-        //}
+//        if (!"history".equalsIgnoreCase(fromIndex) || !"delete".equalsIgnoreCase(fromType)) {
+//            return;
+//        }
+
 
         long counter = 0;
         boolean stop = false;
         String scrollId = null;
-        int scrollCounter = 0;
-        int scrollMaxCount = 10;
+        String scrollTime = SCROLL_TIME_TO_LIVE_SHORT;
+        int scrollRetryCounter = 0;
         int total = 0;
         while(!stop) {
             SearchScrollResponse response = null;
-            // A scroll request already sent, so try to resue it
+            // A scroll request already sent, so try to reuse it
             if (scrollId != null) {
                 try {
-                    HttpUriRequest request = createNextScrollRequest(peer, scrollId);
+                    HttpUriRequest request = createNextScrollRequest(peer, scrollId, scrollTime);
                     response = executeAndParseRequest(peer, request);
+                    scrollRetryCounter = 0; // Reset the scroll request count
                 }
                 catch(HttpNotFoundException e) {
-                    // Max try of scroll: stop here
-                    if (scrollCounter >= scrollMaxCount) throw e;
-
-                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll was closed. Retrying {%s/%s}...",
-                            peer.getCurrency(), peer,
-                            toIndex, toType, scrollCounter, scrollMaxCount));
-                    // Scroll was disable by node, so continue with a new scroll
+                    // Scroll was disable by node, so continue (will create a new scroll)
                     scrollId = null;
                     counter = 0;
                 }
             }
+
             // Create a new scroll
-            if (scrollId == null){
-                scrollCounter++;
-                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query);
-                response = executeAndParseRequest(peer, request);
-                if (response != null) {
-                    scrollId = response.getScrollId();
-                    total = response.getHits().getTotalHits();
-                    if (total > 0 && logger.isDebugEnabled()) {
-                        logger.debug(String.format("[%s] [%s] [%s/%s] %s docs to check...", peer.getCurrency(), peer, toIndex, toType, total));
+            while (scrollId == null && !stop){
+                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query, scrollTime);
+                try {
+                    response = executeAndParseRequest(peer, request);
+                    if (response != null) {
+                        scrollId = response.getScrollId();
+                        if (total == 0) { // Do once
+                            total = response.getHits().getTotalHits();
+                            if (total > 0 && logger.isDebugEnabled()) {
+                                logger.debug(String.format("[%s] [%s] [%s/%s] %s docs to check...", peer.getCurrency(), peer, toIndex, toType, total));
+                            }
+                        }
                     }
+                }
+                catch(HttpNotFoundException e) {
+                    scrollRetryCounter++;
+                    // Max try of scroll: stop here
+                    if (scrollRetryCounter >= SCROLL_MAX_RETRY) throw e;
+                    if (scrollRetryCounter >= 2) {
+                        scrollTime = SCROLL_TIME_TO_LIVE_LONG; // Increase the scroll time
+                    }
+                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll was closed. Retrying {%s/%s}...",
+                            peer.getCurrency(), peer,
+                            toIndex, toType, scrollRetryCounter, SCROLL_MAX_RETRY));
+                    // Scroll was disable by node, so continue with a new scroll
+                    scrollId = null;
+                    counter = 0;
+                    break;
                 }
             }
 

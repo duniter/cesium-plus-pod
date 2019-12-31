@@ -1076,15 +1076,19 @@ public class Duniter4jClientImpl implements Duniter4jClient {
         // Execute in a pool
         ListenableActionFuture<?> actionFuture = null;
         boolean acceptedInPool = false;
+        long retryCounter = 0;
         while(!acceptedInPool) {
             try {
+                retryCounter++;
                 actionFuture = request.execute();
                 acceptedInPool = true;
             }
             catch(EsRejectedExecutionException e) {
+                if (retryCounter >= 30 ) throw new TechnicalException("Unable to execute a request safely (after waiting 1 minute): ES request queue is full!");
+                logger.debug("ESThreadPoolExecutor seems to be full: waiting 2s...");
                 // not accepted, so wait
                 try {
-                    Thread.sleep(1000); // 1s
+                    Thread.sleep(2000); // 2s
                 }
                 catch(InterruptedException e2) {
                     // silent

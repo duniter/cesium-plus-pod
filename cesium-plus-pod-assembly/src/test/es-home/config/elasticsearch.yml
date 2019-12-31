@@ -56,7 +56,7 @@ node.name: cesium-plus-node-DEV
 #
 # Set the bind address to a specific IP (IPv4 or IPv6):
 #
-network.host: 192.168.0.28
+network.host: 192.168.0.45
 #
 # Set a custom port for HTTP:
 #

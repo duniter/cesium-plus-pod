@@ -114,11 +114,11 @@ public class HistoryService extends AbstractService {
     }
 
 
-    public String indexDeleteFromJson(String recordJson) {
+    public String indexDeleteFromJson(String recordJson, boolean allowOldDocument) {
         JsonNode source = readAndVerifyIssuerSignature(recordJson);
 
         // Check if valid deletion
-        checkIsValidDeletion(source);
+        checkIsValidDeletion(source, allowOldDocument);
 
         if (logger.isDebugEnabled()) {
             String issuer = source.get(DeleteRecord.PROPERTY_ISSUER).asText();
@@ -140,7 +140,7 @@ public class HistoryService extends AbstractService {
         return response.getId();
     }
 
-    public void checkIsValidDeletion(JsonNode actualObj) {
+    public void checkIsValidDeletion(JsonNode actualObj, boolean allowOldDocuments) {
         String issuer = actualObj.get(DeleteRecord.PROPERTY_ISSUER).asText();
         String index = getMandatoryField(actualObj, DeleteRecord.PROPERTY_INDEX).asText();
         String type = getMandatoryField(actualObj,DeleteRecord.PROPERTY_TYPE).asText();
@@ -167,7 +167,7 @@ public class HistoryService extends AbstractService {
             }
 
             // Check time is valid - fix #27
-            verifyTimeForInsert(actualObj);
+            verifyTime(actualObj, allowOldDocuments, DeleteRecord.PROPERTY_TIME);
         }
         catch(AccessDeniedException | InvalidTimeException e) {
             // Check if admin ask the deletion
