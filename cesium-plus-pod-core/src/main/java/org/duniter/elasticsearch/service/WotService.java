@@ -45,7 +45,10 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
 import java.io.Closeable;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -212,36 +215,35 @@ public class WotService extends AbstractService {
 
     /* -- protected methods -- */
 
-    protected List<Member> indexAndGetMembers(final String currency) {
+    protected List<Member> indexAndGetMembers(final String currencyId) {
 
-        logger.info(String.format("[%s] Indexing WoT members...", currency));
+        logger.info(String.format("[%s] Indexing WoT members...", currencyId));
 
-        Set<String> wasMemberPubkeys = memberDao.getMemberPubkeys(currency);
-
-        BlockchainParameters p = blockchainService.getParameters(currency);
-        List<Member> members = blockDao.getMembers(p);
+        BlockchainParameters parameters = blockchainService.getParameters(currencyId);
+        Set<String> wasMemberPubkeys = memberDao.getMemberPubkeys(currencyId);
+        List<Member> members = blockDao.getMembers(parameters);
 
         // Save members into index
         if (CollectionUtils.isNotEmpty(members)) {
             // Set currency
             members.forEach(m -> {
                 wasMemberPubkeys.remove(m.getPubkey());
-                m.setCurrency(currency);
+                m.setCurrency(currencyId);
             });
 
             // Save members
-            memberDao.save(currency, members);
+            memberDao.save(currencyId, members);
         }
 
         // Update old members as "was member"
         if (CollectionUtils.isNotEmpty(wasMemberPubkeys)) {
-            memberDao.updateAsWasMember(currency, wasMemberPubkeys);
+            memberDao.updateAsWasMember(currencyId, wasMemberPubkeys);
         }
 
         // Update currency member count
-        currencyDao.updateMemberCount(currency, members.size());
+        currencyDao.updateMemberCount(currencyId, members.size());
 
-        logger.info(String.format("[%s] Indexing WoT members [OK]", currency));
+        logger.info(String.format("[%s] Indexing WoT members [OK]", currencyId));
 
         return members;
     }

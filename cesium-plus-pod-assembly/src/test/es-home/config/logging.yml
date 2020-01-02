@@ -14,7 +14,7 @@ logger:
   com.amazonaws.jmx.SdkMBeanRegistrySupport: ERROR
   com.amazonaws.metrics.AwsSdkMetrics: ERROR
 
-  duniter: INFO
+  duniter: DEBUG
   #duniter.core: DEBUG
   duniter.security: WARN
   duniter.dao.member: WARN

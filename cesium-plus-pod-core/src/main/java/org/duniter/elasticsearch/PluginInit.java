@@ -169,6 +169,19 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         injector.getInstance(RestSecurityController.class)
                 .allow(RestRequest.Method.POST, "^/_search/scroll$")
                 .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
+
+
+        // Add access to docstat index
+        if (pluginSettings.enableDocStats()) {
+
+            injector.getInstance(RestSecurityController.class)
+                    .allowIndexType(RestRequest.Method.GET,
+                            DocStatDao.INDEX,
+                            DocStatDao.TYPE)
+                    .allowPostSearchIndexType(
+                            DocStatDao.INDEX,
+                            DocStatDao.TYPE);
+        }
     }
 
     protected void createIndices() {
@@ -433,15 +446,6 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         // Start doc stats, if enable in config
         if (pluginSettings.enableDocStats()) {
 
-            // Add access to docstat index
-            injector.getInstance(RestSecurityController.class)
-                    .allowIndexType(RestRequest.Method.GET,
-                            DocStatDao.INDEX,
-                            DocStatDao.TYPE)
-                    .allowPostSearchIndexType(
-                            DocStatDao.INDEX,
-                            DocStatDao.TYPE);
-
             // Add index [currency/record] to stats
             final DocStatService docStatService = injector
                     .getInstance(DocStatService.class)
@@ -451,6 +455,8 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             threadPool.scheduleOnClusterReady(() -> {
                 Closeable closeable = docStatService.startScheduling();
 
+                // Stop to listen, if master stop
+                threadPool.scheduleOnMasterFirstStop(closeable);
             });
         }
     }

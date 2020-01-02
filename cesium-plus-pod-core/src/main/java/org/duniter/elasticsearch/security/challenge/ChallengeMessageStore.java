@@ -27,6 +27,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Cache;
 import org.duniter.core.util.ObjectUtils;
 import org.duniter.core.util.StringUtils;
+import org.duniter.elasticsearch.PluginSettings;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
@@ -47,8 +48,8 @@ public class ChallengeMessageStore {
     private Cache<String, String> store;
 
     @Inject
-    public ChallengeMessageStore(Settings settings) {
-        this.prefix = settings.get("duniter4j.auth.challenge.prefix", "duniter4j-challenge-");
+    public ChallengeMessageStore(Settings settings, PluginSettings pluginSettings) {
+        this.prefix = pluginSettings.getSoftwareName() + "-";
         this.validityDurationInSeconds = settings.getAsInt("duniter4j.auth.challengeValidityDuration", 10);
         this.store = initGeneratedMessageCache();
     }

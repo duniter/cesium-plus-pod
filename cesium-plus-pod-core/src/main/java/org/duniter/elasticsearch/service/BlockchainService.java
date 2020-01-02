@@ -31,6 +31,7 @@ import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainDifficulties;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.bma.EndpointApi;
+import org.duniter.core.client.model.local.Currency;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.bma.BlockchainRemoteService;
 import org.duniter.core.client.service.bma.NetworkRemoteService;
@@ -134,7 +135,16 @@ public class BlockchainService extends AbstractService {
                 }
                 checkReady();
 
-                BlockchainParameters parameters = blockchainRemoteService.getParameters(currencyId);
+                // Try to get from DAO
+                Currency localCurrencyModel = currencyDao.getById(currencyId);
+                BlockchainParameters parameters = (localCurrencyModel != null) ? localCurrencyModel.getParameters() : null;
+
+                // Retry, by request on the peer
+                if (parameters == null) {
+                    parameters = blockchainRemoteService.getParameters(currencyId);
+                }
+
+                // Update the global map
                 blockchainParametersCurrencyId.put(currencyId, parameters);
                 return parameters;
             }
@@ -608,8 +618,19 @@ public class BlockchainService extends AbstractService {
 
             if (!isReady()) throw new IllegalStateException("Could not load blockchain parameters (service is not started)");
 
-            Peer peer = pluginSettings.checkAndGetDuniterPeer();
-            result = blockchainRemoteService.getParameters(peer);
+            // Try to get from DAO
+            Currency localCurrencyModel = currencyDao.getById(currency);
+            if (localCurrencyModel != null) {
+                result = localCurrencyModel.getParameters();
+            }
+
+            // Or by request on the peer
+            if (result == null) {
+                Peer peer = pluginSettings.checkAndGetDuniterPeer();
+                result = blockchainRemoteService.getParameters(peer);
+            }
+
+            // Update the cache with result
             blockchainParametersCurrencyIdCache.put(result.getCurrency(), result);
             blockchainParametersCurrencyIdCache.put("DEFAULT", result);
         }
