@@ -127,7 +127,9 @@ public class NetworkService extends AbstractService {
                 }
                 String epCurrencyId = (endpointPart.length == 2) ? endpointPart[0] : null /*optional*/;
 
-                NetworkPeering.Endpoint ep = (endpointPart.length == 2) ? Endpoints.parse(endpointPart[1]) : Endpoints.parse(endpoint);
+                NetworkPeering.Endpoint ep = (endpointPart.length == 2) ?
+                        Endpoints.parse(endpointPart[1]).orElse(null) :
+                        Endpoints.parse(endpoint).orElse(null);
                 if (ep != null && (api == null || ep.api == api) && (epCurrencyId == null || currencyId.equals(epCurrencyId))) {
                     Peer peer = Peer.newBuilder()
                             .setEndpoint(ep)
