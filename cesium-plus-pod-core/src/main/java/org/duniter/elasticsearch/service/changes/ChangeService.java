@@ -191,7 +191,7 @@ public class ChangeService {
         });
     }
 
-    public static void registerListener(ChangeListener listener) {
+    public static ChangeListener registerListener(ChangeListener listener) {
         Preconditions.checkNotNull(listener);
         Preconditions.checkNotNull(listener.getId());
         if (LISTENERS.containsKey(listener.getId())) {
@@ -214,15 +214,17 @@ public class ChangeService {
                 }
             }
         }
+        return listener;
     }
 
     /**
      * Usefull when listener sources has changed
      * @param listener
      */
-    public static void refreshListener(ChangeListener listener) {
+    public static ChangeListener refreshListener(ChangeListener listener) {
         unregisterListener(listener);
         registerListener(listener);
+        return listener;
     }
 
     public static void unregisterListener(ChangeListener listener) {

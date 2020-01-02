@@ -59,11 +59,11 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         // Configure network
         configureNetwork();
 
-        threadPool.scheduleOnClusterReady(() -> {
+        threadPool.scheduleOnMasterEachStart(() -> {
             createIndices();
 
             // Waiting cluster back to GREEN or YELLOW state, before synchronizePeer
-            threadPool.scheduleOnClusterReady(this::doAfterStart);
+            threadPool.scheduleOnClusterReady(this::startSubscriptions);
         });
     }
 
@@ -118,7 +118,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         }
     }
 
-    protected void doAfterStart() {
+    protected void startSubscriptions() {
 
         // Start subscription services
         if (pluginSettings.enableSubscription()) {

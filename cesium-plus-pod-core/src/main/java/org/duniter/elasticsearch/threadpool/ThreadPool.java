@@ -22,11 +22,12 @@ package org.duniter.elasticsearch.threadpool;
  * #L%
  */
 
-import com.google.common.collect.Lists;
 import org.duniter.core.util.Preconditions;
 import org.elasticsearch.action.admin.cluster.stats.ClusterStatsRequestBuilder;
 import org.elasticsearch.action.admin.cluster.stats.ClusterStatsResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.ClusterService;
+import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.component.Lifecycle;
@@ -41,7 +42,8 @@ import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.transport.TransportService;
 import org.nuiton.i18n.I18n;
 
-import java.util.List;
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.*;
 
 /**
@@ -50,13 +52,15 @@ import java.util.concurrent.*;
  */
 public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
 
-    private ScheduledThreadPoolExecutor scheduler = null;
+    private ScheduledThreadPoolExecutor scheduler;
     private final Injector injector;
     private final ESLogger logger;
 
     private final org.elasticsearch.threadpool.ThreadPool delegate;
 
-    private final List<Runnable> afterStartedCommands;
+    private LocalNodeMasterListener isMasterListener;
+    private boolean clusterStarted = false;
+    private boolean isMaster = false;
 
     @Inject
     public ThreadPool(Settings settings,
@@ -66,7 +70,6 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         super(settings);
         this.logger = Loggers.getLogger("duniter.threadpool", settings, new String[0]);
         this.injector = injector;
-        this.afterStartedCommands = Lists.newArrayList();
 
         this.delegate = esThreadPool;
 
@@ -79,23 +82,46 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         this.scheduler.setRemoveOnCancelPolicy(true);
     }
 
+    public boolean isMasterNode() {
+        return isMaster;
+    }
+
     public void doStart(){
         if (logger.isDebugEnabled()) {
             logger.debug("Starting thread pool...");
         }
 
-        if (!afterStartedCommands.isEmpty()) {
-            scheduleOnStarted(() -> {
-                afterStartedCommands.forEach(command -> command.run());
-                this.afterStartedCommands.clear();
-            });
-        }
+        isMasterListener = new LocalNodeMasterListener() {
+            @Override
+            public void onMaster() {
+                if (!isMaster) {
+                    isMaster = true;
+                    logger.debug("Executing master on start jobs...");
+                }
+            }
+
+            @Override
+            public void offMaster() {
+                isMaster = false;
+                logger.debug("Executing master on stop jobs...");
+            }
+
+            @Override
+            public String executorName() {
+                return org.elasticsearch.threadpool.ThreadPool.Names.MANAGEMENT;
+            }
+        };
+        injector.getInstance(ClusterService.class)
+                .add(isMasterListener);
     }
 
     public void doStop(){
         if (!scheduler.isShutdown()) {
             scheduler.shutdown();
         }
+        injector.getInstance(ClusterService.class)
+                .remove(isMasterListener);
+        isMasterListener = null;
     }
 
     public void doClose() {}
@@ -104,11 +130,18 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      * Schedules an rest when node is started (allOfToList services and modules ready)
      *
      * @param job the rest to execute when node started
-     * @return a ScheduledFuture who's get will return when the task is complete and throw an exception if it is canceled
      */
     public void scheduleOnStarted(Runnable job) {
         Preconditions.checkNotNull(job);
-        scheduleAfterServiceState(TransportService.class, Lifecycle.State.STARTED, job);
+        if (clusterStarted) {
+            schedule(job);
+        }
+        else {
+            scheduleAfterServiceState(TransportService.class, Lifecycle.State.STARTED, () -> {
+                clusterStarted = true;
+                job.run();
+            });
+        }
     }
 
     /**
@@ -131,15 +164,66 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         });
     }
 
+
     /**
      * Schedules an rest when cluster is ready
      *
      * @param job the rest to execute
-     * @param expectedStatus expected health status, to run the job
-     * @return a ScheduledFuture who's get will return when the task is complete and throw an exception if it is canceled
      */
     public void scheduleOnClusterReady(Runnable job) {
         scheduleOnClusterHealthStatus(job, ClusterHealthStatus.YELLOW, ClusterHealthStatus.GREEN);
+    }
+
+    /**
+     * Schedules when node BECOME the master for the first time (and the cluster ready)
+     *
+     * @param job the rest to execute
+     */
+    public void scheduleOnMasterFirstStart(Runnable job) {
+        scheduleOnMasterStart(job, true);
+    }
+
+    /**
+     * Schedules when node BECOME the master (and the cluster ready)
+     *
+     * @param job the rest to execute
+     */
+    public void scheduleOnMasterEachStart(Runnable job) {
+        scheduleOnMasterStart(job, false);
+    }
+
+    /**
+     * Schedules when node stop to be the master node, for the first time
+     *
+     * @param job the rest to execute
+     */
+    public void scheduleOnMasterFirstStop(Runnable job) {
+        scheduleOnMasterStop(job, true);
+    }
+
+    /**
+     * Schedules when node stop to be the master node, for the first time
+     *
+     * @param job the rest to execute
+     */
+    public void scheduleOnMasterFirstStop(Closeable job) {
+        scheduleOnMasterStop(() -> {
+            try {
+                job.close();
+            }
+            catch(IOException e) {
+                // Silent
+            }
+        }, true);
+    }
+
+    /**
+     * Schedules each time node stop to be the master node
+     *
+     * @param job the rest to execute
+     */
+    public void scheduleOnMasterEachStop(Runnable job) {
+        scheduleOnMasterStop(job, false);
     }
 
     /**
@@ -194,15 +278,17 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      * @param initialDelay the initial delay
      * @param period the period
      * @param timeUnit the time unit
-     * @return a ScheduledFuture who's get will return when the task is complete and throw an exception if it is canceled
      */
     public ScheduledActionFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit timeUnit) {
         long initialDelayMs = new TimeValue(initialDelay, timeUnit).millis();
         long periodMs = new TimeValue(period, timeUnit).millis();
-        return new ScheduledActionFuture<>(scheduleAtFixedRateWorkaround(command, initialDelayMs, periodMs));
+        ScheduledActionFuture<?> future = new ScheduledActionFuture<>(null);
+        scheduleAtFixedRateWorkaround(command, initialDelayMs, periodMs, future);
+        return future;
     }
 
     /* -- protected methods  -- */
+
 
     protected <T extends LifecycleComponent<T>> ScheduledActionFuture<?> scheduleAfterServiceState(Class<T> waitingServiceClass,
                                                                                              final Lifecycle.State waitingState,
@@ -259,34 +345,106 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         return canContinue;
     }
 
+
+    /**
+     * Schedules when node BECOME the master (and the cluster ready)
+     *
+     * @param job the rest to execute
+     * @param onlyOnce if true, run only on first master event on this node
+     */
+    protected void scheduleOnMasterStart(Runnable job, boolean onlyOnce) {
+        if (isMaster) {
+            scheduleOnClusterReady(job);
+            if (onlyOnce) return;
+        }
+
+        final ClusterService cluster = injector.getInstance(ClusterService.class);
+        cluster.add(new LocalNodeMasterListener() {
+            @Override
+            public void onMaster() {
+                scheduleOnClusterReady(job);
+
+                // Was run once, so remove the listener
+                if (onlyOnce) cluster.remove(this);
+            }
+
+            @Override
+            public void offMaster() {
+            }
+
+            @Override
+            public String executorName() {
+                return org.elasticsearch.threadpool.ThreadPool.Names.GENERIC;
+            }
+        });
+    }
+
+    /**
+     * Schedules when node BECOME the master (and the cluster ready)
+     *
+     * @param job the rest to execute
+     * @param onlyOnce if true, run only on first master event on this node
+     */
+    protected void scheduleOnMasterStop(Runnable job, boolean onlyOnce) {
+        if (clusterStarted && !isMaster && onlyOnce) {
+            logger.debug("Skipping a job execution, because node is not the master node");
+            return; // Skip; as node is not a master
+        }
+
+        final ClusterService cluster = injector.getInstance(ClusterService.class);
+        cluster.add(new LocalNodeMasterListener() {
+            @Override
+            public void onMaster() {
+            }
+
+            @Override
+            public void offMaster() {
+                scheduleOnClusterReady(job);
+
+                // Was run once, so remove the listener
+                if (onlyOnce) cluster.remove(this);
+            }
+
+            @Override
+            public String executorName() {
+                return org.elasticsearch.threadpool.ThreadPool.Names.GENERIC;
+            }
+        });
+    }
+
     /**
      * This method use a workaround to execution schedule at fixed time, because standard call of scheduler.scheduleAtFixedRate
      * does not worked !!
      **/
-    protected ScheduledFuture<?> scheduleAtFixedRateWorkaround(final Runnable command, final long initialDelayMs, final long periodMs) {
+    protected <T> void scheduleAtFixedRateWorkaround(final Runnable command, final long initialDelayMs,
+                                                 final long periodMs,
+                                                 final ScheduledActionFuture<T> future) {
         final long expectedNextExecutionTime = System.currentTimeMillis() + initialDelayMs + periodMs;
 
-        return scheduler.schedule(
-                () -> {
-                    try {
-                        command.run();
-                    } catch (Throwable t) {
-                        logger.error("Error while processing subscriptions", t);
-                    }
+        ScheduledFuture<?> delegate = scheduler.schedule(() -> {
+            if (future.isCancelled()) return; // Was stopped
 
-                    long nextDelayMs = expectedNextExecutionTime - System.currentTimeMillis();
+            try {
+                command.run();
+            } catch (Throwable t) {
+                logger.error("Error while processing subscriptions", t);
+            }
 
-                    // When an execution duration is too long, go to next execution time.
-                    while (nextDelayMs < 0) {
-                        nextDelayMs += periodMs;
-                    }
+            if (future.isCancelled()) return; // Was stopped // Do NOT schedule the next execution
 
-                    // Schedule the next execution
-                    scheduleAtFixedRateWorkaround(command, nextDelayMs, periodMs);
-                },
-                initialDelayMs,
-                TimeUnit.MILLISECONDS)
-                ;
+            long nextDelayMs = expectedNextExecutionTime - System.currentTimeMillis();
+
+            // When an execution duration is too long, go to next execution time.
+            while (nextDelayMs < 0) {
+                nextDelayMs += periodMs;
+            }
+
+            // Loop, to schedule the next execution
+            scheduleAtFixedRateWorkaround(command, nextDelayMs, periodMs, future);
+        },
+        initialDelayMs,
+        TimeUnit.MILLISECONDS);
+        future.setDelegate((ScheduledFuture<T>) delegate);
     }
 
     public ScheduledExecutorService scheduler() {

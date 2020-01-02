@@ -31,11 +31,13 @@ import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.DocStatDao;
 import org.duniter.elasticsearch.model.DocStat;
+import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.common.inject.Inject;
 
+import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -131,15 +133,17 @@ public class DocStatService extends AbstractService  {
      * Start scheduling doc stats update
      * @return
      */
-    public DocStatService startScheduling() {
+    public Closeable startScheduling() {
         long delayBeforeNextHour = DateUtils.delayBeforeNextHour();
 
-        threadPool.scheduleAtFixedRate(
+        ScheduledActionFuture future = threadPool.scheduleAtFixedRate(
                 this::computeStats,
                 delayBeforeNextHour,
                 60 * 60 * 1000 /* every hour */,
                 TimeUnit.MILLISECONDS);
-        return this;
+        return () -> {
+            future.cancel(true);
+        };
     }
 
     public void computeStats() {

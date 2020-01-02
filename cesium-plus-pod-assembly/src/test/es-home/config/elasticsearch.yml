@@ -82,7 +82,7 @@ http.cors.enabled: true
 #
 # Prevent the "split brain" by configuring the majority of nodes (total number of nodes / 2 + 1):
 #
-# discovery.zen.minimum_master_nodes: 3
+discovery.zen.minimum_master_nodes: 1
 #
 # For more information, see the documentation at:
 # <http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery.html>
@@ -178,7 +178,7 @@ duniter.keyring.password: 'def'
 #
 # Enable security - will restrict HTTP access to only Cesium+ known indices - /!\ WARNING: should be enable for production use
 #
-duniter.security.enable: true
+duniter.security.enable: false
 #
 # ---------------------------------- Cesium+ Pod > P2P module -------------------------
 #

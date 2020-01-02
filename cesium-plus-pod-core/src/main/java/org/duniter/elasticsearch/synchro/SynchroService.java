@@ -46,9 +46,11 @@ import org.duniter.elasticsearch.service.ServiceLocator;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeEvents;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
+import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
+import java.io.Closeable;
 import java.text.DateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -106,9 +108,12 @@ public class SynchroService extends AbstractService {
      * Start scheduling doc stats update
      * @return
      */
-    public SynchroService startScheduling() {
+    public Closeable startScheduling() {
+
+        final ScheduledActionFuture future = new ScheduledActionFuture(null);
+
         // Launch once, at startup (after a delay of 10s)
-        threadPool.schedule(() -> {
+        future.setDelegate(threadPool.schedule(() -> {
             boolean launchAtStartup;
             try {
                 // wait for some peers
@@ -138,16 +143,17 @@ public class SynchroService extends AbstractService {
             }
 
             // Schedule every hour
-            threadPool.scheduleAtFixedRate(
+            future.setDelegate(threadPool.scheduleAtFixedRate(
                     this::synchronize,
                     nextExecutionDelay,
                     60 * 60 * 1000 /* every hour */,
-                    TimeUnit.MILLISECONDS);
+                    TimeUnit.MILLISECONDS));
+
         },
         10 * 1000 /*wait 10 s */ ,
-        TimeUnit.MILLISECONDS);
+        TimeUnit.MILLISECONDS));
 
-        return this;
+        return () -> future.cancel(true);
     }
 
     public void synchronize() {

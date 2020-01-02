@@ -44,6 +44,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
 
+import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -200,7 +201,7 @@ public class PeerService extends AbstractService  {
         delegate.save(currencyId, peers);
     }
 
-    public void listenAndIndexPeers(final Peer mainPeer) {
+    public Closeable listenAndIndexPeers(final Peer mainPeer) {
         Preconditions.checkNotNull(mainPeer);
         String currency = getCurrency(mainPeer);
 
@@ -215,23 +216,25 @@ public class PeerService extends AbstractService  {
         NetworkService.Sort sortDef = new NetworkService.Sort();
         sortDef.sortType = null;
 
+        // Create a log listener
+        NetworkService.PeersChangeListener logListener = (peers) -> {
+            // Count peer by API (for log)
+            if (logger.isInfoEnabled()) {
+                Map<String, Long> peerCountByApi = Maps.newHashMap();
+                peers.stream()
+                        .filter(Objects::nonNull)
+                        .map(Peer::getApi)
+                        .filter(StringUtils::isNotBlank)
+                        .forEach(api -> {
+                            Long counter = peerCountByApi.get(api.toUpperCase());
+                            peerCountByApi.put(api.toUpperCase(), (counter != null ? counter : 0) + 1L);
+                        });
+                logger.info(String.format("[%s] %s peers UP: %s", currency, CollectionUtils.size(peers), peerCountByApi));
+            }
+        };
 
-        networkService.addPeersChangeListener(mainPeer,
-                peers -> {
-                    // Count peer by API (for log)
-                    if (logger.isInfoEnabled()) {
-                        Map<String, Long> peerCountByApi = Maps.newHashMap();
-                        peers.stream()
-                                .filter(Objects::nonNull)
-                                .map(Peer::getApi)
-                                .filter(StringUtils::isNotBlank)
-                                .forEach(api -> {
-                                    Long counter = peerCountByApi.get(api.toUpperCase());
-                                    peerCountByApi.put(api.toUpperCase(), (counter != null ? counter : 0) + 1L);
-                                });
-                        logger.info(String.format("[%s] %s peers UP: %s", currency, CollectionUtils.size(peers), peerCountByApi));
-                    }
-                },
+        // Start to listen peers
+        return networkService.addPeersChangeListener(mainPeer, logListener,
                 filterDef, sortDef, true /*autoreconnect*/, threadPool.scheduler());
     }
 

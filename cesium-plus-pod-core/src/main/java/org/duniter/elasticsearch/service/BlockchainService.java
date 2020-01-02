@@ -61,6 +61,7 @@ import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -115,13 +116,13 @@ public class BlockchainService extends AbstractService {
             @Override
             public void onSuccess() {
                 synchronized (connectionListeners) {
-                    connectionListeners.stream().forEach(connectionListener -> connectionListener.onSuccess());
+                    connectionListeners.forEach(WebsocketClientEndpoint.ConnectionListener::onSuccess);
                 }
             }
             @Override
             public void onError(Exception e, long lastTimeUp) {
                 synchronized (connectionListeners) {
-                    connectionListeners.stream().forEach(connectionListener -> connectionListener.onError(e, lastTimeUp));
+                    connectionListeners.forEach(connectionListener -> connectionListener.onError(e, lastTimeUp));
                 }
             }
         };
@@ -147,10 +148,14 @@ public class BlockchainService extends AbstractService {
         }
     }
 
-    public BlockchainService listenAndIndexNewBlock(final Peer peer){
-        WebsocketClientEndpoint wsEndPoint = blockchainRemoteService.addBlockListener(peer, message -> indexLastBlockFromJson(peer, message), true /*autoreconnect*/);
+    public Closeable listenAndIndexNewBlock(final Peer peer){
+        WebsocketClientEndpoint.MessageListener indexNewBlockListsner = (message) -> indexLastBlockFromJson(peer, message);
+        WebsocketClientEndpoint wsEndPoint = blockchainRemoteService.addBlockListener(peer, indexNewBlockListsner, true /*autoreconnect*/);
         wsEndPoint.registerListener(dispatchConnectionListener);
-        return this;
+        return () -> {
+            wsEndPoint.unregisterListener(dispatchConnectionListener);
+            wsEndPoint.unregisterListener(indexNewBlockListsner);
+        };
     }
 
     public BlockchainService indexLastBlocks(Peer peer) {
@@ -326,10 +331,10 @@ public class BlockchainService extends AbstractService {
 
     /**
      * Create or update a block, depending on its existence and hash
-     * @param block
+     * @param block THhe block to save
      * @param updateWhenSameHash if true, always update an existing block. If false, update only if hash has changed.
      * @param wait wait indexBlocksFromNode end
-     * @throws DuplicateIndexIdException
+     * @throw DuplicateIndexIdException
      */
     public void saveBlock(BlockchainBlock block, boolean updateWhenSameHash, boolean wait) throws DuplicateIndexIdException {
         Preconditions.checkNotNull(block, "block could not be null") ;

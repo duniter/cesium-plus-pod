@@ -28,16 +28,14 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
-public class ScheduledActionFuture<T> implements ActionFuture<T> {
+public class ScheduledActionFuture<T> implements ActionFuture<T>, ScheduledFuture<T> {
 
-    private final ScheduledFuture<T> delegate;
+    private ScheduledFuture<? extends T> delegate;
+    private boolean canceled = false;
 
-    public ScheduledActionFuture(ScheduledFuture<T> delegate) {
+    public ScheduledActionFuture(ScheduledFuture<? extends T> delegate) {
         this.delegate = delegate;
     }
 
@@ -80,32 +78,72 @@ public class ScheduledActionFuture<T> implements ActionFuture<T> {
         }
     }
 
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        return delegate.cancel(mayInterruptIfRunning);
+        canceled = true;
+        if (delegate != null) {
+            synchronized (delegate) {
+                return delegate.cancel(mayInterruptIfRunning);
+            }
+        }
+        return true;
     }
 
     @Override
     public boolean isCancelled() {
-        return delegate.isCancelled();
+        if (!canceled && delegate != null) {
+            synchronized (delegate) {
+                return delegate.isCancelled();
+            }
+        }
+        return canceled;
     }
 
     @Override
     public boolean isDone() {
-        return delegate.isDone();
+        synchronized (delegate) {
+            return delegate.isDone();
+        }
     }
 
     @Override
     public T get() throws InterruptedException, ExecutionException {
-        return delegate.get();
+        synchronized (delegate) {
+            return delegate.get();
+        }
     }
 
     @Override
     public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-        return delegate.get(timeout, unit);
+        synchronized (delegate) {
+            return delegate.get(timeout, unit);
+        }
     }
 
-    static RuntimeException rethrowExecutionException(ExecutionException e) {
+    public <V extends T> void setDelegate(ScheduledFuture<V> delegate) {
+        synchronized (delegate) {
+            this.delegate = delegate;
+        }
+    }
+
+
+    @Override
+    public long getDelay(TimeUnit timeUnit) {
+        synchronized (delegate) {
+            return delegate.getDelay(timeUnit);
+        }
+    }
+
+    @Override
+    public int compareTo(Delayed delayed) {
+        synchronized (delegate) {
+            return delegate.compareTo(delayed);
+        }
+    }
+
+
+    protected RuntimeException rethrowExecutionException(ExecutionException e) {
         if (e.getCause() instanceof ElasticsearchException) {
             ElasticsearchException esEx = (ElasticsearchException) e.getCause();
             Throwable root = esEx.unwrapCause();

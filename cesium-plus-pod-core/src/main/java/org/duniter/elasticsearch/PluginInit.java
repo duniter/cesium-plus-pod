@@ -24,6 +24,7 @@ package org.duniter.elasticsearch;
 
 import org.duniter.core.client.model.elasticsearch.Currency;
 import org.duniter.core.client.model.local.Peer;
+import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.Preconditions;
 import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -38,10 +39,15 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestRequest;
 
+import java.io.Closeable;
+import java.util.Optional;
+
 /**
  * Created by blavenie on 17/06/16.
  */
 public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
+
+    public static final String CURRENCY_NAME_REGEXP = "[a-zA-Z0-9_-]+";
 
     private final PluginSettings pluginSettings;
     private final ThreadPool threadPool;
@@ -59,12 +65,28 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     @Override
     protected void doStart() {
-        threadPool.scheduleOnClusterReady(() -> {
+
+        // Configure HTTP API access rules (run once)
+        threadPool.scheduleOnStarted(this::defineHttpAccessRules);
+
+        // First time the node is the master
+        threadPool.scheduleOnMasterEachStart(() -> {
+
+            // Create indices (once)
             createIndices();
 
-            // Waiting cluster back to GREEN or YELLOW state, before doAfterStart
-            threadPool.scheduleOnClusterReady(this::doAfterStart);
+            // Each time node is the master
+            threadPool.scheduleOnClusterReady(() -> {
 
+                // Start blockchain indexation (if enable)
+                startIndexBlockchain();
+
+                // Start synchro and peering
+                startSynchroAndPeering();
+
+                // Start doc stats
+                startDocStatistics();
+            });
         });
     }
 
@@ -78,7 +100,80 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     }
 
+
+    protected void defineHttpAccessRules() {
+        // Synchronize blockchain
+        if (pluginSettings.enableBlockchainIndexation()) {
+
+            // Add access security rules, for the currency indices
+            injector.getInstance(RestSecurityController.class)
+
+                    // Add access to currencies/record index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CurrencyExtendDao.INDEX,
+                            CurrencyExtendDao.RECORD_TYPE)
+                    .allowPostSearchIndexType(
+                            CurrencyExtendDao.INDEX,
+                            CurrencyExtendDao.RECORD_TYPE)
+
+                    // Add access to <currency>/block index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            BlockDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            BlockDao.TYPE)
+
+                    // Add access to <currency>/blockStat index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            BlockStatDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            BlockStatDao.TYPE)
+
+                    // Add access to <currency>/peer index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            PeerDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            PeerDao.TYPE)
+
+                    // Add access to <currency>/movement index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            MovementDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            MovementDao.TYPE)
+
+                    // Add access to <currency>/member index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            MemberDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            MemberDao.TYPE)
+
+                    // Add access to <currency>/synchro index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            SynchroExecutionDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            SynchroExecutionDao.TYPE);
+        }
+
+        // Allow scroll search (need by synchro from other peers)
+        injector.getInstance(RestSecurityController.class)
+                .allow(RestRequest.Method.POST, "^/_search/scroll$")
+                .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
+    }
+
     protected void createIndices() {
+
+        checkMasterNode();
 
         // Reload All indices
         if (pluginSettings.reloadAllIndices()) {
@@ -135,19 +230,104 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         }
     }
 
-    protected void doAfterStart() {
+    protected void checkMasterNode() {
+        Preconditions.checkArgument(threadPool.isMasterNode(), "Node must be the master node to execute this job");
+    }
+
+    protected void reloadBlockchain(Peer peer, Runnable callback) {
+
+        // Reload the blockchain
+        if (pluginSettings.reloadBlockchainIndices()) {
+
+            // If partial reload (from a block)
+            if (pluginSettings.reloadBlockchainIndicesFrom() > 0) {
+                // Delete blocs range [from,to]
+                if (pluginSettings.reloadBlockchainIndicesTo() >= pluginSettings.reloadBlockchainIndicesFrom()) {
+                    logger.warn(String.format("[%s] /!\\ Re-indexing blockchain range [%s-%s]...",
+                            peer.getCurrency(),
+                            pluginSettings.reloadBlockchainIndicesFrom(),
+                            pluginSettings.reloadBlockchainIndicesTo()));
+
+                    injector.getInstance(BlockchainService.class)
+                            .deleteRange(peer.getCurrency(),
+                                    pluginSettings.reloadBlockchainIndicesFrom(),
+                                    pluginSettings.reloadBlockchainIndicesTo());
+                }
+                else {
+                    logger.warn(String.format("[%s] /!\\ Re-indexing blockchain from block #%s...", peer.getCurrency(), pluginSettings.reloadBlockchainIndicesFrom()));
+
+                    injector.getInstance(BlockchainService.class)
+                            .deleteFrom(peer.getCurrency(), pluginSettings.reloadBlockchainIndicesFrom());
+                }
+            }
+
+            // Reindex range
+            if (pluginSettings.reloadBlockchainIndicesFrom() > 0 &&
+                    pluginSettings.reloadBlockchainIndicesTo() >= pluginSettings.reloadBlockchainIndicesFrom()) {
+
+                // Wait cluster finished deletion
+                threadPool.scheduleOnClusterReady(() -> {
+
+                    injector.getInstance(BlockchainService.class)
+                            .indexBlocksRange(peer,
+                                    pluginSettings.reloadBlockchainIndicesFrom(),
+                                    pluginSettings.reloadBlockchainIndicesTo());
+
+                    if (callback != null) callback.run();
+                });
+            }
+            else {
+                if (callback != null) callback.run();
+            }
+
+        }
+        else {
+            if (callback != null) callback.run();
+        }
+    }
+
+    protected void startIndexBlockchain() {
+        checkMasterNode();
 
         // Synchronize blockchain
         if (pluginSettings.enableBlockchainIndexation()) {
 
             Peer peer = pluginSettings.checkAndGetDuniterPeer();
+            Currency currency = createCurrencyFromPeer(peer)
+                    .orElseThrow(() -> new TechnicalException(String.format("Cannot load currency from peer {%s}", peer.toString())));
 
+            // Wait end of currency index creation, then index blocks
+            Runnable onCurrencyReady = () -> {
+                if (logger.isInfoEnabled()) {
+                    logger.info(String.format("[%s] Indexing blockchain...", currency.getId()));
+                }
+
+                // Index blocks (and listen if new block appear)
+                startIndexBlocks(peer);
+
+                // Index WoT members
+                startIndexMembers(peer);
+
+                // Index peers (and listen if new peer appear)
+                startIndexPeers(peer);
+            };
+
+            // Wait block chain reload, then run jobs
+            // TODO: Move this reload feature, into a admin REST service
+            reloadBlockchain(peer, onCurrencyReady);
+        }
+    }
+
+    protected Optional<Currency> createCurrencyFromPeer(Peer peer) {
+        Preconditions.checkNotNull(peer);
+
+        if (pluginSettings.enableBlockchainIndexation()) {
             Currency currency;
             try {
                 // Index (or refresh) node's currency
                 currency = injector.getInstance(CurrencyService.class)
                         .indexCurrencyFromPeer(peer, true);
-            } catch(Throwable e){
+            } catch (Throwable e) {
                 logger.error(String.format("Error while indexing currency. Skipping blockchain indexation.", e.getMessage()), e);
                 throw e;
             }
@@ -159,153 +339,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             injector.getInstance(PeerService.class)
                     .setCurrencyMainPeer(currencyId, peer);
 
-            // Add access security rules, for the currency indices
-            injector.getInstance(RestSecurityController.class)
-
-                    // Add access to currencies/record index
-                    .allowIndexType(RestRequest.Method.GET,
-                            CurrencyExtendDao.INDEX,
-                            CurrencyExtendDao.RECORD_TYPE)
-                    .allowPostSearchIndexType(
-                            CurrencyExtendDao.INDEX,
-                            CurrencyExtendDao.RECORD_TYPE)
-
-                    // Add access to <currency>/block index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            BlockDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            BlockDao.TYPE)
-
-                    // Add access to <currency>/blockStat index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            BlockStatDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            BlockStatDao.TYPE)
-
-                    // Add access to <currency>/peer index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            PeerDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            PeerDao.TYPE)
-
-                    // Add access to <currency>/movement index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            MovementDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            MovementDao.TYPE)
-
-                    // Add access to <currency>/member index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            MemberDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            MemberDao.TYPE)
-
-                    // Add access to <currency>/synchro index
-                    .allowIndexType(RestRequest.Method.GET,
-                            currencyId,
-                            SynchroExecutionDao.TYPE)
-                    .allowPostSearchIndexType(
-                            currencyId,
-                            SynchroExecutionDao.TYPE);
-
-
-
-            /* TODO à décommenter quand les pending seront sauvegardés
-            injector.getInstance(DocStatService.class)
-            .registerIndex(currencyName,
-                            PendingRegistrationDao.TYPE);
-             */
-
-            // If partial reload (from a block)
-            if (pluginSettings.reloadBlockchainIndices() && pluginSettings.reloadBlockchainIndicesFrom() > 0) {
-                // Delete blocs range [from,to]
-                if (pluginSettings.reloadBlockchainIndicesTo() > pluginSettings.reloadBlockchainIndicesFrom()) {
-                    if (logger.isWarnEnabled()) {
-                        logger.warn(String.format("/!\\ Re-indexing blockchain range [%s-%s]...",
-                                pluginSettings.reloadBlockchainIndicesFrom(),
-                                pluginSettings.reloadBlockchainIndicesTo()));
-                    }
-
-                    injector.getInstance(BlockchainService.class)
-                            .deleteRange(currencyId,
-                                    pluginSettings.reloadBlockchainIndicesFrom(),
-                                    pluginSettings.reloadBlockchainIndicesTo());
-                }
-                else {
-                    if (logger.isWarnEnabled()) {
-                        logger.warn(String.format("/!\\ Re-indexing blockchain from block #%s...", pluginSettings.reloadBlockchainIndicesFrom()));
-                    }
-
-                    injector.getInstance(BlockchainService.class)
-                            .deleteFrom(currencyId, pluginSettings.reloadBlockchainIndicesFrom());
-                }
-            }
-            else {
-                if (logger.isInfoEnabled()) {
-                    logger.info(String.format("[%s] Indexing blockchain...", currencyId));
-                }
-            }
-
-
-            // Wait end of currency index creation, then index blocks
-            threadPool.scheduleOnClusterReady(() -> {
-
-                // Reindex range
-                if (pluginSettings.reloadBlockchainIndices()
-                        && pluginSettings.reloadBlockchainIndicesFrom() > 0
-                        && pluginSettings.reloadBlockchainIndicesTo() > pluginSettings.reloadBlockchainIndicesFrom()) {
-                        injector.getInstance(BlockchainService.class)
-                                .indexBlocksRange(peer,
-                                        pluginSettings.reloadBlockchainIndicesFrom(),
-                                        pluginSettings.reloadBlockchainIndicesTo());
-                }
-
-                // Index blocks (and listen if new block appear)
-                startIndexBlocks(peer);
-
-                // Index WoT members
-                startIndexMembers(peer);
-
-                // Index peers (and listen if new peer appear)
-                startIndexPeers(peer);
-
-                // Start synchro and peering
-                startSynchroAndPeering();
-
-                // Start doc stats
-                startDocStatistics();
-            });
-
+            return Optional.of(currency);
         }
 
-        // No blockchain indexation
-        else {
-
-            // Wait end of currency index creation
-            threadPool.scheduleOnClusterReady(() -> {
-                // Start synchro and peering
-                // (this is possible because default peers can be define in config, by including static endpoints)
-                startSynchroAndPeering();
-
-                // Start doc stats
-                startDocStatistics();
-            });
-        }
-
-        // Allow scroll search (need by synchro from other peers)
-        injector.getInstance(RestSecurityController.class)
-                .allow(RestRequest.Method.POST, "^/_search/scroll$")
-                .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
+        return Optional.empty();
     }
 
     protected void startIndexBlocks(Peer peer) {
@@ -314,11 +351,15 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
         if (pluginSettings.enableBlockchainIndexation()) {
 
-            // Index blocks (and listen if new block appear)
             try {
-                injector.getInstance(BlockchainService.class)
-                        .indexLastBlocks(peer)
-                        .listenAndIndexNewBlock(peer);
+                BlockchainService blockchainService = injector.getInstance(BlockchainService.class);
+
+                // Index last blocks
+                blockchainService.indexLastBlocks(peer);
+
+                // Listen for new blocks
+                Closeable listener = blockchainService.listenAndIndexNewBlock(peer);
+                threadPool.scheduleOnMasterFirstStop(listener);
 
                 if (logger.isInfoEnabled()) logger.info(String.format("[%s] Indexing blockchain [OK]", peer.getCurrency()));
 
@@ -335,11 +376,14 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
         if (pluginSettings.enableBlockchainIndexation()) {
 
-            // Index Wot members
             try {
-                injector.getInstance(WotService.class)
-                        .indexMembers(peer.getCurrency())
-                        .listenAndIndexMembers(peer.getCurrency());
+                // Index Wot members
+                WotService wotService =  injector.getInstance(WotService.class)
+                        .indexMembers(peer.getCurrency());
+
+                // Listen new block, to update members
+                Closeable listener = wotService.listenAndIndexMembers(peer.getCurrency());
+                threadPool.scheduleOnMasterFirstStop(listener);
 
             } catch (Throwable e) {
                 logger.error(String.format("[%s] Indexing WoT members error: %s", peer.getCurrency(), e.getMessage()), e);
@@ -355,24 +399,33 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         // Index peers (and listen if new peer appear)
         if (pluginSettings.enableBlockchainPeerIndexation()) {
             logger.info(String.format("[%s] Indexing peers...", peer.getCurrency()));
-            injector.getInstance(PeerService.class)
-                    .indexPeers(peer)
-                    .listenAndIndexPeers(peer);
+            PeerService peerService = injector.getInstance(PeerService.class)
+                    .indexPeers(peer);
+
+            Closeable listener = peerService.listenAndIndexPeers(peer);
+
+            // Close listener
+            threadPool.scheduleOnMasterFirstStop(listener);
         }
     }
 
     protected void startSynchroAndPeering() {
+        checkMasterNode();
 
         // Start synchro, if enable in config
         if (pluginSettings.enableSynchro()) {
-            injector.getInstance(SynchroService.class)
+            Closeable listener = injector.getInstance(SynchroService.class)
                     .startScheduling();
+
+            threadPool.scheduleOnMasterFirstStop(listener);
         }
 
         // Start publish peering to network, if enable in config
         if (pluginSettings.enablePeering()) {
-            injector.getInstance(NetworkService.class)
+            Closeable listener = injector.getInstance(NetworkService.class)
                     .startPublishingPeerDocumentToNetwork();
+
+            threadPool.scheduleOnMasterFirstStop(listener);
         }
     }
 
@@ -395,7 +448,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .registerIndex(CurrencyExtendDao.INDEX, CurrencyExtendDao.RECORD_TYPE);
 
             // Wait end of currency index creation, then index blocks
-            threadPool.scheduleOnClusterReady(docStatService::startScheduling);
+            threadPool.scheduleOnClusterReady(() -> {
+                Closeable closeable = docStatService.startScheduling();
+
+            });
         }
     }
 }

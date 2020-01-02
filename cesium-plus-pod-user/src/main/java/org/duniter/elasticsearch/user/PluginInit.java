@@ -67,12 +67,11 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     protected void doStart() {
         configureNetwork();
 
-        threadPool.scheduleOnClusterReady(() -> {
+        threadPool.scheduleOnMasterEachStart(() -> {
             createIndices();
 
-            // Waiting cluster back to GREEN or YELLOW state, before doAfterStart
-            threadPool.scheduleOnClusterReady(this::doAfterStart);
-
+            // Notify the admin that the node is ready
+            threadPool.scheduleOnClusterReady(() -> notifyAdminNodeStarted());
         });
     }
 
@@ -175,7 +174,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     }
 
-    protected void doAfterStart() {
+    protected void notifyAdminNodeStarted() {
 
         // Notify admin
         injector.getInstance(AdminService.class)

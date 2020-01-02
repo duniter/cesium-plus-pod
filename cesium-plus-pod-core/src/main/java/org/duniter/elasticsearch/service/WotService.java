@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.service;
 
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.local.Member;
@@ -43,6 +44,7 @@ import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
+import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -61,6 +63,7 @@ public class WotService extends AbstractService {
     private BlockchainService blockchainService;
     private ThreadPool threadPool;
     private final LockManager lockManager = new LockManager(4, 10);
+    private Map<String, ChangeService.ChangeListener> currentBlockListeners = Maps.newConcurrentMap();
 
     @Inject
     public WotService(Duniter4jClient client,
@@ -141,10 +144,20 @@ public class WotService extends AbstractService {
         return this;
     }
 
-    public WotService listenAndIndexMembers(final String currency) {
+    public WotService stopListenAndIndexMembers(final String currency) {
+        ChangeService.ChangeListener listener = currentBlockListeners.remove(currency);
+        if (listener != null) {
+            ChangeService.unregisterListener(listener);
+        }
+        return this;
+    }
+
+    public Closeable listenAndIndexMembers(final String currency) {
+        // Stop if previous listener was existing
+        stopListenAndIndexMembers(currency);
 
         // Listen changes on block
-        ChangeService.registerListener(new ChangeService.ChangeListener() {
+        ChangeService.ChangeListener listener =  ChangeService.registerListener(new ChangeService.ChangeListener() {
             @Override
             public String getId() {
                 return "duniter.wot";
@@ -191,7 +204,10 @@ public class WotService extends AbstractService {
             }
         });
 
-        return this;
+        this.currentBlockListeners.put(currency, listener);
+
+        // Return the tear down logic
+        return () -> this.stopListenAndIndexMembers(currency);
     }
 
     /* -- protected methods -- */

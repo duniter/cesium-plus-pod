@@ -46,9 +46,11 @@ import org.duniter.core.util.http.InetAddressUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.CurrencyExtendDao;
+import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -485,19 +487,21 @@ public class NetworkService extends AbstractService {
         return getPeering(currency, true);
     }
 
-    public NetworkService startPublishingPeerDocumentToNetwork() {
+    public Closeable startPublishingPeerDocumentToNetwork() {
+        final ScheduledActionFuture future = new ScheduledActionFuture(null);
+        final Closeable closeable = () -> future.cancel(true);
 
         if (CollectionUtils.isEmpty(getPeeringPublishedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to publish)");
-            return this;
+            return closeable;
         }
         if (CollectionUtils.isEmpty(getPeeringTargetedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to target)");
-            return this;
+            return closeable;
         }
 
         // Launch once, at startup (after a delay)
-        threadPool.schedule(() -> {
+        future.setDelegate(threadPool.schedule(() -> {
             if (logger.isInfoEnabled()) {
                 logger.info(String.format("Publishing endpoints %s to targeted peers %s", getPeeringPublishedApis(), getPeeringTargetedApis()));
             }
@@ -514,16 +518,17 @@ public class NetworkService extends AbstractService {
             }
 
             // Schedule next execution
-            threadPool.scheduleAtFixedRate(
+            future.setDelegate(
+                    threadPool.scheduleAtFixedRate(
                     this::publishPeerDocumentToNetwork,
                     pluginSettings.getPeeringInterval() * 1000,
                     pluginSettings.getPeeringInterval() * 1000 /* convert in ms */,
-                    TimeUnit.MILLISECONDS);
+                    TimeUnit.MILLISECONDS));
         },
         30 * 1000 /*wait 30 s */ ,
-        TimeUnit.MILLISECONDS);
+        TimeUnit.MILLISECONDS));
 
-        return this;
+        return closeable;
     }
 
     public NetworkPeering checkAndSavePeering(String currency, String peeringDocument) {
