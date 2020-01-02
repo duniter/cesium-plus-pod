@@ -14,7 +14,7 @@ logger:
   com.amazonaws.jmx.SdkMBeanRegistrySupport: ERROR
   com.amazonaws.metrics.AwsSdkMetrics: ERROR
 
-  duniter: DEBUG
+  duniter: INFO
   #duniter.core: DEBUG
   duniter.security: WARN
   duniter.dao.member: WARN
@@ -30,7 +30,7 @@ logger:
   cluster.metadata: ERROR
   cluster.routing.allocation: ERROR
 
-  org.duniter: DEBUG
+  org.duniter: INFO
   #org.duniter.core.util.LockManager: DEBUG
   #org.duniter.core.beans: DEBUG
   #org.duniter.core.client.service: DEBUG

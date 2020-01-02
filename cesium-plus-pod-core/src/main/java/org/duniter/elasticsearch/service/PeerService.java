@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.service;
 
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
@@ -35,6 +36,7 @@ import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
@@ -42,9 +44,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.nuiton.i18n.I18n;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -215,8 +215,23 @@ public class PeerService extends AbstractService  {
         NetworkService.Sort sortDef = new NetworkService.Sort();
         sortDef.sortType = null;
 
+
         networkService.addPeersChangeListener(mainPeer,
-                peers -> logger.info(String.format("[%s] %s peers UP", currency, CollectionUtils.size(peers))),
+                peers -> {
+                    // Count peer by API (for log)
+                    if (logger.isInfoEnabled()) {
+                        Map<String, Long> peerCountByApi = Maps.newHashMap();
+                        peers.stream()
+                                .filter(Objects::nonNull)
+                                .map(Peer::getApi)
+                                .filter(StringUtils::isNotBlank)
+                                .forEach(api -> {
+                                    Long counter = peerCountByApi.get(api.toUpperCase());
+                                    peerCountByApi.put(api.toUpperCase(), (counter != null ? counter : 0) + 1L);
+                                });
+                        logger.info(String.format("[%s] %s peers UP: %s", currency, CollectionUtils.size(peers), peerCountByApi));
+                    }
+                },
                 filterDef, sortDef, true /*autoreconnect*/, threadPool.scheduler());
     }
 
