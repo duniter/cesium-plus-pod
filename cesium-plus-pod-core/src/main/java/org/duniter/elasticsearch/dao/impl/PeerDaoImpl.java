@@ -53,6 +53,7 @@ import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation;
 import org.elasticsearch.search.aggregations.metrics.max.Max;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -291,10 +292,13 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
-    public void updatePeersAsDown(String currencyName, long upTimeLimitInSec, Collection<String> endpointApis) {
+    public void updatePeersAsDown(String currencyName, long minUpTimeInMs, Collection<String> endpointApis) {
+
+        long minUpTimeInSec = Math.round(minUpTimeInMs / 1000L);
+        long firstDownTime = Instant.now().getEpochSecond();
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] %s Mark peers as DOWN when {last up time <= %s}...", currencyName, endpointApis, new Date(upTimeLimitInSec*1000)));
+            logger.debug(String.format("[%s] %s Mark peers as DOWN when {last up time < %s}...", currencyName, endpointApis, new Date(minUpTimeInMs)));
         }
 
         SearchRequestBuilder searchRequest = client.prepareSearch(currencyName)
@@ -312,7 +316,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         NestedQueryBuilder statsQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
                 QueryBuilders.boolQuery()
                         // lastUpTime < upTimeLimit
-                    .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lt(upTimeLimitInSec))
+                    .filter(QueryBuilders.rangeQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_LAST_UP_TIME).lt(minUpTimeInSec))
                         // status = UP
                     .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));
         query.must(statsQuery);
@@ -321,7 +325,6 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
-        int firstDownTime = Math.round(System.currentTimeMillis() / 1000);
 
         // Execute query, while there is some data
         try {

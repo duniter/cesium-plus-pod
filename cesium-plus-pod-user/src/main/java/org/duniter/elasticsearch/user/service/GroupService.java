@@ -96,7 +96,7 @@ public class GroupService extends AbstractService {
         verifyTimeForInsert(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing group [%s] from issuer [%s]", id, issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing group [%s] from issuer [%.8s]", id, issuer));
         }
 
         return recordDao.create(id, json);
@@ -118,7 +118,7 @@ public class GroupService extends AbstractService {
         verifyTimeForUpdate(recordDao.getIndex(), recordDao.getType(), id, actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Updating %s [%s] from issuer [%s]", recordDao.getType(), id, issuer.substring(0, 8)));
+            logger.debug(String.format("Updating %s [%s] from issuer [%.8s]", recordDao.getType(), id, issuer));
         }
 
         recordDao.update(id, json);
@@ -136,7 +136,7 @@ public class GroupService extends AbstractService {
         verifyTimeForInsert(commentObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] Indexing new %s, issuer {%s}", PageIndexDao.INDEX, commentDao.getType(), issuer.substring(0, 8)));
+            logger.debug(String.format("[%s] Indexing new %s, issuer {%.8s}", PageIndexDao.INDEX, commentDao.getType(), issuer));
         }
         return commentDao.create(json);
     }
@@ -153,7 +153,7 @@ public class GroupService extends AbstractService {
 
         if (logger.isDebugEnabled()) {
             String issuer = getMandatoryField(commentObj, RecordComment.PROPERTY_ISSUER).asText();
-            logger.debug(String.format("[%s] Updating existing %s {%s}, issuer {%s}", PageIndexDao.INDEX, commentDao.getType(), id, issuer.substring(0, 8)));
+            logger.debug(String.format("[%s] Updating existing %s {%s}, issuer {%s.8}", PageIndexDao.INDEX, commentDao.getType(), id, issuer));
         }
 
         commentDao.update(id, json);

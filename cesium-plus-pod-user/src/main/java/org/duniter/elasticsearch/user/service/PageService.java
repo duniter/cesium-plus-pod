@@ -82,7 +82,7 @@ public class PageService extends AbstractService {
         verifyTimeForInsert(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a %s from issuer [%s]", recordDao.getType(), issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a %s from issuer {%.8s}", recordDao.getType(), issuer));
         }
 
         return recordDao.create(json);

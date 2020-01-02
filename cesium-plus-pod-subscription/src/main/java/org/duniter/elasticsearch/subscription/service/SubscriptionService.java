@@ -115,7 +115,7 @@ public class SubscriptionService extends AbstractService {
         String issuer = getIssuer(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a subscription from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a subscription from issuer [%.8s]", issuer));
         }
 
         return subscriptionRecordDao.create(json);
@@ -129,7 +129,7 @@ public class SubscriptionService extends AbstractService {
         subscriptionRecordDao.checkSameDocumentIssuer(id, issuer);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Updating subscription [%s] from issuer [%s]", id, issuer.substring(0, 8)));
+            logger.debug(String.format("Updating subscription {%s} from issuer {%.8s}", id, issuer));
         }
 
         subscriptionRecordDao.update(id, json);

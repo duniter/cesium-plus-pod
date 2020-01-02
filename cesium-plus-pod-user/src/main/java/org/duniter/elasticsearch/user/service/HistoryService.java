@@ -125,7 +125,7 @@ public class HistoryService extends AbstractService {
             String index = getMandatoryField(source, DeleteRecord.PROPERTY_INDEX).asText();
             String type = getMandatoryField(source, DeleteRecord.PROPERTY_TYPE).asText();
             String id = getMandatoryField(source, DeleteRecord.PROPERTY_ID).asText();
-            logger.debug(String.format("Deleting document [%s/%s/%s] - issuer [%s]", index, type, id, issuer.substring(0, 8)));
+            logger.debug(String.format("Deleting document [%s/%s/%s] - issuer {%.8s}", index, type, id, issuer));
         }
 
         // Add deletion to history

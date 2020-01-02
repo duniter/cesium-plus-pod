@@ -123,7 +123,7 @@ public class MessageService extends AbstractService {
         String issuer = getIssuer(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a message from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a message from issuer {%.8s}", issuer));
         }
 
         IndexResponse response = client.prepareIndex(INDEX, INBOX_TYPE)
@@ -145,7 +145,7 @@ public class MessageService extends AbstractService {
 
         if (logger.isDebugEnabled()) {
             String issuer = getMandatoryField(source, Message.PROPERTY_ISSUER).asText();
-            logger.debug(String.format("Indexing a message from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a message from issuer {%.8s}", issuer));
         }
 
         IndexResponse response = client.prepareIndex(INDEX, OUTBOX_TYPE)

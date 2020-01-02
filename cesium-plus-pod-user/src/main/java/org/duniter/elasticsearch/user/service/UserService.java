@@ -114,7 +114,7 @@ public class UserService extends AbstractService {
         verifyTimeForInsert(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a %s from issuer [%s]", profileDao.getType(), issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a %s from issuer [%.8s]", profileDao.getType(), issuer));
         }
 
         return profileDao.create(issuer, json);
@@ -143,7 +143,7 @@ public class UserService extends AbstractService {
         verifyTimeForUpdate(profileDao.getIndex(), profileDao.getType(), id, actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Updating a user profile from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Updating a user profile from issuer [%.8s]", issuer));
         }
 
         profileDao.update(id, json);
@@ -164,7 +164,7 @@ public class UserService extends AbstractService {
         verifyTimeForInsert(actualObj);
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a user settings from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a user settings from issuer [%.8s]", issuer));
         }
 
         return settingsDao.create(issuer, json);
@@ -195,7 +195,7 @@ public class UserService extends AbstractService {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Indexing a user settings from issuer [%s]", issuer.substring(0, 8)));
+            logger.debug(String.format("Indexing a user settings from issuer [%.8s]", issuer));
         }
 
         settingsDao.update(issuer, json);
