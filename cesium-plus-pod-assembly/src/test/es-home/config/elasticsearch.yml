@@ -152,7 +152,7 @@ duniter.blockchain.enable: true
 #
 # Duniter node address
 #
-duniter.host: g1.nordstrom.duniter.org
+duniter.host: g1.duniter.org
 duniter.port: 443
 duniter.useSsl: true
 #
