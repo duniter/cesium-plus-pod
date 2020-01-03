@@ -698,6 +698,8 @@ public class NetworkService extends AbstractService {
     }
 
     protected Peer updatePeering(Peer peer)  {
+        if (!isReady()) throw new TechnicalException("Node is not ready yet. Skipping peering update");
+
         try {
             NetworkPeering peering = networkRemoteService.getPeering(peer);
             Peers.setPeering(peer, peering);
