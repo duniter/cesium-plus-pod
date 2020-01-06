@@ -70,7 +70,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static Peer duniterPeer;
 
     private String clusterRemoteUrl;
-    private String softwareVersion;
+    private String softwareDefaultVersion;
 
     private final CryptoService cryptoService;
     private final EndpointApi coreEnpointApi;
@@ -111,7 +111,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         this.coreEnpointApi = endpointApi;
 
         // Init the version
-        softwareVersion = getPackageVersion();
+        softwareDefaultVersion = getPackageVersion();
     }
 
     @Override
@@ -196,11 +196,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getSoftwareVersion() {
-        return softwareVersion;
+        return settings.get("duniter.software.version", softwareDefaultVersion);
     }
 
-    public void setSoftwareVersion(String defaultVersion) {
-        softwareVersion = defaultVersion;
+    public void setSoftwareDefaultVersion(String defaultVersion) {
+        softwareDefaultVersion = defaultVersion;
     }
 
     /* -- settings on cluster -- */
