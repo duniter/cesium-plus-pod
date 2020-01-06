@@ -69,11 +69,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static boolean isI18nStarted = false;
     private static Peer duniterPeer;
 
-    protected final Settings settings;
     private String clusterRemoteUrl;
-    private final CryptoService cryptoService;
+    private String softwareVersion;
 
+    private final CryptoService cryptoService;
     private final EndpointApi coreEnpointApi;
+    protected final Settings settings;
 
     /**
      * Delegate application config.
@@ -108,6 +109,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
             }
         }
         this.coreEnpointApi = endpointApi;
+
+        // Init the version
+        softwareVersion = getPackageVersion();
     }
 
     @Override
@@ -166,7 +170,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
             logger.error(String.format("Could not init i18n: %s", e.getMessage()), e);
         }
 
-        initVersion(applicationConfig);
 
         // Init Http client logging
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.Log4JLogger");
@@ -190,6 +193,14 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     public String getSoftwareName() {
         return settings.get("duniter.software.name", "cesium-plus-pod");
+    }
+
+    public String getSoftwareVersion() {
+        return softwareVersion;
+    }
+
+    public void setSoftwareVersion(String defaultVersion) {
+        softwareVersion = defaultVersion;
     }
 
     /* -- settings on cluster -- */
@@ -560,17 +571,14 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * Override the version default option, from the MANIFEST implementation version (if any)
      * @param applicationConfig
      */
-    protected void initVersion(ApplicationConfig applicationConfig) {
+    protected String getPackageVersion() {
         // Override application version
-        String newVersion = this.getClass().getPackage().getImplementationVersion();
+        Package currentPackage = this.getClass().getPackage();
+        String newVersion = currentPackage.getImplementationVersion();
         if (newVersion == null) {
-            newVersion = this.getClass().getPackage().getSpecificationVersion();
+            newVersion = currentPackage.getSpecificationVersion();
         }
-        if (newVersion != null) {
-            applicationConfig.setDefaultOption(
-                    ConfigurationOption.VERSION.getKey(),
-                    newVersion);
-        }
+        return newVersion;
     }
 
 

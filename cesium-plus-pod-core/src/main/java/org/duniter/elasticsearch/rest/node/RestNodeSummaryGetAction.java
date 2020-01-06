@@ -22,7 +22,6 @@ package org.duniter.elasticsearch.rest.node;
  * #L%
  */
 
-import org.duniter.core.client.config.Configuration;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
@@ -32,7 +31,6 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.rest.*;
 
 import java.io.IOException;
@@ -43,15 +41,13 @@ import java.io.IOException;
  */
 public class RestNodeSummaryGetAction extends BaseRestHandler {
 
-    private final String software;
-    private final String version;
+    private final PluginSettings pluginSettings;
 
     @Inject
     public RestNodeSummaryGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
         super(settings, controller, client);
 
-        this.software = pluginSettings.getSoftwareName();
-        this.version = Configuration.instance().getVersion().toString();
+        this.pluginSettings = pluginSettings;
 
         securityController.allow(RestRequest.Method.GET, "/node/summary");
         controller.registerHandler(RestRequest.Method.GET, "/node/summary", this);
@@ -70,10 +66,10 @@ public class RestNodeSummaryGetAction extends BaseRestHandler {
                     .startObject("duniter")
 
                     // software
-                    .field("software", software)
+                    .field("software", pluginSettings.getSoftwareName())
 
                     // version
-                    .field("version", version)
+                    .field("version", pluginSettings.getSoftwareVersion())
 
                     // status
                     .field("status", RestStatus.OK.getStatus())
