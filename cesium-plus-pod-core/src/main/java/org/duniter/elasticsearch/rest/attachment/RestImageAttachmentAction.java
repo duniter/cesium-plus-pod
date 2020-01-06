@@ -62,7 +62,7 @@ public class RestImageAttachmentAction extends BaseRestHandler {
         }
 
         final String field = paramField;
-        final String expectedContentType = "image/" + extension;
+        final String expectedContentType = extension != null ? "image/" + extension : null;
 
         GetRequest getRequest = new GetRequest(index, type, id)
                 .fields(field)
@@ -85,7 +85,7 @@ public class RestImageAttachmentAction extends BaseRestHandler {
                     return new BytesRestResponse(RestStatus.BAD_REQUEST, String.format("Field [%s] not contains key [_content_type].", field));
                 }
 
-                if (!expectedContentType.equals(contentType)) {
+                if (expectedContentType != null && !expectedContentType.equals(contentType)) {
                     return new BytesRestResponse(RestStatus.BAD_REQUEST, String.format("File extension not compatible with attachment content type [%s]", contentType));
                 }
 
