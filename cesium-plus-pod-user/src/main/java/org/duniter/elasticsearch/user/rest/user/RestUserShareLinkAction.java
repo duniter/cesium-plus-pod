@@ -84,8 +84,8 @@ public class RestUserShareLinkAction extends AbstractRestShareLinkAction impleme
                     String baseUrl = pluginSettings.getClusterRemoteUrlOrNull();
                     data.image = StringUtils.isBlank(baseUrl) ? "" : baseUrl;
                     data.image += RestImageAttachmentAction.computeImageUrl(UserService.INDEX, UserService.PROFILE_TYPE, id, UserProfile.PROPERTY_AVATAR, profile.getAvatar().getContentType());
-                    data.imageHeight = 200; // min size for Facebook
-                    data.imageWidth = 200;
+                    data.imageHeight = OGData.MIN_IMAGE_HEIGHT;
+                    data.imageWidth = OGData.MIN_IMAGE_WIDTH;
                 }
 
                 // og:url
@@ -118,8 +118,8 @@ public class RestUserShareLinkAction extends AbstractRestShareLinkAction impleme
             if (StringUtils.isBlank(data.image)) {
                 data.image = pluginSettings.getShareDefaultImageUrl();
                 data.imageType = "image/png";
-                data.imageHeight = 200;
-                data.imageWidth = 200;
+                data.imageHeight = OGData.MIN_IMAGE_HEIGHT;
+                data.imageWidth = OGData.MIN_IMAGE_WIDTH;
             }
 
             return data;
