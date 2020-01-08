@@ -19,15 +19,22 @@ cluster.name: cesium-plus-pod-g1
 # Host + port, to join your cluster, from external network
 #
 #cluster.remote.host: localhost
+#
+# Port for remote access to the cluster (Default: 80)
+#
 #cluster.remote.port: 9200
+#
+# Does remote access need SSL ? (default: 'true' if port=443, 'false' otherwise)
+#
+# cluster.remote.useSsl: true
 #
 # ------------------------------------ Node ------------------------------------
 #
-# Use a descriptive name for the node:
+# Use a descriptive name for the node: (default: will be generated)
 #
 # node.name: node-1
 #
-# Add custom attributes to the node:
+# Add custom attributes to the node: (Default: none)
 #
 # node.rack: r1
 #
@@ -78,7 +85,7 @@ http.cors.enabled: true
 # The default list of hosts is ["127.0.0.1", "[::1]"]
 #
 # discovery.zen.ping.unicast.hosts: ["host1", "host2"]
-# discovery.zen.ping.unicast.hosts: ["127.0.0.1", ""]
+# discovery.zen.ping.unicast.hosts: ["127.0.0.1"]
 #
 # Prevent the "split brain" by configuring the majority of nodes (total number of nodes / 2 + 1):
 #
@@ -106,7 +113,7 @@ http.cors.enabled: true
 #
 # action.destructive_requires_name: true
 #
-# Security to isolate plugin classpath - /!\ WARNING: should be DISABLE
+# Security to isolate plugin classpath - /!\ WARNING: should always be DISABLE
 #
 security.manager.enabled: false
 #
@@ -224,7 +231,7 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.p2p.peering.enable: false
 #
-# Define targeted API (for peers selection) where to send the peer document (if peering is enable). (Default: ["ES_CORE_API"])
+# Define targeted API (for peers selection) where to send the peer document (if peering is enable). (Default: ["BASIC_MERKLED_API", "BMAS"])
 # This API should accept a POST request to '/network/peering' (will send a see the Duniter protocol)
 #
 # duniter.p2p.peering.targetedApis: [
@@ -298,7 +305,7 @@ duniter.mail.enable: false
 #
 # Enable user module (Allow to store User profile, private message, page, group...) (default: true)
 #
-duniter.user.enable: true
+# duniter.user.enable: false
 #
 # Endpoint API for user data (use by P2P synchronization) (default: ES_USER_API)
 #
@@ -308,7 +315,7 @@ duniter.user.enable: true
 #
 # Enable subscription module (Need to enable mail features) (default: true)
 #
-duniter.subscription.enable: false
+# duniter.subscription.enable: false
 #
 # Endpoint API for subscription data (use by P2P synchronization) (default: ES_SUBSCRIPTION_API)
 #
@@ -327,16 +334,15 @@ duniter.subscription.enable: false
 #
 # duniter.subscription.email.hourOfDay: 3
 #
-# Email subscription: URL to a Cesium site, for links in the email content (default: https://g1.duniter.fr)
+# Email subscription: URL to a web site, for links in the email content (default: https://g1.duniter.fr)
 #
 # duniter.subscription.email.link.url: 'https://domain.com/cesium'
 #
 # Name of the button in the email, to access to notifications (default: 'Cesium')
 #
-# duniter.subscription.email.link.name: 'View online'
+# duniter.subscription.email.link.name: 'My site name'
 #
 # ---------------------------------- Cesium+ Pod > Share module -------------------
-#
 #
 # Share title: `og:site_name` (default: 'Cesium')
 #
