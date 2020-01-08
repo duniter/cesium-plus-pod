@@ -46,6 +46,7 @@ import org.nuiton.i18n.I18n;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -228,10 +229,18 @@ public abstract class AbstractService implements Bean {
 
     protected JsonNode getMandatoryField(JsonNode actualObj, String fieldName) {
         JsonNode value = actualObj.get(fieldName);
-        if (value.isMissingNode()) {
+        if (value == null || value.isMissingNode()) {
             throw new InvalidFormatException(String.format("Invalid format. Expected field '%s'", fieldName));
         }
         return value;
+    }
+
+    protected Optional<JsonNode> getOptionalField(JsonNode actualObj, String fieldName) {
+        JsonNode value = actualObj.get(fieldName);
+        if (value == null || value.isMissingNode()) {
+            return Optional.empty();
+        }
+        return Optional.of(value);
     }
 
     public interface RetryFunction<T> {
@@ -241,7 +250,7 @@ public abstract class AbstractService implements Bean {
 
     /* -- internal methods -- */
 
-    private void readAndVerifyIssuerSignature(String recordJson, JsonNode recordObj, String issuerFieldName) throws ElasticsearchException {
+    protected void readAndVerifyIssuerSignature(String recordJson, JsonNode recordObj, String issuerFieldName) throws ElasticsearchException {
 
         Set<String> fieldNames = ImmutableSet.copyOf(recordObj.fieldNames());
         if (!fieldNames.contains(issuerFieldName)

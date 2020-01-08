@@ -66,6 +66,13 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     @Override
     protected void doStart() {
 
+        logger.info(String.format("Starting core plugin... {blockchain indexation:%s}, {peer indexation:%s}, {synchronization:%s}, {publish peer:%s}: {hourly statistics:%s}",
+                pluginSettings.enableBlockchainIndexation(),
+                pluginSettings.enableBlockchainPeerIndexation(),
+                pluginSettings.enableSynchro(),
+                pluginSettings.enablePeering(),
+                pluginSettings.enableDocStats()));
+
         // Configure HTTP API access rules (run once)
         threadPool.scheduleOnStarted(this::defineHttpAccessRules);
 
@@ -169,7 +176,6 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         injector.getInstance(RestSecurityController.class)
                 .allow(RestRequest.Method.POST, "^/_search/scroll$")
                 .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
-
 
         // Add access to docstat index
         if (pluginSettings.enableDocStats()) {
@@ -415,10 +421,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             PeerService peerService = injector.getInstance(PeerService.class)
                     .indexPeers(peer);
 
-            Closeable listener = peerService.listenAndIndexPeers(peer);
+            Closeable stop = peerService.listenAndIndexPeers(peer);
 
-            // Close listener
-            threadPool.scheduleOnMasterFirstStop(listener);
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop(stop);
         }
     }
 
@@ -427,18 +433,20 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
         // Start synchro, if enable in config
         if (pluginSettings.enableSynchro()) {
-            Closeable listener = injector.getInstance(SynchroService.class)
+            Closeable stop = injector.getInstance(SynchroService.class)
                     .startScheduling();
 
-            threadPool.scheduleOnMasterFirstStop(listener);
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop(stop);
         }
 
         // Start publish peering to network, if enable in config
         if (pluginSettings.enablePeering()) {
-            Closeable listener = injector.getInstance(NetworkService.class)
+            Closeable stop = injector.getInstance(NetworkService.class)
                     .startPublishingPeerDocumentToNetwork();
 
-            threadPool.scheduleOnMasterFirstStop(listener);
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop(stop);
         }
     }
 
@@ -453,10 +461,10 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Wait end of currency index creation, then index blocks
             threadPool.scheduleOnClusterReady(() -> {
-                Closeable closeable = docStatService.startScheduling();
+                Closeable stop = docStatService.startScheduling();
 
                 // Stop to listen, if master stop
-                threadPool.scheduleOnMasterFirstStop(closeable);
+                threadPool.scheduleOnMasterFirstStop(stop);
             });
         }
     }

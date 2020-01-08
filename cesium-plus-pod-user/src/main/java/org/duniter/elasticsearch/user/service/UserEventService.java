@@ -41,6 +41,7 @@ import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
+import org.duniter.elasticsearch.user.model.DocumentReference;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserProfile;
 import org.elasticsearch.action.ActionFuture;
@@ -183,7 +184,7 @@ public class UserEventService extends AbstractService implements ChangeService.C
     }
 
 
-    public void deleteEventsByReference(final UserEvent.Reference reference) {
+    public void deleteEventsByReference(final DocumentReference reference) {
         Preconditions.checkNotNull(reference);
 
         final int bulkSize = pluginSettings.getIndexBulkSize();
@@ -206,8 +207,8 @@ public class UserEventService extends AbstractService implements ChangeService.C
 
         // Query = filter on reference
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_TYPE, BlockchainService.BLOCK_TYPE));
-        boolQuery.filter(QueryBuilders.rangeQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_ID).gte(fromBlockNumber));
+        boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_TYPE, BlockchainService.BLOCK_TYPE));
+        boolQuery.filter(QueryBuilders.rangeQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ID).gte(fromBlockNumber));
 
         searchRequest.setQuery(QueryBuilders.nestedQuery(UserEvent.PROPERTY_REFERENCE, QueryBuilders.constantScoreQuery(boolQuery)));
 
@@ -405,7 +406,7 @@ public class UserEventService extends AbstractService implements ChangeService.C
         return result;
     }
 
-    public BulkRequestBuilder addDeleteEventsByReferenceToBulk(final UserEvent.Reference reference,
+    public BulkRequestBuilder addDeleteEventsByReferenceToBulk(final DocumentReference reference,
                                                                BulkRequestBuilder bulkRequest,
                                                                final int bulkSize,
                                                                final boolean flushAll) {
@@ -420,19 +421,19 @@ public class UserEventService extends AbstractService implements ChangeService.C
         // Query = filter on reference
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         if (StringUtils.isNotBlank(reference.getIndex())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_INDEX, reference.getIndex()));
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_INDEX, reference.getIndex()));
         }
         if (StringUtils.isNotBlank(reference.getType())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_TYPE, reference.getType()));
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_TYPE, reference.getType()));
         }
         if (StringUtils.isNotBlank(reference.getId())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_ID, reference.getId()));
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ID, reference.getId()));
         }
         if (StringUtils.isNotBlank(reference.getHash())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_HASH, reference.getHash()));
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_HASH, reference.getHash()));
         }
         if (StringUtils.isNotBlank(reference.getAnchor())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + UserEvent.Reference.PROPERTY_ANCHOR, reference.getAnchor()));
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ANCHOR, reference.getAnchor()));
         }
 
         searchRequest.setQuery(QueryBuilders.nestedQuery(UserEvent.PROPERTY_REFERENCE, QueryBuilders.constantScoreQuery(boolQuery)));

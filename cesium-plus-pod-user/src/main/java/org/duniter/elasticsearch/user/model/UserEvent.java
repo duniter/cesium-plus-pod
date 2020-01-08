@@ -50,6 +50,10 @@ public class UserEvent extends Record {
         return new Builder(type, code, null, null);
     }
 
+    public static Builder newBuilder(UserEvent event) {
+        return new Builder(event);
+    }
+
     public static Builder newBuilder(UserEvent.EventType type, String code, String message, String... params) {
         return new Builder(type, code, message, params);
     }
@@ -77,7 +81,7 @@ public class UserEvent extends Record {
 
     private String[] params;
 
-    private Reference reference;
+    private DocumentReference reference;
 
     private String readSignature;
 
@@ -99,7 +103,7 @@ public class UserEvent extends Record {
         this.type = another.getType();
         this.code = another.getCode();
         this.params = another.getParams();
-        this.reference = (another.getReference() != null) ? new Reference(another.getReference()) : null;
+        this.reference = (another.getReference() != null) ? new DocumentReference(another.getReference()) : null;
         this.message = another.getMessage();
         this.recipient = another.getRecipient();
         this.readSignature = another.getReadSignature();
@@ -121,7 +125,7 @@ public class UserEvent extends Record {
         return params;
     }
 
-    public Reference getReference() {
+    public DocumentReference getReference() {
         return reference;
     }
 
@@ -145,7 +149,7 @@ public class UserEvent extends Record {
         this.params = params;
     }
 
-    public void setReference(Reference reference) {
+    public void setReference(DocumentReference reference) {
         this.reference = reference;
     }
 
@@ -191,6 +195,18 @@ public class UserEvent extends Record {
             result = new UserEvent(type, code, message, params);
         }
 
+        public Builder(UserEvent event) {
+            result = new UserEvent(event.getType(), event.getCode(), event.getMessage(), event.getParams());
+            if (event.getReference() != null) {
+                setReference(event.getReference().getIndex(), event.getReference().getType(), event.getReference().getId());
+                setReferenceAnchor(event.getReference().getAnchor());
+                setReferenceHash(event.getReference().getHash());
+            }
+            setRecipient(event.getRecipient());
+            setIssuer(event.getIssuer());
+            setTime(event.getTime());
+        }
+
         public Builder setMessage(String message, String... params) {
             result.setMessage(message);
             result.setParams(params);
@@ -208,7 +224,7 @@ public class UserEvent extends Record {
         }
 
         public Builder setReference(String index, String type, String id) {
-            result.setReference(new Reference(index, type, id));
+            result.setReference(new DocumentReference(index, type, id));
             return this;
         }
 
@@ -219,7 +235,7 @@ public class UserEvent extends Record {
         }
 
         public Builder setReference(String index, String type, String id, String anchor) {
-            result.setReference(new Reference(index, type, id, anchor));
+            result.setReference(new DocumentReference(index, type, id, anchor));
             return this;
         }
 
@@ -244,72 +260,5 @@ public class UserEvent extends Record {
 
 
 
-    public static class Reference {
 
-        public static final String PROPERTY_INDEX="index";
-        public static final String PROPERTY_TYPE="type";
-        public static final String PROPERTY_ID="id";
-        public static final String PROPERTY_ANCHOR="anchor";
-        public static final String PROPERTY_HASH="hash";
-
-        private String index;
-
-        private String type;
-
-        private String id;
-
-        private String anchor;
-
-        private String hash;
-
-        public Reference() {
-        }
-
-        public Reference(String index, String type, String id) {
-            this(index, type, id, null);
-        }
-
-        public Reference(String index, String type, String id, String anchor) {
-            this.index = index;
-            this.type = type;
-            this.id = id;
-            this.anchor = anchor;
-        }
-
-        public Reference(Reference another) {
-            this.index = another.getIndex();
-            this.type = another.getType();
-            this.id = another.getId();
-            this.hash = another.getHash();
-            this.anchor = another.getAnchor();
-        }
-
-        public String getIndex() {
-            return index;
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public String getAnchor() {
-            return anchor;
-        }
-
-        public void setAnchor(String anchor) {
-            this.anchor = anchor;
-        }
-
-        public String getHash() {
-            return hash;
-        }
-
-        public void setHash(String hash) {
-            this.hash = hash;
-        }
-    }
 }

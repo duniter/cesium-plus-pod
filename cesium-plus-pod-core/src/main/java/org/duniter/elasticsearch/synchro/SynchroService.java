@@ -144,7 +144,7 @@ public class SynchroService extends AbstractService {
 
             // Schedule every hour
             future.setDelegate(threadPool.scheduleAtFixedRate(
-                    this::synchronize,
+                    this::safeSynchronize,
                     nextExecutionDelay,
                     60 * 60 * 1000 /* every hour */,
                     TimeUnit.MILLISECONDS));
@@ -154,6 +154,16 @@ public class SynchroService extends AbstractService {
         TimeUnit.MILLISECONDS));
 
         return () -> future.cancel(true);
+    }
+
+    public void safeSynchronize() {
+        try {
+            synchronize();
+        }
+        catch(Exception e) {
+            logger.error(String.format("Failed to execute synchronization: %s", e.getMessage()), e);
+            // Continue
+        }
     }
 
     public void synchronize() {

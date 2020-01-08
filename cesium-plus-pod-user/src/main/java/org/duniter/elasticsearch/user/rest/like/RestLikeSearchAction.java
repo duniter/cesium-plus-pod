@@ -1,10 +1,10 @@
-package org.duniter.elasticsearch.user.model;
+package org.duniter.elasticsearch.user.rest.like;
 
 /*
  * #%L
- * Duniter4j :: ElasticSearch Plugin
+ * Duniter4j :: ElasticSearch User plugin
  * %%
- * Copyright (C) 2014 - 2016 EIS
+ * Copyright (C) 2014 - 2017 EIS
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as
@@ -22,38 +22,19 @@ package org.duniter.elasticsearch.user.model;
  * #L%
  */
 
+import org.duniter.elasticsearch.rest.security.RestSecurityController;
+import org.duniter.elasticsearch.user.service.LikeService;
+import org.elasticsearch.common.inject.Inject;
+
 /**
- * Created by blavenie on 29/11/16.
+ * Created by blavenie on 13/12/16.
  */
-public enum UserEventCodes {
+public class RestLikeSearchAction {
 
-    NODE_STARTED,
-    NODE_BMA_UP,
-    NODE_BMA_DOWN,
-
-    // Membership state
-    MEMBER_JOIN,
-    MEMBER_LEAVE,
-    MEMBER_ACTIVE,
-    MEMBER_REVOKE,
-    MEMBER_EXCLUDE,
-
-    // TX
-    TX_SENT,
-    TX_RECEIVED,
-
-    // CERTIFICATION
-    CERT_SENT,
-    CERT_RECEIVED,
-
-    // Message
-    MESSAGE_RECEIVED,
-
-    // Invitation
-    INVITATION_TO_CERTIFY,
-
-    // Like
-    LIKE,
-    DISLIKE,
-    ABUSE
+    @Inject
+    public RestLikeSearchAction(RestSecurityController securityController) {
+        securityController
+                .allowGetSearchIndexType(LikeService.INDEX, LikeService.RECORD_TYPE)
+                .allowPostSearchIndexType(LikeService.INDEX, LikeService.RECORD_TYPE);
+    }
 }

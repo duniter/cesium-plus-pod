@@ -36,6 +36,7 @@ import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
+import org.duniter.elasticsearch.user.model.DocumentReference;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserEventCodes;
 import org.elasticsearch.common.inject.Inject;
@@ -85,7 +86,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
 
         // First: Delete old events on same block
         {
-            UserEvent.Reference reference = new UserEvent.Reference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
+            DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
             this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
             flushBulkRequestOrSchedule();
         }
@@ -143,7 +144,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
     @Override
     protected void processBlockDelete(ChangeEvent change) {
 
-        UserEvent.Reference reference = new UserEvent.Reference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
+        DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
 
         if (change.getSource() != null) {
             BlockchainBlock block = readBlock(change);

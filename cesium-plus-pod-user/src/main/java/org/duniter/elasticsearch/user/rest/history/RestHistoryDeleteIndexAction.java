@@ -27,8 +27,6 @@ import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.user.service.HistoryService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestController;
 
@@ -41,5 +39,6 @@ public class RestHistoryDeleteIndexAction extends AbstractRestPostIndexAction {
                 HistoryService.INDEX,
                 HistoryService.DELETE_TYPE,
                 json -> service.indexDeleteFromJson(json, false));
+
     }
 }

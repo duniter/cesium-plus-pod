@@ -115,6 +115,9 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             injector.getInstance(PageService.class)
                     .deleteIndex()
                     .createIndexIfNotExists();
+            injector.getInstance(LikeService.class)
+                    .deleteIndex()
+                    .createIndexIfNotExists();
 
             if (logger.isInfoEnabled()) {
                 logger.info("Reloading indices [OK]");
@@ -134,6 +137,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             injector.getInstance(GroupService.class).createIndexIfNotExists();
             injector.getInstance(UserInvitationService.class).createIndexIfNotExists();
             injector.getInstance(PageService.class).createIndexIfNotExists();
+            injector.getInstance(LikeService.class).createIndexIfNotExists();
 
             if (logger.isDebugEnabled()) {
                 logger.debug("Checking indices [OK]");
@@ -169,6 +173,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .registerIndex(GroupIndexDao.INDEX, GroupRecordDao.TYPE)
                     .registerIndex(GroupIndexDao.INDEX, GroupCommentDao.TYPE)
                     .registerIndex(HistoryService.INDEX, HistoryService.DELETE_TYPE)
+                    .registerIndex(LikeService.INDEX, LikeService.RECORD_TYPE)
             ;
         }
 

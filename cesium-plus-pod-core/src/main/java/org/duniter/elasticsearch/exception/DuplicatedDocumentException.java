@@ -1,10 +1,10 @@
-package org.duniter.elasticsearch.user.model;
+package org.duniter.elasticsearch.exception;
 
 /*
  * #%L
- * Duniter4j :: ElasticSearch Plugin
+ * Duniter4j :: Core API
  * %%
- * Copyright (C) 2014 - 2016 EIS
+ * Copyright (C) 2014 - 2015 EIS
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as
@@ -22,38 +22,30 @@ package org.duniter.elasticsearch.user.model;
  * #L%
  */
 
+
+import org.elasticsearch.rest.RestStatus;
+
 /**
- * Created by blavenie on 29/11/16.
+ *
+ * Created by Benoit on 03/04/2015.
  */
-public enum UserEventCodes {
+public class DuplicatedDocumentException extends DuniterElasticsearchException{
 
-    NODE_STARTED,
-    NODE_BMA_UP,
-    NODE_BMA_DOWN,
+    public DuplicatedDocumentException(Throwable cause) {
+        super(cause);
+    }
 
-    // Membership state
-    MEMBER_JOIN,
-    MEMBER_LEAVE,
-    MEMBER_ACTIVE,
-    MEMBER_REVOKE,
-    MEMBER_EXCLUDE,
+    public DuplicatedDocumentException(String msg, Object... args) {
+        super(msg, args);
+    }
 
-    // TX
-    TX_SENT,
-    TX_RECEIVED,
+    public DuplicatedDocumentException(String msg, Throwable cause, Object... args) {
+        super(msg, args, cause);
+    }
 
-    // CERTIFICATION
-    CERT_SENT,
-    CERT_RECEIVED,
 
-    // Message
-    MESSAGE_RECEIVED,
-
-    // Invitation
-    INVITATION_TO_CERTIFY,
-
-    // Like
-    LIKE,
-    DISLIKE,
-    ABUSE
+    @Override
+    public RestStatus status() {
+        return RestStatus.BAD_REQUEST;
+    }
 }

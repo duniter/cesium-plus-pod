@@ -26,6 +26,7 @@ import org.duniter.elasticsearch.user.synchro.group.SynchroGroupCommentAction;
 import org.duniter.elasticsearch.user.synchro.group.SynchroGroupRecordAction;
 import org.duniter.elasticsearch.user.synchro.history.SynchroHistoryIndexAction;
 import org.duniter.elasticsearch.user.synchro.invitation.SynchroInvitationCertificationIndexAction;
+import org.duniter.elasticsearch.user.synchro.like.SynchroLikeRecordAction;
 import org.duniter.elasticsearch.user.synchro.message.SynchroMessageInboxIndexAction;
 import org.duniter.elasticsearch.user.synchro.message.SynchroMessageOutboxIndexAction;
 import org.duniter.elasticsearch.user.synchro.page.SynchroPageCommentAction;
@@ -61,6 +62,8 @@ public class SynchroModule extends AbstractModule implements Module {
         // Invitation
         bind(SynchroInvitationCertificationIndexAction.class).asEagerSingleton();
 
+        // Like
+        bind(SynchroLikeRecordAction.class).asEagerSingleton();
     }
 
 }

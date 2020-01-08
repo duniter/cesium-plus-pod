@@ -25,6 +25,9 @@ package org.duniter.elasticsearch.user.rest;
 import org.duniter.elasticsearch.user.rest.group.*;
 import org.duniter.elasticsearch.user.rest.history.RestHistoryDeleteIndexAction;
 import org.duniter.elasticsearch.user.rest.invitation.RestInvitationCertificationIndexAction;
+import org.duniter.elasticsearch.user.rest.like.RestLikeGetAction;
+import org.duniter.elasticsearch.user.rest.like.RestLikePostAction;
+import org.duniter.elasticsearch.user.rest.like.RestLikeSearchAction;
 import org.duniter.elasticsearch.user.rest.message.RestMessageInboxIndexAction;
 import org.duniter.elasticsearch.user.rest.message.RestMessageInboxMarkAsReadAction;
 import org.duniter.elasticsearch.user.rest.message.RestMessageOutboxIndexAction;
@@ -81,6 +84,11 @@ public class RestModule extends AbstractModule implements Module {
 
         // Mixed search
         bind(RestMixedSearchAction.class).asEagerSingleton();
+
+        // Like
+        bind(RestLikeGetAction.class).asEagerSingleton();
+        bind(RestLikePostAction.class).asEagerSingleton();
+        bind(RestLikeSearchAction.class).asEagerSingleton();
 
         // Backward compatibility
         {

@@ -60,7 +60,7 @@ public class HistoryService extends AbstractService {
 
     @Inject
     public HistoryService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService) {
-        super("subscription." + INDEX, client, settings, cryptoService);
+        super("duniter." + INDEX, client, settings, cryptoService);
     }
 
     /**
@@ -151,23 +151,22 @@ public class HistoryService extends AbstractService {
         }
 
         try {
-            // Message: check if deletion issuer is the message recipient
+
+            // Check time is valid - fix #27
+            verifyTime(actualObj, allowOldDocuments, DeleteRecord.PROPERTY_TIME);
+
+            // Message: check if deletion issuer is the recipient
             if (MessageService.INDEX.equals(index) && MessageService.INBOX_TYPE.equals(type)) {
                 client.checkSameDocumentField(index, type, id, Message.PROPERTY_RECIPIENT, issuer);
             }
-            // Invitation: check if deletion issuer is the invitation recipient
+            // Invitation: check if deletion issuer is the recipient
             else if (UserInvitationService.INDEX.equals(index)) {
-
-                    client.checkSameDocumentField(index, type, id, Message.PROPERTY_RECIPIENT, issuer);
-
+                client.checkSameDocumentField(index, type, id, Message.PROPERTY_RECIPIENT, issuer);
             }
             else {
                 // Check same document issuer
                 client.checkSameDocumentIssuer(index, type, id, issuer);
             }
-
-            // Check time is valid - fix #27
-            verifyTime(actualObj, allowOldDocuments, DeleteRecord.PROPERTY_TIME);
         }
         catch(AccessDeniedException | InvalidTimeException e) {
             // Check if admin ask the deletion
@@ -223,6 +222,11 @@ public class HistoryService extends AbstractService {
             XContentBuilder mapping = XContentFactory.jsonBuilder().startObject().startObject(DELETE_TYPE)
                     .startObject("properties")
 
+                    // version
+                    .startObject("version")
+                    .field("type", "integer")
+                    .endObject()
+
                     // index
                     .startObject("index")
                     .field("type", "string")
@@ -241,28 +245,6 @@ public class HistoryService extends AbstractService {
                     .field("index", "not_analyzed")
                     .endObject()
 
-                    // time
-                    .startObject("time")
-                    .field("type", "integer")
-                    .endObject()
-
-                    .endObject()
-                    .endObject().endObject();
-
-            return mapping;
-        }
-        catch(IOException ioe) {
-            throw new TechnicalException(String.format("Error while getting mapping for index [%s/%s]: %s", INDEX, DELETE_TYPE, ioe.getMessage()), ioe);
-        }
-    }
-
-    public XContentBuilder createRecordCommentType() {
-        String stringAnalyzer = pluginSettings.getDefaultStringAnalyzer();
-
-        try {
-            XContentBuilder mapping = XContentFactory.jsonBuilder().startObject().startObject(DELETE_TYPE)
-                    .startObject("properties")
-
                     // issuer
                     .startObject("issuer")
                     .field("type", "string")
@@ -274,20 +256,14 @@ public class HistoryService extends AbstractService {
                     .field("type", "integer")
                     .endObject()
 
-                    // message
-                    .startObject("message")
-                    .field("type", "string")
-                    .field("analyzer", stringAnalyzer)
-                    .endObject()
-
-                    // record
-                    .startObject("record")
+                    // hash
+                    .startObject("hash")
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
 
-                    // reply to
-                    .startObject("reply_to")
+                    // signature
+                    .startObject("signature")
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
@@ -301,5 +277,6 @@ public class HistoryService extends AbstractService {
             throw new TechnicalException(String.format("Error while getting mapping for index [%s/%s]: %s", INDEX, DELETE_TYPE, ioe.getMessage()), ioe);
         }
     }
+
 
 }

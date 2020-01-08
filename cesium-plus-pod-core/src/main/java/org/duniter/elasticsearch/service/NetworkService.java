@@ -685,7 +685,7 @@ public class NetworkService extends AbstractService {
         Preconditions.checkNotNull(peerDocument);
 
         try {
-            if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Sending peer document", currencyId, peer));
+            if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Sending peer document...", currencyId, peer));
 
             networkRemoteService.postPeering(peer, peerDocument);
             return true;
