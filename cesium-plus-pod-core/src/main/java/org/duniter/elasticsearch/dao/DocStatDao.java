@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.dao;
 
 import org.duniter.elasticsearch.model.DocStat;
 import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 
 import javax.annotation.Nullable;
 
@@ -31,10 +32,12 @@ import javax.annotation.Nullable;
  * Created by blavenie on 13/09/17.
  */
 public interface DocStatDao extends IndexTypeDao<DocStatDao>{
-    String INDEX = "docstat";
-    String TYPE = "record";
+    String INDEX = "document";
+    String TYPE = "stats";
 
     long countDoc(String index, @Nullable String type);
+
+    long countDoc(String index, @Nullable String type, QueryBuilder queryBuilder);
 
     IndexRequestBuilder prepareIndex(DocStat stat);
 

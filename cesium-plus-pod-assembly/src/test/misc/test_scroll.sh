@@ -1,7 +1,8 @@
 #!/bin/sh
 
-curl -XPOST 'https://g1.data.duniter.fr/page/record/_search?pretty&scroll=1m' -d '
+curl -XPOST 'https://g1.data.duniter.fr/market/record/_search?pretty&scroll=1m' -d '
    {
+    "size": 10,
      "query":{
         "bool" : {
           "should" : {

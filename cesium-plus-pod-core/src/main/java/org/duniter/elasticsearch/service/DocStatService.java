@@ -23,7 +23,9 @@ package org.duniter.elasticsearch.service;
  */
 
 
+import com.google.common.collect.Lists;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.duniter.core.util.DateUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
@@ -35,7 +37,12 @@ import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.action.search.SearchPhaseExecutionException;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.SearchHit;
 
 import java.io.Closeable;
 import java.util.*;
@@ -49,7 +56,7 @@ public class DocStatService extends AbstractService  {
 
     private DocStatDao docStatDao;
     private ThreadPool threadPool;
-    private List<StatDef> statDefs = new ArrayList<>();
+    private List<StatDef> statDefs = Lists.newCopyOnWriteArrayList();
 
     public interface ComputeListener {
        void onCompute(DocStat stat);
@@ -58,17 +65,28 @@ public class DocStatService extends AbstractService  {
     public class StatDef {
         String index;
         String type;
+        QueryBuilder query;
+        String queryName;
+
         List<ComputeListener> listeners;
         StatDef(String index, String type) {
             this.index=index;
             this.type=type;
         }
 
+        StatDef(String index, String type, String queryName, QueryBuilder query) {
+            this.index=index;
+            this.type=type;
+            this.queryName = queryName;
+            this.query = query;
+        }
+
         @Override
         public boolean equals(Object obj) {
             return (obj instanceof StatDef) &&
                     Objects.equals(((StatDef)obj).index, index) &&
-                    Objects.equals(((StatDef)obj).type, type);
+                    Objects.equals(((StatDef)obj).type, type) &&
+                    Objects.equals(((StatDef)obj).queryName, queryName);
         }
 
         public void addListener(ComputeListener listener) {
@@ -99,12 +117,12 @@ public class DocStatService extends AbstractService  {
     }
 
     public DocStatService registerIndex(String index, String type) {
-        return registerIndex(index, type, null);
+        return registerIndex(index, type, null, null, null);
     }
 
-    public DocStatService registerIndex(String index, String type, ComputeListener listener) {
+    public DocStatService registerIndex(String index, String type, String queryName, QueryBuilder query, ComputeListener listener) {
         Preconditions.checkArgument(StringUtils.isNotBlank(index));
-        StatDef statDef = new StatDef(index, type);
+        StatDef statDef = new StatDef(index, type, queryName, query);
         if (!statDefs.contains(statDef)) {
             statDefs.add(statDef);
         }
@@ -116,16 +134,21 @@ public class DocStatService extends AbstractService  {
         return this;
     }
 
-    public DocStatService addListener(String index, String type, ComputeListener listener) {
+    public DocStatService addListener(String index, String type, String queryName, ComputeListener listener) {
         Preconditions.checkArgument(StringUtils.isNotBlank(index));
         Preconditions.checkNotNull(listener);
 
-        // Find the existsing def
-        StatDef spec = new StatDef(index, type);
+        // Find the existing def
+        StatDef spec = new StatDef(index, type, queryName, null);
         StatDef statDef = statDefs.stream().filter(sd -> sd.equals(spec)).findFirst().get();
         Preconditions.checkNotNull(statDef);
 
         statDef.addListener(listener);
+        return this;
+    }
+
+    public DocStatService addListener(String index, String type, ComputeListener listener) {
+        addListener(index, type, null, listener);
         return this;
     }
 
@@ -137,13 +160,22 @@ public class DocStatService extends AbstractService  {
         long delayBeforeNextHour = DateUtils.delayBeforeNextHour();
 
         ScheduledActionFuture future = threadPool.scheduleAtFixedRate(
-                this::computeStats,
+                this::safeComputeStats,
                 delayBeforeNextHour,
                 60 * 60 * 1000 /* every hour */,
                 TimeUnit.MILLISECONDS);
         return () -> {
             future.cancel(true);
         };
+    }
+
+    public void safeComputeStats() {
+        try {
+            computeStats();
+        }
+        catch(Exception e) {
+            logger.error("Error during doc stats computation: " + e.getMessage(), e);
+        }
     }
 
     public void computeStats() {
@@ -161,27 +193,38 @@ public class DocStatService extends AbstractService  {
         int counter = 0;
 
         for (StatDef statDef: statDefs) {
-            long count = docStatDao.countDoc(statDef.index, statDef.type);
+            try {
+                long count = docStatDao.countDoc(statDef.index, statDef.type, statDef.query);
 
-            // Update stat properties (resue existing obj)
-            stat.setIndex(statDef.index);
-            stat.setIndexType(statDef.type);
-            stat.setCount(count);
+                // Update stat properties (reuse existing obj)
+                stat.setIndex(statDef.index);
+                stat.setType(statDef.type);
+                stat.setCount(count);
 
-            // Call compute listeners if any
-            if (CollectionUtils.isNotEmpty(statDef.listeners)) {
-                statDef.listeners.forEach(l -> l.onCompute(stat));
+                // Apply the query name, to be able to filter the doc stats later
+                if (StringUtils.isNotBlank(statDef.queryName)) {
+                    stat.setQueryName(statDef.queryName);
+                }
+
+                // Call compute listeners if any
+                if (CollectionUtils.isNotEmpty(statDef.listeners)) {
+                    statDef.listeners.forEach(l -> l.onCompute(stat));
+                }
+
+                // Add insertion into bulk
+                IndexRequestBuilder request = docStatDao.prepareIndex(stat);
+                bulkRequest.add(request);
+                counter++;
+
+                // Flush the bulk if not empty
+                if ((counter % bulkSize) == 0) {
+                    client.flushBulk(bulkRequest);
+                    bulkRequest = client.prepareBulk();
+                }
             }
-
-            // Add insertion into bulk
-            IndexRequestBuilder request = docStatDao.prepareIndex(stat);
-            bulkRequest.add(request);
-            counter++;
-
-            // Flush the bulk if not empty
-            if ((counter % bulkSize) == 0) {
-                client.flushBulk(bulkRequest);
-                bulkRequest = client.prepareBulk();
+            catch(Exception e) {
+                logger.error(String.format("Failed to execute doc stats on {%s/%s} %s: %s.",
+                        statDef.index, statDef.type, statDef.index, statDef.queryName, e.getMessage()), e);
             }
         }
 
@@ -191,4 +234,95 @@ public class DocStatService extends AbstractService  {
         }
     }
 
+
+    String OLD_INDEX = "docstat";
+    String OLD_TYPE = "record";
+
+
+    public DocStatService startDataMigration() {
+        if (!client.existsIndex(OLD_INDEX)) return this; // Skip migration
+
+        // Skip if empty
+        if (CollectionUtils.isEmpty(statDefs)) return this;
+
+        logger.info(String.format("Start document stats migration from {%s/%s} to {%s/%s}...", OLD_INDEX, OLD_TYPE, DocStatDao.INDEX, DocStatDao.TYPE));
+
+        int bulkSize = pluginSettings.getIndexBulkSize();
+        long now = System.currentTimeMillis()/1000;
+        BulkRequestBuilder bulkRequest = client.prepareBulk();
+
+        SearchRequestBuilder searchRequest = client.prepareSearch(OLD_INDEX)
+                .setTypes(OLD_TYPE)
+                .setSize(bulkSize)
+                .setFetchSource(true);
+
+        try {
+            int counter = 0;
+            boolean loop = true;
+            searchRequest.setFrom(counter);
+            SearchResponse response = searchRequest.execute().actionGet();
+
+            do {
+
+                // Read response
+                SearchHit[] searchHits = response.getHits().getHits();
+                for (SearchHit searchHit : searchHits) {
+                    Map<String, Object> source = searchHit.sourceAsMap();
+                    if (source != null) {
+                        DocStat stat = new DocStat();
+                        stat.setIndex(MapUtils.getString(source, DocStat.PROPERTY_INDEX));
+                        stat.setType(MapUtils.getString(source, DocStat.PROPERTY_INDEX_TYPE));
+                        stat.setTime(MapUtils.getLongValue(source, DocStat.PROPERTY_TIME));
+                        stat.setCount(MapUtils.getLongValue(source, DocStat.PROPERTY_COUNT));
+                        stat.setQueryName(null); // was not exists in old index
+
+                        // Add insertion into bulk
+                        IndexRequestBuilder request = docStatDao.prepareIndex(stat);
+                        bulkRequest.add(request);
+                        counter++;
+
+                        // Flush the bulk if not empty
+                        if ((counter % bulkSize) == 0) {
+                            client.flushBulk(bulkRequest);
+                            bulkRequest = client.prepareBulk();
+                        }
+                    }
+                }
+
+                // Prepare next iteration
+                if (counter == 0 || counter >= response.getHits().getTotalHits()) {
+                    loop = false;
+                }
+                // Prepare next iteration
+                else {
+                    searchRequest.setFrom(counter);
+                    response = searchRequest.execute().actionGet();
+                }
+            }
+            while(loop);
+
+            // last flush
+            if ((counter % bulkSize) != 0) {
+                client.flushBulk(bulkRequest);
+            }
+
+            logger.info(String.format("Document stats migration succeed. %s stats migrated in %s ms. Deleting old index...",
+                    counter,
+                    System.currentTimeMillis() - now));
+
+        } catch (Exception e) {
+            // Failed or no item on index
+            logger.error(String.format("Error while doc stats migration: %s. Skipping migration.", e.getMessage()), e);
+
+            // Do NOT delete if something wrong occur !
+            return this;
+        }
+
+        // Delete the old index
+        threadPool.scheduleOnClusterReady(() -> {
+            client.deleteIndexIfExists(OLD_INDEX);
+        }).actionGet();
+
+        return this;
+    }
 }

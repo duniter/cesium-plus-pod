@@ -46,6 +46,8 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ExceptionEvent;
 
 import javax.websocket.CloseReason;
 import java.io.IOException;
@@ -159,7 +161,7 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
 
     @Override
     public void onClose(CloseReason reason) {
-        logger.debug("Closing websocket: "+reason);
+        if (reason != null && logger.isDebugEnabled()) logger.debug("Closing websocket: "+reason);
         ChangeService.unregisterListener(this);
         this.session = null;
         this.lastBlockstampSent = null;
@@ -167,6 +169,17 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
 
     public void onError(Throwable t) {
         logger.error(String.format("[%s] Error on websocket endpoint {%s} session {%s}", currency, PATH, (session == null ? null : session.getId())), t);
+        if (this.session != null) {
+            try {
+                this.session.close(new CloseReason(CloseReason.CloseCodes.NO_STATUS_CODE, "Unexpected error"));
+            } catch (IOException e) {
+                // silent
+            }
+        }
+    }
+
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+        onError(e.getCause());
     }
 
     /* -- internal methods -- */
@@ -188,7 +201,7 @@ public class NettyWebSocketBlockHandler extends NettyBaseWebSocketEndpoint imple
                 session.sendText(sourceText);
             }
 
-        } catch(Exception e) {
+        } catch(Throwable e) {
             logger.error(String.format("[%s] Cannot sent websocket response {%s} to session {%s}: %s", currency, PATH, session.getId(), e.getMessage()), e);
         }
 

@@ -105,31 +105,5 @@ public class ChangeEvents {
         }
     }
 
-    public static JsonNode readTree(BytesReference source) throws IOException {
-        if (source  == null) return null;
 
-        if (source instanceof BytesJsonNode) {
-            // Avoid new deserialization
-            return ((BytesJsonNode) source).toJsonNode();
-        }
-
-        return new ObjectMapper().readTree(source.streamInput());
-    }
-
-    public static JsonNode readTree(ObjectMapper objectMapper, BytesReference source) throws IOException {
-        if (source  == null) return null;
-
-        if (source instanceof BytesJsonNode) {
-            // Avoid new deserialization
-            return ((BytesJsonNode) source).toJsonNode();
-        }
-
-        return objectMapper.readTree(source.streamInput());
-    }
-
-    public static <T> T readValue(BytesReference source, Class<T> clazz) throws IOException {
-        if (source  == null) return null;
-
-        return new ObjectMapper().readValue(source.streamInput(), clazz);
-    }
 }

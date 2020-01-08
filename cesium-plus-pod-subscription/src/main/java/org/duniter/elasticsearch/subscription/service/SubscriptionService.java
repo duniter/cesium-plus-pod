@@ -43,6 +43,7 @@ import org.duniter.elasticsearch.subscription.model.SubscriptionExecution;
 import org.duniter.elasticsearch.subscription.model.SubscriptionRecord;
 import org.duniter.elasticsearch.subscription.model.email.EmailSubscription;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.duniter.elasticsearch.user.model.DocumentReference;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.service.AdminService;
 import org.duniter.elasticsearch.user.service.MailService;
@@ -460,7 +461,7 @@ public class SubscriptionService extends AbstractService {
 
         // Retrieve the translated description: prefer 'duniter.<INDEX>.event.<CODE>' if exists,
         // and 'duniter.user.event.<CODE>' otherwise
-        final UserEvent.Reference reference = userEvent.getReference();
+        final DocumentReference reference = userEvent.getReference();
         if (reference != null && reference.getIndex() != null) {
             return firstValidI18n(locale,
                     new String[]{

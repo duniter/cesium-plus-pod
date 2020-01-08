@@ -23,6 +23,8 @@ package org.duniter.elasticsearch.model;
  */
 
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
@@ -30,11 +32,19 @@ import com.fasterxml.jackson.databind.JsonNode;
  */
 public class SearchScrollResponse extends SearchResponse {
 
-    public SearchScrollResponse(JsonNode response) {
-        super(response);
+    protected String scrollId;
+
+    public SearchScrollResponse() {
+        super();
     }
 
+    @JsonGetter("_scroll_id")
     public String getScrollId() {
-        return node.get("_scroll_id").asText();
+        return scrollId;
+    }
+
+    @JsonSetter("_scroll_id")
+    public void setScrollId(String scrollId) {
+        this.scrollId = scrollId;
     }
 }

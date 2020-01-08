@@ -23,69 +23,29 @@ package org.duniter.elasticsearch.model;
  */
 
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.lucene.util.BytesRef;
-import org.elasticsearch.common.bytes.BytesArray;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.jboss.netty.buffer.ChannelBuffer;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.io.Serializable;
-import java.nio.channels.GatheringByteChannel;
-import java.util.Iterator;
 
 /**
  * Created by eis on 05/02/15.
  */
 public class SearchResponse implements Serializable {
 
-    protected JsonNode node;
+    protected SearchHits hits;
 
-    public SearchResponse(JsonNode response) {
-        this.node = response;
+    public SearchResponse() {
     }
 
     public SearchHits getHits() {
-        return new SearchHits(node.get("hits"));
+        return hits;
     }
 
-    public class SearchHits implements Iterator<SearchHit>{
-
-        protected JsonNode node;
-        private Iterator<JsonNode> hits;
-        SearchHits(JsonNode node) {
-            this.node = node;
-            this.hits = node == null ? null : node.get("hits").iterator();
-        }
-
-        public int getTotalHits() {
-            return node == null ? 0 : node.get("total").asInt(0);
-        }
-
-        public boolean hasNext() {
-            return hits != null && hits.hasNext();
-        }
-        public SearchHit next() {
-            return hits == null ? null : new SearchHit(hits.next());
-        }
+    public void setHits(SearchHits hits) {
+        this.hits = hits;
     }
 
-    public class SearchHit {
 
-        private JsonNode node;
-        SearchHit(JsonNode node) {
-            this.node = node;
-        }
-
-        public String getId() {
-            return node.get("_id").asText();
-        }
-
-        public JsonNode getSource() {
-            return node.get("_source");
-        }
-
-    }
 }

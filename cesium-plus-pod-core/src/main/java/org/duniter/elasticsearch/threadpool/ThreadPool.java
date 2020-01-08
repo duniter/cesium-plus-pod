@@ -22,6 +22,8 @@ package org.duniter.elasticsearch.threadpool;
  * #L%
  */
 
+import com.google.common.collect.Lists;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.duniter.core.util.Preconditions;
 import org.elasticsearch.action.admin.cluster.stats.ClusterStatsRequestBuilder;
 import org.elasticsearch.action.admin.cluster.stats.ClusterStatsResponse;
@@ -44,6 +46,7 @@ import org.nuiton.i18n.I18n;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -59,8 +62,10 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
     private final org.elasticsearch.threadpool.ThreadPool delegate;
 
     private LocalNodeMasterListener isMasterListener;
-    private boolean clusterStarted = false;
-    private boolean isMaster = false;
+    private final List<Runnable> onMasterStartListeners = Lists.newCopyOnWriteArrayList();
+
+    private final MutableBoolean nodeStarted = new MutableBoolean(false);
+    private final MutableBoolean isMaster = new MutableBoolean(false);
 
     @Inject
     public ThreadPool(Settings settings,
@@ -82,8 +87,12 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         this.scheduler.setRemoveOnCancelPolicy(true);
     }
 
-    public boolean isMasterNode() {
-        return isMaster;
+    public synchronized boolean isMasterNode() {
+        return isMaster.getValue();
+    }
+
+    public synchronized boolean isNodeStarted() {
+        return nodeStarted.getValue();
     }
 
     public void doStart(){
@@ -94,15 +103,29 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         isMasterListener = new LocalNodeMasterListener() {
             @Override
             public void onMaster() {
-                if (!isMaster) {
-                    isMaster = true;
+                if (!isMaster.getValue()) {
+                    isMaster.setValue(true);
                     logger.debug("Executing master on start jobs...");
                 }
+
+                // Wait cluster ready
+                scheduleOnClusterReady(() -> {
+                    // Execute all master start jobs
+                    onMasterStartListeners.forEach(job -> {
+                        try {
+                            job.run();
+                        }
+                        catch(Throwable e) {
+                            logger.error("Error while running a master start job: " + e.getMessage(), e);
+                            // Continue
+                        }
+                    });
+                });
             }
 
             @Override
             public void offMaster() {
-                isMaster = false;
+                isMaster.setValue(false);
                 logger.debug("Executing master on stop jobs...");
             }
 
@@ -131,14 +154,14 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      *
      * @param job the rest to execute when node started
      */
-    public void scheduleOnStarted(Runnable job) {
+    public ScheduledActionFuture<?> scheduleOnStarted(Runnable job) {
         Preconditions.checkNotNull(job);
-        if (clusterStarted) {
-            schedule(job);
+        if (isNodeStarted()) {
+            return schedule(job);
         }
         else {
-            scheduleAfterServiceState(TransportService.class, Lifecycle.State.STARTED, () -> {
-                clusterStarted = true;
+            return scheduleAfterServiceState(TransportService.class, Lifecycle.State.STARTED, () -> {
+                nodeStarted.setValue(true);
                 job.run();
             });
         }
@@ -151,12 +174,12 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      * @param expectedStatus expected health status, to run the job
      * @return a ScheduledFuture who's get will return when the task is complete and throw an exception if it is canceled
      */
-    public void scheduleOnClusterHealthStatus(Runnable job, ClusterHealthStatus... expectedStatus) {
+    public ScheduledActionFuture<?> scheduleOnClusterHealthStatus(Runnable job, ClusterHealthStatus... expectedStatus) {
         Preconditions.checkNotNull(job);
 
         Preconditions.checkArgument(expectedStatus.length > 0);
 
-        scheduleOnStarted(() -> {
+        return scheduleOnStarted(() -> {
             if (waitClusterHealthStatus(expectedStatus)) {
                 // continue
                 job.run();
@@ -170,17 +193,8 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      *
      * @param job the rest to execute
      */
-    public void scheduleOnClusterReady(Runnable job) {
-        scheduleOnClusterHealthStatus(job, ClusterHealthStatus.YELLOW, ClusterHealthStatus.GREEN);
-    }
-
-    /**
-     * Schedules when node BECOME the master for the first time (and the cluster ready)
-     *
-     * @param job the rest to execute
-     */
-    public void scheduleOnMasterFirstStart(Runnable job) {
-        scheduleOnMasterStart(job, true);
+    public ScheduledActionFuture<?> scheduleOnClusterReady(Runnable job) {
+        return scheduleOnClusterHealthStatus(job, ClusterHealthStatus.YELLOW, ClusterHealthStatus.GREEN);
     }
 
     /**
@@ -188,8 +202,14 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      *
      * @param job the rest to execute
      */
-    public void scheduleOnMasterEachStart(Runnable job) {
-        scheduleOnMasterStart(job, false);
+    public void onMasterStart(Runnable job) {
+
+        // Add to list
+        onMasterStartListeners.add(job);
+
+        if (isMasterNode()) {
+            scheduleOnClusterReady(job);
+        }
     }
 
     /**
@@ -345,40 +365,6 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         return canContinue;
     }
 
-
-    /**
-     * Schedules when node BECOME the master (and the cluster ready)
-     *
-     * @param job the rest to execute
-     * @param onlyOnce if true, run only on first master event on this node
-     */
-    protected void scheduleOnMasterStart(Runnable job, boolean onlyOnce) {
-        if (isMaster) {
-            scheduleOnClusterReady(job);
-            if (onlyOnce) return;
-        }
-
-        final ClusterService cluster = injector.getInstance(ClusterService.class);
-        cluster.add(new LocalNodeMasterListener() {
-            @Override
-            public void onMaster() {
-                scheduleOnClusterReady(job);
-
-                // Was run once, so remove the listener
-                if (onlyOnce) cluster.remove(this);
-            }
-
-            @Override
-            public void offMaster() {
-            }
-
-            @Override
-            public String executorName() {
-                return org.elasticsearch.threadpool.ThreadPool.Names.GENERIC;
-            }
-        });
-    }
-
     /**
      * Schedules when node BECOME the master (and the cluster ready)
      *
@@ -386,7 +372,7 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      * @param onlyOnce if true, run only on first master event on this node
      */
     protected void scheduleOnMasterStop(Runnable job, boolean onlyOnce) {
-        if (clusterStarted && !isMaster && onlyOnce) {
+        if (nodeStarted.getValue() && !isMasterNode() && onlyOnce) {
             logger.debug("Skipping a job execution, because node is not the master node");
             return; // Skip; as node is not a master
         }

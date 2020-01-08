@@ -41,6 +41,7 @@ import org.elasticsearch.rest.RestRequest;
 
 import java.io.Closeable;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by blavenie on 17/06/16.
@@ -66,18 +67,22 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     @Override
     protected void doStart() {
 
-        logger.info(String.format("Starting core plugin... {blockchain indexation:%s}, {peer indexation:%s}, {synchronization:%s}, {publish peer:%s}: {hourly statistics:%s}",
-                pluginSettings.enableBlockchainIndexation(),
-                pluginSettings.enableBlockchainPeerIndexation(),
-                pluginSettings.enableSynchro(),
-                pluginSettings.enablePeering(),
-                pluginSettings.enableDocStats()));
-
         // Configure HTTP API access rules (run once)
         threadPool.scheduleOnStarted(this::defineHttpAccessRules);
 
         // First time the node is the master
-        threadPool.scheduleOnMasterEachStart(() -> {
+        threadPool.onMasterStart(() -> {
+
+            logger.info(String.format("Starting core jobs..."
+                            + " {blockchain: block:%s, peer:%s},"
+                            + " {p2p: synchro:%s, websocket:%s, emit_peering:%s},"
+                            + " {doc_stats:%s}",
+                    pluginSettings.enableBlockchainIndexation(),
+                    pluginSettings.enableBlockchainPeerIndexation(),
+                    pluginSettings.enableSynchro(),
+                    pluginSettings.enableSynchroWebsocket(),
+                    pluginSettings.enablePeering(),
+                    pluginSettings.enableDocStats()));
 
             // Create indices (once)
             createIndices();
@@ -86,13 +91,19 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             threadPool.scheduleOnClusterReady(() -> {
 
                 // Start blockchain indexation (if enable)
-                startIndexBlockchain();
+                safeStartIndexBlockchain();
 
                 // Start synchro and peering
-                startSynchroAndPeering();
+                startSynchro();
+
+                // Start synchro and peering
+                startPublishingPeer();
 
                 // Start doc stats
                 startDocStatistics();
+
+                // Migrate old data
+                startDataMigration();
             });
         });
     }
@@ -253,7 +264,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         Preconditions.checkArgument(threadPool.isMasterNode(), "Node must be the master node to execute this job");
     }
 
-    protected void reloadBlockchain(Peer peer, Runnable callback) {
+    protected void reloadBlockchainIfNeed(Peer peer) {
 
         // Reload the blockchain
         if (pluginSettings.reloadBlockchainIndices()) {
@@ -284,57 +295,53 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             if (pluginSettings.reloadBlockchainIndicesFrom() > 0 &&
                     pluginSettings.reloadBlockchainIndicesTo() >= pluginSettings.reloadBlockchainIndicesFrom()) {
 
-                // Wait cluster finished deletion
+                // Wait cluster finished deletion, then reindex
                 threadPool.scheduleOnClusterReady(() -> {
-
                     injector.getInstance(BlockchainService.class)
                             .indexBlocksRange(peer,
                                     pluginSettings.reloadBlockchainIndicesFrom(),
                                     pluginSettings.reloadBlockchainIndicesTo());
-
-                    if (callback != null) callback.run();
-                });
+                    })
+                    .actionGet();
             }
-            else {
-                if (callback != null) callback.run();
-            }
-
-        }
-        else {
-            if (callback != null) callback.run();
         }
     }
 
-    protected void startIndexBlockchain() {
+    protected void safeStartIndexBlockchain() {
+        if (!pluginSettings.enableBlockchainIndexation()) return; // Skip
+
         checkMasterNode();
 
-        // Synchronize blockchain
-        if (pluginSettings.enableBlockchainIndexation()) {
-
+        try {
+            // Index the currency
             Peer peer = pluginSettings.checkAndGetDuniterPeer();
             Currency currency = createCurrencyFromPeer(peer)
                     .orElseThrow(() -> new TechnicalException(String.format("Cannot load currency from peer {%s}", peer.toString())));
 
-            // Wait end of currency index creation, then index blocks
-            Runnable onCurrencyReady = () -> {
-                if (logger.isInfoEnabled()) {
-                    logger.info(String.format("[%s] Indexing blockchain...", currency.getId()));
-                }
+            // Reload some blockchain blocks
+            // TODO: Move this reload feature, into a admin REST service ?
+            reloadBlockchainIfNeed(peer);
 
-                // Index blocks (and listen if new block appear)
-                startIndexBlocks(peer);
+            if (logger.isInfoEnabled()) {
+                logger.info(String.format("[%s] Indexing blockchain...", currency.getId()));
+            }
 
-                // Index WoT members
-                startIndexMembers(peer);
+            // Index blocks (and listen if new block appear)
+            startIndexBlocks(peer);
 
-                // Index peers (and listen if new peer appear)
-                startIndexPeers(peer);
-            };
+            // Index WoT members
+            startIndexMembers(peer);
 
-            // Wait block chain reload, then run jobs
-            // TODO: Move this reload feature, into a admin REST service
-            reloadBlockchain(peer, onCurrencyReady);
+            // Index peers (and listen if new peer appear)
+            startIndexPeers(peer);
         }
+
+        catch (Exception e) {
+            // Log, then retying in 2s
+            logger.error("Failed during start of blockchain indexation. Retrying in 2s...", e);
+            threadPool.schedule(this::safeStartIndexBlockchain, 2, TimeUnit.SECONDS).actionGet();
+        }
+
     }
 
     protected Optional<Currency> createCurrencyFromPeer(Peer peer) {
@@ -365,58 +372,58 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     }
 
     protected void startIndexBlocks(Peer peer) {
+        if (!pluginSettings.enableBlockchainIndexation()) return; // Skip
+
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
-        if (pluginSettings.enableBlockchainIndexation()) {
+        try {
+            BlockchainService blockchainService = injector.getInstance(BlockchainService.class);
 
-            try {
-                BlockchainService blockchainService = injector.getInstance(BlockchainService.class);
+            // Index last blocks
+            blockchainService.indexLastBlocks(peer);
 
-                // Index last blocks
-                blockchainService.indexLastBlocks(peer);
+            // Listen for new blocks
+            Closeable listener = blockchainService.listenAndIndexNewBlock(peer);
+            threadPool.scheduleOnMasterFirstStop(listener);
 
-                // Listen for new blocks
-                Closeable listener = blockchainService.listenAndIndexNewBlock(peer);
-                threadPool.scheduleOnMasterFirstStop(listener);
+            if (logger.isInfoEnabled()) logger.info(String.format("[%s] Indexing blockchain [OK]", peer.getCurrency()));
 
-                if (logger.isInfoEnabled()) logger.info(String.format("[%s] Indexing blockchain [OK]", peer.getCurrency()));
-
-            } catch (Throwable e) {
-                logger.error(String.format("[%s] Indexing blockchain error: %s", peer.getCurrency(), e.getMessage()), e);
-                throw e;
-            }
+        } catch (Throwable e) {
+            logger.error(String.format("[%s] Indexing blockchain error: %s", peer.getCurrency(), e.getMessage()), e);
+            throw e;
         }
     }
 
     protected void startIndexMembers(Peer peer) {
+        if (!pluginSettings.enableBlockchainIndexation()) return; // Skip
+
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
-        if (pluginSettings.enableBlockchainIndexation()) {
+        try {
+            // Index Wot members
+            WotService wotService =  injector.getInstance(WotService.class)
+                    .indexMembers(peer.getCurrency());
 
-            try {
-                // Index Wot members
-                WotService wotService =  injector.getInstance(WotService.class)
-                        .indexMembers(peer.getCurrency());
+            // Listen new block, to update members
+            Closeable listener = wotService.listenAndIndexMembers(peer.getCurrency());
+            threadPool.scheduleOnMasterFirstStop(listener);
 
-                // Listen new block, to update members
-                Closeable listener = wotService.listenAndIndexMembers(peer.getCurrency());
-                threadPool.scheduleOnMasterFirstStop(listener);
-
-            } catch (Throwable e) {
-                logger.error(String.format("[%s] Indexing WoT members error: %s", peer.getCurrency(), e.getMessage()), e);
-                throw e;
-            }
+        } catch (Throwable e) {
+            logger.error(String.format("[%s] Indexing WoT members error: %s", peer.getCurrency(), e.getMessage()), e);
+            throw e;
         }
     }
 
     protected void startIndexPeers(Peer peer) {
+        if (!pluginSettings.enableBlockchainPeerIndexation()) return; // Skip
+
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
-        // Index peers (and listen if new peer appear)
-        if (pluginSettings.enableBlockchainPeerIndexation()) {
+        try {
+            // Index peers (and listen if new peer appear)
             logger.info(String.format("[%s] Indexing peers...", peer.getCurrency()));
             PeerService peerService = injector.getInstance(PeerService.class)
                     .indexPeers(peer);
@@ -425,10 +432,14 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Stop to listen, if master stop
             threadPool.scheduleOnMasterFirstStop(stop);
+        }  catch (Throwable e) {
+            logger.error(String.format("[%s] Indexing blockchain peers error: %s", peer.getCurrency(), e.getMessage()), e);
+            throw e;
         }
     }
 
-    protected void startSynchroAndPeering() {
+    protected void startSynchro() {
+
         checkMasterNode();
 
         // Start synchro, if enable in config
@@ -439,6 +450,11 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             // Stop to listen, if master stop
             threadPool.scheduleOnMasterFirstStop(stop);
         }
+    }
+
+    protected void startPublishingPeer() {
+
+        checkMasterNode();
 
         // Start publish peering to network, if enable in config
         if (pluginSettings.enablePeering()) {
@@ -467,5 +483,11 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                 threadPool.scheduleOnMasterFirstStop(stop);
             });
         }
+    }
+
+    protected void startDataMigration() {
+        // Start migration (if need)
+        injector.getInstance(DocStatService.class)
+                .startDataMigration();
     }
 }

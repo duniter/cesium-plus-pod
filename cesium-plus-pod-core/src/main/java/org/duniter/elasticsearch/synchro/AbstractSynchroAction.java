@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.synchro;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
@@ -46,6 +47,7 @@ import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.DuniterElasticsearchException;
 import org.duniter.elasticsearch.exception.InvalidFormatException;
 import org.duniter.elasticsearch.exception.InvalidSignatureException;
+import org.duniter.elasticsearch.model.SearchHit;
 import org.duniter.elasticsearch.model.SearchResponse;
 import org.duniter.elasticsearch.model.SearchScrollResponse;
 import org.duniter.elasticsearch.model.SynchroResult;
@@ -57,11 +59,13 @@ import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.synchro.impl.NullSynchroActionResult;
 import org.duniter.elasticsearch.synchro.impl.SynchroActionResultImpl;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.duniter.elasticsearch.util.bytes.BytesJsonNode;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
@@ -69,6 +73,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.util.*;
 
@@ -170,12 +175,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         }
         catch(Exception e1) {
             // Log the first error
-            if (logger.isDebugEnabled()) {
-                logger.error(e1.getMessage(), e1);
-            }
-            else {
-                logger.error(e1.getMessage());
-            }
+            logger.error(e1.getMessage(), e1);
         }
     }
 
@@ -202,11 +202,8 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             if (trace) {
                 logger.trace(String.format("%s Processing new change event...", logPrefix));
             }
-
-            JsonNode source = ChangeEvents.readTree(changeEvent.getSource());
-
             // Save doc
-            save(changeEvent.getId(), source, logPrefix);
+            save(changeEvent.getId(), changeEvent.getSource(), logPrefix);
         }
         catch(Exception e1) {
             // Log the first error
@@ -298,18 +295,22 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     }
 
     protected QueryBuilder createQuery(long fromTime) {
-
-        return QueryBuilders.boolQuery()
-                .should(QueryBuilders.rangeQuery("time").gte(fromTime));
+        return QueryBuilders.constantScoreQuery(
+                QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.rangeQuery("time").gte(fromTime))
+            );
     }
 
     private HttpPost createScrollRequest(Peer peer,
                                          String fromIndex,
                                          String fromType,
                                          QueryBuilder query,
-                                         String scrollTime) {
+                                         String scrollTime,
+                                         long from,
+                                         long size) {
         HttpPost httpPost = new HttpPost(httpService.getPath(peer, fromIndex, fromType, "_search?scroll=" + scrollTime));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
+        httpPost.setHeader("Accept-Encoding", "gzip");
 
         try {
             // Query to String
@@ -319,9 +320,14 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             builder.flush();
 
             // Sort on "_doc" - see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/search-request-scroll.html
-            String content = String.format("{\"query\":%s,\"size\":%s, \"sort\": [\"_doc\"]}",
-                    bos.bytes().toUtf8(), // query
-                    pluginSettings.getIndexBulkSizeForSynchro());
+            String content = String.format("{\"query\":%s, \"from\":%s, \"size\":%s, \"sort\": [\"_doc\"]}",
+                    // Query
+                    bos.bytes().toUtf8(),
+                    // From
+                    from,
+                    // Size
+                    size
+            );
             httpPost.setEntity(new StringEntity(content, "UTF-8"));
 
             if (trace) {
@@ -341,6 +347,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
         HttpPost httpPost = new HttpPost(httpService.getPath(peer, "_search", "scroll"));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
+        httpPost.setHeader("Accept-Encoding", "gzip");
         httpPost.setEntity(new StringEntity(String.format("{\"scroll\": \"%s\", \"scroll_id\": \"%s\"}",
                 scrollTime,
                 scrollId), "UTF-8"));
@@ -350,8 +357,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     private SearchScrollResponse executeAndParseRequest(Peer peer, HttpUriRequest request) {
         try {
             // Execute query & parse response
-            JsonNode node = httpService.executeRequest(request, JsonNode.class, String.class);
-            return node == null ? null : new SearchScrollResponse(node);
+            return httpService.executeRequest(request, SearchScrollResponse.class);
         } catch (HttpUnauthorizeException e) {
             throw new TechnicalException(String.format("[%s] [%s] [%s/%s] Unable to access (%s).", peer.getCurrency(), peer, fromIndex, fromType, e.getMessage()), e);
         } catch (TechnicalException e) {
@@ -368,7 +374,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                              SynchroResult result) {
 
         if (!client.existsIndex(toIndex)) {
-            throw new TechnicalException(String.format("Unable to import changes. Index [%s] not exists", toIndex));
+            throw new TechnicalException(String.format("Unable to import changes. Index [%s] not exists locally", toIndex));
         }
 
         ObjectMapper objectMapper = getObjectMapper();
@@ -378,13 +384,16 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 //            return;
 //        }
 
+        String logPrefix = String.format("[%s] [%s] [%s/%s] ", peer.getCurrency(), peer, toIndex, toType);
 
+        long bulkSize = pluginSettings.getIndexBulkSizeForSynchro();
+        long offset = 0;
         long counter = 0;
         boolean stop = false;
         String scrollId = null;
         String scrollTime = SCROLL_TIME_TO_LIVE_SHORT;
         int scrollRetryCounter = 0;
-        int total = 0;
+        long total = 0;
         while(!stop) {
             SearchScrollResponse response = null;
             // A scroll request already sent, so try to reuse it
@@ -403,15 +412,19 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
             // Create a new scroll
             while (scrollId == null && !stop){
-                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query, scrollTime);
+                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query, scrollTime, counter, bulkSize);
                 try {
                     response = executeAndParseRequest(peer, request);
                     if (response != null) {
                         scrollId = response.getScrollId();
-                        if (total == 0) { // Do once
+                        if (scrollId == null) {
+                            logger.warn(String.format("%s Missing scroll id in the response. Skipping", logPrefix));
+                            stop = true;
+                        }
+                        else if (total == 0) { // Do once
                             total = response.getHits().getTotalHits();
                             if (total > 0 && logger.isDebugEnabled()) {
-                                logger.debug(String.format("[%s] [%s] [%s/%s] %s docs to check...", peer.getCurrency(), peer, toIndex, toType, total));
+                                logger.debug(String.format("%s %s documents to check...", logPrefix, total));
                             }
                         }
                     }
@@ -420,10 +433,11 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                     scrollRetryCounter++;
                     // Max try of scroll: stop here
                     if (scrollRetryCounter >= SCROLL_MAX_RETRY) throw e;
+                    // ALready 2 retry: retry but increase the scroll duration
                     if (scrollRetryCounter >= 2) {
                         scrollTime = SCROLL_TIME_TO_LIVE_LONG; // Increase the scroll time
                     }
-                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll was closed. Retrying {%s/%s}...",
+                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll request was closed by remote pod. Retrying {%s/%s}...",
                             peer.getCurrency(), peer,
                             toIndex, toType, scrollRetryCounter, SCROLL_MAX_RETRY));
                     // Scroll was disable by node, so continue with a new scroll
@@ -437,8 +451,12 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 stop = true;
             }
             else {
-                counter += fetchAndSave(peer, response, objectMapper, result);
-                stop = counter >= total;
+                if (logger.isInfoEnabled() && total > 0) {
+                    logger.info(String.format("%s Indexing documents... %s / %s (%s%%)", logPrefix, counter, total, Math.min(100, Math.round(counter * 100 / total))));
+                }
+                fetchAndSave(peer, response, objectMapper, result);
+                counter += bulkSize;
+                stop = offset >= total;
             }
         }
     }
@@ -456,22 +474,21 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         BulkRequestBuilder bulkRequest = client.prepareBulk();
         bulkRequest.setRefresh(true);
 
-        for (Iterator<SearchResponse.SearchHit> hits = response.getHits(); hits.hasNext();){
-            SearchResponse.SearchHit hit = hits.next();
+
+        for (SearchHit hit: response.getHits().getHits()){
+            //org.elasticsearch.search.SearchHits hit = hits.next();
             String id = hit.getId();
-            JsonNode source = hit.getSource();
 
             String logPrefix = String.format("[%s] [%s] [%s/%s/%s]", peer.getCurrency(), peer, toIndex, toType, id);
 
             counter++;
 
-            if (source == null) {
+            if (hit.getSource() == null) {
                 logger.error(String.format("%s No source found. Skipping.", logPrefix));
             }
             else {
                 // Save (create or update)
-                save(id, source,
-                     objectMapper,
+                save(id, hit.getSource(),
                      bulkRequest,
                      true, // allow old documents
                      actionResult,
@@ -511,13 +528,12 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         return counter;
     }
 
-    protected void save(String id, JsonNode source, String logPrefix) {
-        save(id, source, getObjectMapper(), null, false, NULL_ACTION_RESULT, logPrefix);
+    protected void save(String id, BytesReference source, String logPrefix) throws IOException{
+        save(id, BytesJsonNode.readTree(getObjectMapper(), source), null, false, NULL_ACTION_RESULT, logPrefix);
     }
 
     protected void save(final String id,
                         final JsonNode source,
-                        final ObjectMapper objectMapper,
                         final BulkRequestBuilder bulkRequest,
                         final boolean allowOldDocuments,
                         final SynchroActionResult actionResult,
@@ -548,7 +564,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
                 // Execute insertion
                 IndexRequestBuilder request = client.prepareIndex(toIndex, toType, id)
-                        .setSource(objectMapper.writeValueAsBytes(source));
+                        .setSource(source);
                 if (bulkRequest != null) {
                     bulkRequest.add(request);
                 }
@@ -596,7 +612,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
                     // Execute update
                     UpdateRequestBuilder request = client.prepareUpdate(toIndex, toType, id);
-                    request.setDoc(objectMapper.writeValueAsBytes(source));
+                    request.setDoc(source);
                     if (bulkRequest != null) {
                         bulkRequest.add(request);
                     }
@@ -619,7 +635,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             } else {
                 logger.warn(String.format("%s %s. Skipping.", logPrefix, e.getMessage()));
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             // Skipping document: log, then continue
             logger.error(String.format("%s %s. Skipping.", logPrefix, e.getMessage()), e);
         }

@@ -47,17 +47,23 @@ public class TestResource extends org.duniter.core.test.TestResource {
     private static final Logger log = LoggerFactory.getLogger(TestResource.class);
 
     public static TestResource create() {
-        return new TestResource(null);
+        return new TestResource(null, true);
     }
     
     public static TestResource create(String configName) {
-        return new TestResource(configName);
+        return new TestResource(configName, true);
+    }
+
+    public static TestResource stopped() {
+        return new TestResource(null, false);
     }
 
     private TestFixtures fixtures = new TestFixtures();
+    private boolean startNode;
 
-    protected TestResource(String configName) {
+    protected TestResource(String configName, boolean startNode) {
         super(configName);
+        this.startNode = startNode;
     }
     
     public TestFixtures getFixtures() {
@@ -75,7 +81,13 @@ public class TestResource extends org.duniter.core.test.TestResource {
         FileUtils.copyDirectory(new File("src/test/es-home"), esHomeDir);
         FileUtils.copyDirectory(new File("target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-core"));
 
-        Elasticsearch.main(new String[]{"start"});
+        if (startNode) {
+            Elasticsearch.main(new String[]{"start"});
+        }
+        else {
+            Configuration clientConfig = new org.duniter.core.client.config.Configuration(getConfigFilesPrefix() + ".properties");
+            Configuration.setInstance(clientConfig);
+        }
     }
 
     /**

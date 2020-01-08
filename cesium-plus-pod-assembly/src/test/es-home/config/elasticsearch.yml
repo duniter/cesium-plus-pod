@@ -71,7 +71,9 @@ network.host: localhost
 
 http.cors.allow-origin: "/.*/"
 http.cors.enabled: true
-
+#
+#http.compression: true
+#
 # Internal transport layer
 #
 # transport.tcp.port: 9210-9220
@@ -141,7 +143,7 @@ duniter.blockchain.enable: true
 #
 # Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
 #
-# duniter.blockchain.peer.enable: false
+duniter.blockchain.peer.enable: false
 #
 # Enable user event on blockchain ? (default: true)
 #
@@ -208,9 +210,7 @@ duniter.p2p.discovery.enable: false
 # Pass a list of hosts to always synchronize (default: <empty>)
 #
 duniter.p2p.includes.endpoints: [
-  "ES_CORE_API g1.data.duniter.fr 443",
-  "ES_USER_API g1.data.duniter.fr 443",
-  "ES_SUBSCRIPTION_API g1.data.duniter.fr 443"
+  "ES_USER_API g1.data.le-sou.org 443"
 ]
 #
 # Pass a list of pubkeys to always synchronize (default: <empty>)

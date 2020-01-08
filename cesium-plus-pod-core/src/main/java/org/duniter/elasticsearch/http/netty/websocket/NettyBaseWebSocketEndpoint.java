@@ -1,6 +1,7 @@
 package org.duniter.elasticsearch.http.netty.websocket;
 
 import org.elasticsearch.common.bytes.BytesReference;
+import org.jboss.netty.channel.SimpleChannelHandler;
 
 import javax.websocket.CloseReason;
 

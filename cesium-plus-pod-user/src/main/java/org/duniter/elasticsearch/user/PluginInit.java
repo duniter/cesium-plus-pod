@@ -65,9 +65,15 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     @Override
     protected void doStart() {
-        configureNetwork();
+        // General config
+        configPeeringEndpointApi();
 
-        threadPool.scheduleOnMasterEachStart(() -> {
+        threadPool.onMasterStart(() -> {
+            logger.info(String.format("Starting user jobs... {blockchain user events:%s},  {blockchain admin events:%s}",
+                    pluginSettings.enableBlockchainUserEventIndexation(),
+                    pluginSettings.enableBlockchainAdminEventIndexation()));
+
+            // Create indices
             createIndices();
 
             // Notify the admin that the node is ready
@@ -85,10 +91,30 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     }
 
-    protected void configureNetwork() {
+    protected void configPeeringEndpointApi() {
         // Register API to network service
         injector.getInstance(NetworkService.class)
                 .registerPeeringPublishApi(pluginSettings.getUserEndpointApi());
+    }
+
+    protected void configDocStats() {
+        // Register stats on indices
+        if (pluginSettings.enableDocStats()) {
+            injector.getInstance(DocStatService.class)
+                    .registerIndex(UserService.INDEX, UserService.PROFILE_TYPE)
+                    .registerIndex(UserService.INDEX, UserService.SETTINGS_TYPE)
+                    .registerIndex(MessageService.INDEX, MessageService.INBOX_TYPE)
+                    .registerIndex(MessageService.INDEX, MessageService.OUTBOX_TYPE)
+                    .registerIndex(UserInvitationService.INDEX, UserInvitationService.CERTIFICATION_TYPE)
+                    .registerIndex(UserEventService.INDEX, UserEventService.EVENT_TYPE)
+                    .registerIndex(PageIndexDao.INDEX, PageRecordDao.TYPE)
+                    .registerIndex(PageIndexDao.INDEX, PageCommentDao.TYPE)
+                    .registerIndex(GroupIndexDao.INDEX, GroupRecordDao.TYPE)
+                    .registerIndex(GroupIndexDao.INDEX, GroupCommentDao.TYPE)
+                    .registerIndex(HistoryService.INDEX, HistoryService.DELETE_TYPE)
+                    .registerIndex(LikeService.INDEX, LikeService.RECORD_TYPE)
+            ;
+        }
     }
 
     protected void createIndices() {
@@ -157,24 +183,6 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     logger.info("Deleting user events on blockchain [OK]");
                 }
             }
-        }
-
-        // Register stats on indices
-        if (pluginSettings.enableDocStats()) {
-            injector.getInstance(DocStatService.class)
-                    .registerIndex(UserService.INDEX, UserService.PROFILE_TYPE)
-                    .registerIndex(UserService.INDEX, UserService.SETTINGS_TYPE)
-                    .registerIndex(MessageService.INDEX, MessageService.INBOX_TYPE)
-                    .registerIndex(MessageService.INDEX, MessageService.OUTBOX_TYPE)
-                    .registerIndex(UserInvitationService.INDEX, UserInvitationService.CERTIFICATION_TYPE)
-                    .registerIndex(UserEventService.INDEX, UserEventService.EVENT_TYPE)
-                    .registerIndex(PageIndexDao.INDEX, PageRecordDao.TYPE)
-                    .registerIndex(PageIndexDao.INDEX, PageCommentDao.TYPE)
-                    .registerIndex(GroupIndexDao.INDEX, GroupRecordDao.TYPE)
-                    .registerIndex(GroupIndexDao.INDEX, GroupCommentDao.TYPE)
-                    .registerIndex(HistoryService.INDEX, HistoryService.DELETE_TYPE)
-                    .registerIndex(LikeService.INDEX, LikeService.RECORD_TYPE)
-            ;
         }
 
     }

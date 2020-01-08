@@ -37,6 +37,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.QueryBuilder;
 
 import java.io.IOException;
 
@@ -59,7 +60,7 @@ public class DocStatDaoImpl extends AbstractIndexTypeDao<DocStatDao> implements 
     }
 
     @Override
-    public long countDoc(String index, String type) {
+    public long countDoc(String index, String type, QueryBuilder query) {
         Preconditions.checkArgument(StringUtils.isNotBlank(index));
 
         SearchRequestBuilder searchRequest = client.prepareSearch(index)
@@ -71,8 +72,17 @@ public class DocStatDaoImpl extends AbstractIndexTypeDao<DocStatDao> implements 
             searchRequest.setTypes(type);
         }
 
+        if (query != null) {
+            searchRequest.setQuery(query);
+        }
+
         SearchResponse response = searchRequest.execute().actionGet();
         return response.getHits().getTotalHits();
+    }
+
+    @Override
+    public long countDoc(String index, String type) {
+        return countDoc(index, type, null);
     }
 
     @Override
@@ -122,8 +132,8 @@ public class DocStatDaoImpl extends AbstractIndexTypeDao<DocStatDao> implements 
                     .field("index", "not_analyzed")
                     .endObject()
 
-                    // indexType
-                    .startObject(DocStat.PROPERTY_INDEX_TYPE)
+                    // type
+                    .startObject(DocStat.PROPERTY_TYPE)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
@@ -136,6 +146,12 @@ public class DocStatDaoImpl extends AbstractIndexTypeDao<DocStatDao> implements 
                     // time
                     .startObject(DocStat.PROPERTY_TIME)
                     .field("type", "integer")
+                    .endObject()
+
+                    // query name
+                    .startObject(DocStat.PROPERTY_QUERY_NAME)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
                     .endObject()
 
                     .endObject()

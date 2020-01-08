@@ -57,9 +57,15 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     @Override
     protected void doStart() {
         // Configure network
-        configureNetwork();
+        configPeeringEndpointApi();
 
-        threadPool.scheduleOnMasterEachStart(() -> {
+        // Configure doc stats
+        configDocStats();
+
+        threadPool.onMasterStart(() -> {
+            logger.info(String.format("Starting subscription jobs... {enable:%s}",
+                    pluginSettings.enableSubscription()));
+
             createIndices();
 
             // Waiting cluster back to GREEN or YELLOW state, before synchronizePeer
@@ -77,10 +83,18 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     }
 
-    protected void configureNetwork() {
+    protected void configPeeringEndpointApi() {
         // Register API to network service
         injector.getInstance(NetworkService.class)
                 .registerPeeringPublishApi(pluginSettings.getSubscriptionEndpointApi());
+    }
+
+    protected void configDocStats() {
+        // Register stats on indices
+        if (pluginSettings.enableDocStats()) {
+            injector.getInstance(DocStatService.class)
+                    .registerIndex(SubscriptionIndexDao.INDEX, SubscriptionRecordDao.TYPE);
+        }
     }
 
     protected void createIndices() {
@@ -108,13 +122,6 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             if (logger.isDebugEnabled()) {
                 logger.debug("Checking indices [OK]");
             }
-        }
-
-        // Register stats on indices
-        if (pluginSettings.enableDocStats()) {
-            injector.getInstance(DocStatService.class)
-                    .registerIndex(SubscriptionIndexDao.INDEX, SubscriptionRecordDao.TYPE)
-            ;
         }
     }
 

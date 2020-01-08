@@ -30,16 +30,21 @@ import java.io.Serializable;
 public class DocStat implements Serializable {
 
     public static final String PROPERTY_INDEX = "index";
+    public static final String PROPERTY_TYPE = "type";
+
+    @Deprecated
     public static final String PROPERTY_INDEX_TYPE = "indexType";
+
     public static final String PROPERTY_COUNT = "docCount";
-    public static final String PROPERTY_TIME = "type";
+    public static final String PROPERTY_TIME = "time";
+    public static final String PROPERTY_QUERY_NAME = "queryName";
 
     // Property copied from Block
     private String index;
-    private String indexType;
+    private String type;
     private long count;
     private long time = 0L;
-
+    private String queryName = null;
 
     public DocStat() {
         super();
@@ -53,12 +58,12 @@ public class DocStat implements Serializable {
         this.index = index;
     }
 
-    public String getIndexType() {
-        return indexType;
+    public String getType() {
+        return type;
     }
 
-    public void setIndexType(String indexType) {
-        this.indexType = indexType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     public long getCount() {
@@ -75,5 +80,13 @@ public class DocStat implements Serializable {
 
     public void setTime(long time) {
         this.time = time;
+    }
+
+    public String getQueryName() {
+        return queryName;
+    }
+
+    public void setQueryName(String queryName) {
+        this.queryName = queryName;
     }
 }

@@ -26,6 +26,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
@@ -63,8 +64,8 @@ public class SynchroService extends AbstractService {
 
     private static final String WS_CHANGES_URL = "/ws/_changes";
     private final static Set<EndpointApi> includeEndpointApis = Sets.newHashSet();
-    private static List<WebsocketClientEndpoint> wsClientEndpoints = Lists.newArrayList();
-    private static List<SynchroAction> actions = Lists.newArrayList();
+    private static List<WebsocketClientEndpoint> wsClientEndpoints = Lists.newCopyOnWriteArrayList();
+    private static List<SynchroAction> actions = Lists.newCopyOnWriteArrayList();
 
     private HttpService httpService;
     private final ThreadPool threadPool;
@@ -73,6 +74,7 @@ public class SynchroService extends AbstractService {
     private final NetworkService networkService;
 
     private boolean forceFullResync = false;
+    private MutableBoolean synchronizing = new MutableBoolean(false);
 
     @Inject
     public SynchroService(Duniter4jClient client,
@@ -112,8 +114,8 @@ public class SynchroService extends AbstractService {
 
         final ScheduledActionFuture future = new ScheduledActionFuture(null);
 
-        // Launch once, at startup (after a delay of 10s)
-        future.setDelegate(threadPool.schedule(() -> {
+        // Launch once
+        future.setDelegate(threadPool.scheduleOnClusterReady(() -> {
             boolean launchAtStartup;
             try {
                 // wait for some peers
@@ -127,7 +129,8 @@ public class SynchroService extends AbstractService {
 
                 forceFullResync = pluginSettings.fullResyncAtStartup();
 
-                synchronize();
+                // Apply a safe synchro, to be sure newt scheduleAtFixedRate() will be called, if failed
+                safeSynchronize();
 
                 forceFullResync = false;
             }
@@ -149,20 +152,32 @@ public class SynchroService extends AbstractService {
                     60 * 60 * 1000 /* every hour */,
                     TimeUnit.MILLISECONDS));
 
-        },
-        10 * 1000 /*wait 10 s */ ,
-        TimeUnit.MILLISECONDS));
+        }));
 
         return () -> future.cancel(true);
     }
 
     public void safeSynchronize() {
+        if (synchronizing.getValue()) {
+            logger.warn("Previous synchronization still running... Skipping this call");
+            return;
+        }
+
         try {
+            synchronized(synchronizing) {
+                synchronizing.setValue(true);
+            }
+
             synchronize();
         }
-        catch(Exception e) {
+        catch(Throwable e) {
             logger.error(String.format("Failed to execute synchronization: %s", e.getMessage()), e);
             // Continue
+        }
+        finally {
+            synchronized(synchronizing) {
+                synchronizing.setValue(false);
+            }
         }
     }
 
@@ -199,10 +214,9 @@ public class SynchroService extends AbstractService {
                 peers.forEach(p -> synchronizePeer(p, enableSynchroWebsocket));
                 logger.info(String.format("[%s] [%s] Synchronization [OK]", currencyId, peerApiFilter.name()));
             } else {
-                logger.debug(String.format("[%s] [%s] Synchronization [OK] (no source peer found)", currencyId, peerApiFilter.name()));
+                logger.info(String.format("[%s] [%s] Synchronization [OK] (no source peer found)", currencyId, peerApiFilter.name()));
             }
-            }
-        ));
+        }));
     }
 
     public SynchroResult synchronizePeer(final Peer peer, boolean enableSynchroWebsocket) {
@@ -250,7 +264,7 @@ public class SynchroService extends AbstractService {
                 .map(a -> {
                     try {
                         a.handleSynchronize(peer, fromTime, result);
-                    } catch(Exception e) {
+                    } catch(Throwable e) {
                         logger.error(String.format("[%s] [%s] Failed to execute synchro action: %s", peer.getCurrency(), peer, e.getMessage()), e);
                     }
                     return a;
