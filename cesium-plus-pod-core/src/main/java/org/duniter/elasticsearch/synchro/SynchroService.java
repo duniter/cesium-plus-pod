@@ -110,7 +110,7 @@ public class SynchroService extends AbstractService {
      * Start scheduling doc stats update
      * @return
      */
-    public Closeable startScheduling() {
+    public ScheduledActionFuture<?> startScheduling() {
 
         final ScheduledActionFuture future = new ScheduledActionFuture(null);
 
@@ -154,7 +154,7 @@ public class SynchroService extends AbstractService {
 
         }));
 
-        return () -> future.cancel(true);
+        return future;
     }
 
     public void safeSynchronize() {

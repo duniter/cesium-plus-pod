@@ -172,6 +172,7 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
                 .prepareSearch(currencyName)
                 .setTypes(TYPE)
                 .setFetchSource(true)
+                .setRequestCache(true)
                 .setSearchType(SearchType.DFS_QUERY_THEN_FETCH);
 
         // If only one term, search as prefix
@@ -296,6 +297,7 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         SearchRequestBuilder req = client.prepareSearch(parameters.getCurrency())
                 .setTypes(BlockDao.TYPE)
                 .setSize(size)
+                .setRequestCache(true)
                 .addFields(BlockchainBlock.PROPERTY_JOINERS,
                         BlockchainBlock.PROPERTY_ACTIVES,
                         BlockchainBlock.PROPERTY_EXCLUDED,
@@ -392,22 +394,15 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         List<String> numbers = Lists.newArrayListWithCapacity(lastBlock-firstBlock + 1);
         for (int i=start; i<=end; i++) numbers.add(String.valueOf(i));
 
-        QueryBuilder numbersQuery = QueryBuilders.idsQuery(TYPE).ids(numbers);
-
-        BoolQueryBuilder query = QueryBuilders.boolQuery().must(QueryBuilders.boolQuery()
-                .must(numbersQuery)
-        );
-
         SearchRequestBuilder request = client.prepareSearch(currencyName)
                 .setTypes(TYPE)
-                .setSize(1000)
                 .setFetchSource(BlockchainBlock.PROPERTY_ISSUER, null)
                 .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
-                        .must(numbersQuery)
+                        .must(QueryBuilders.idsQuery(TYPE).ids(numbers))
                 ))
                 .setFetchSource(false);
 
-        return toStream(request.execute().actionGet())
+        return toStream(request, 1000)
                 .map(hit -> (String)hit.getSource().get(BlockchainBlock.PROPERTY_ISSUER))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());

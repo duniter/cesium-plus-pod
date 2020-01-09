@@ -17,6 +17,10 @@ import org.elasticsearch.rest.support.RestUtils;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 
+/**
+ * Add Websocket capabilities to ES transport layer
+ * WS call are detected by path (e.g. /ws). {@see org.duniter.elasticsearch.http.netty.HttpRequestHandler} for details
+ */
 public class NettyHttpServerTransport extends  org.elasticsearch.http.netty.NettyHttpServerTransport {
 
     private final PathTrie<Class<? extends WebSocketEndpoint>> websocketEndpoints;

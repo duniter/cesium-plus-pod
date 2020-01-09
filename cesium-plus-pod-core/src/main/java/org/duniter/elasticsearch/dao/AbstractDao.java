@@ -27,18 +27,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import org.duniter.core.beans.Bean;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.local.LocalEntity;
-import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.search.SearchHit;
@@ -49,7 +46,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -99,6 +95,26 @@ public abstract class AbstractDao implements Bean {
                 .map(hit -> mapper.apply(hit))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    protected Stream<SearchHit> toStream(SearchRequestBuilder request, int size) {
+        int from = 0;
+        long total = -1;
+        request.setSize(size);
+        Stream<SearchHit> result = null;
+        do{
+            SearchResponse response = request.execute().actionGet();
+
+            // Create the result stream, or concat
+            result = (result == null) ?
+                    Arrays.stream(response.getHits().getHits()) :
+                    Stream.concat(result, Arrays.stream(response.getHits().getHits()));
+            from += size;
+            request.setFrom(from);
+            if (total == -1) total = (response.getHits() != null) ? response.getHits().getTotalHits() : 0;
+        }
+        while(from < total);
+        return result;
     }
 
     protected Stream<SearchHit> toStream(SearchResponse response) {

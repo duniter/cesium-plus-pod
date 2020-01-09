@@ -38,12 +38,11 @@ package org.duniter.elasticsearch.service.changes;
     limitations under the License.
 */
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.elasticsearch.exception.InvalidFormatException;
-import org.duniter.elasticsearch.util.bytes.BytesJsonNode;
+import org.duniter.elasticsearch.util.bytes.JsonNodeBytesReference;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -75,7 +74,7 @@ public class ChangeEvents {
             JsonNode sourceNode = actualObj.get("_source");
             BytesReference source = null;
             if (sourceNode != null) {
-                source = new BytesJsonNode(sourceNode);
+                source = new JsonNodeBytesReference(sourceNode);
             }
 
             return new ChangeEvent(index, type, id, timestamp, operation, version, source);

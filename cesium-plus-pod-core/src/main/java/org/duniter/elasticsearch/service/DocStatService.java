@@ -156,17 +156,14 @@ public class DocStatService extends AbstractService  {
      * Start scheduling doc stats update
      * @return
      */
-    public Closeable startScheduling() {
+    public ScheduledActionFuture<?> startScheduling() {
         long delayBeforeNextHour = DateUtils.delayBeforeNextHour();
 
-        ScheduledActionFuture future = threadPool.scheduleAtFixedRate(
+        return threadPool.scheduleAtFixedRate(
                 this::safeComputeStats,
                 delayBeforeNextHour,
                 60 * 60 * 1000 /* every hour */,
                 TimeUnit.MILLISECONDS);
-        return () -> {
-            future.cancel(true);
-        };
     }
 
     public void safeComputeStats() {

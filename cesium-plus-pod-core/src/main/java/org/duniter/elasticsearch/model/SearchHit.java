@@ -2,10 +2,8 @@ package org.duniter.elasticsearch.model;
 
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.duniter.elasticsearch.util.bytes.BytesJsonNode;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.util.ByteArray;
 
 import java.io.IOException;
 

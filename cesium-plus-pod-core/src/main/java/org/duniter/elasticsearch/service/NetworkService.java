@@ -487,18 +487,18 @@ public class NetworkService extends AbstractService {
         return getPeering(currency, true);
     }
 
-    public Closeable startPublishingPeerDocumentToNetwork() {
-        final ScheduledActionFuture future = new ScheduledActionFuture(null);
-        final Closeable closeable = () -> future.cancel(true);
+    public Optional<ScheduledActionFuture<?>> startPublishingPeerDocumentToNetwork() {
 
         if (CollectionUtils.isEmpty(getPeeringPublishedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to publish)");
-            return closeable;
+            return Optional.empty();
         }
         if (CollectionUtils.isEmpty(getPeeringTargetedApis())) {
             logger.debug("Skipping peer document publishing (No endpoint API to target)");
-            return closeable;
+            return Optional.empty();
         }
+
+        final ScheduledActionFuture future = new ScheduledActionFuture(null);
 
         // Launch once, at startup (after a delay)
         future.setDelegate(threadPool.schedule(() -> {
@@ -528,7 +528,7 @@ public class NetworkService extends AbstractService {
         30 * 1000 /*wait 30 s */ ,
         TimeUnit.MILLISECONDS));
 
-        return closeable;
+        return Optional.of(future);
     }
 
     public NetworkPeering checkAndSavePeering(String currency, String peeringDocument) {

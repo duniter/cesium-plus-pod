@@ -26,6 +26,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.lucene.util.BytesRef;
+import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
@@ -37,17 +38,17 @@ import java.io.OutputStream;
 import java.nio.channels.GatheringByteChannel;
 import java.util.Objects;
 
-public class BytesJsonNode implements BytesReference {
+public class JsonNodeBytesReference implements BytesReference {
 
     private JsonNode node;
     private BytesArray delegate;
     private ObjectMapper objectMapper;
 
-    public BytesJsonNode(JsonNode node) {
+    public JsonNodeBytesReference(JsonNode node) {
         this(node, new ObjectMapper());
     }
 
-    public BytesJsonNode(JsonNode node, ObjectMapper objectMapper) {
+    public JsonNodeBytesReference(JsonNode node, ObjectMapper objectMapper) {
         this.node = node;
         this.objectMapper = objectMapper;
     }
@@ -155,20 +156,20 @@ public class BytesJsonNode implements BytesReference {
     public static JsonNode readTree(BytesReference source) throws IOException {
         if (source  == null) return null;
 
-        if (source instanceof BytesJsonNode) {
+        if (source instanceof JsonNodeBytesReference) {
             // Avoid new deserialization
-            return ((BytesJsonNode) source).toJsonNode();
+            return ((JsonNodeBytesReference) source).toJsonNode();
         }
 
-        return new ObjectMapper().readTree(source.streamInput());
+        return JacksonUtils.getThreadObjectMapper().readTree(source.streamInput());
     }
 
-    public static JsonNode readTree(ObjectMapper objectMapper, BytesReference source) throws IOException {
+    public static JsonNode readTree(BytesReference source, ObjectMapper objectMapper) throws IOException {
         if (source  == null) return null;
 
-        if (source instanceof BytesJsonNode) {
+        if (source instanceof JsonNodeBytesReference) {
             // Avoid new deserialization
-            return ((BytesJsonNode) source).toJsonNode();
+            return ((JsonNodeBytesReference) source).toJsonNode();
         }
 
         return objectMapper.readTree(source.streamInput());

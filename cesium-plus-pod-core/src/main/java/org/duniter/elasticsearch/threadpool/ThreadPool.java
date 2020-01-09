@@ -168,6 +168,24 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
     }
 
     /**
+     * Schedules an rest when node is started (allOfToList services and modules ready)
+     *
+     * @param job the rest to execute when node started
+     */
+    public <V> ScheduledActionFuture<V> scheduleOnStarted(Callable<V> job) {
+        Preconditions.checkNotNull(job);
+        if (isNodeStarted()) {
+            return schedule(job);
+        }
+        else {
+            return scheduleAfterServiceState(TransportService.class, Lifecycle.State.STARTED, () -> {
+                nodeStarted.setValue(true);
+                return job.call();
+            });
+        }
+    }
+
+    /**
      * Schedules an rest when cluster is ready AND has one of the expected health status
      *
      * @param job the rest to execute
@@ -187,6 +205,19 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         });
     }
 
+    public <V> ScheduledActionFuture<V> scheduleOnClusterHealthStatus(Callable<V> callable, ClusterHealthStatus... expectedStatus) {
+        Preconditions.checkNotNull(callable);
+
+        Preconditions.checkArgument(expectedStatus.length > 0);
+
+        return scheduleOnStarted(() -> {
+            if (waitClusterHealthStatus(expectedStatus)) {
+                // continue
+                return callable.call();
+            }
+            throw new InterruptedException();
+        });
+    }
 
     /**
      * Schedules an rest when cluster is ready
@@ -195,6 +226,9 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      */
     public ScheduledActionFuture<?> scheduleOnClusterReady(Runnable job) {
         return scheduleOnClusterHealthStatus(job, ClusterHealthStatus.YELLOW, ClusterHealthStatus.GREEN);
+    }
+    public <V> ScheduledActionFuture<V> scheduleOnClusterReady(Callable<V> callable) {
+        return scheduleOnClusterHealthStatus(callable, ClusterHealthStatus.YELLOW, ClusterHealthStatus.GREEN);
     }
 
     /**
@@ -256,6 +290,10 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
         return schedule(command, new TimeValue(0));
     }
 
+    public <V> ScheduledActionFuture<V> schedule(Callable<V> command) {
+        return schedule(command, new TimeValue(0));
+    }
+
     /**
      * Schedules an rest that runs on the scheduler thread, after a delay.
      *
@@ -273,10 +311,17 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
                 command));
     }
 
-
-    public ScheduledActionFuture<?> schedule(Runnable command,
-                                       long delay, TimeUnit unit) {
-
+    /**
+     * Schedules a task to run on the scheduler thread, after a delay.
+     *
+     * @param command the job to execute
+     * @param delay the delay interval
+     * @return a ScheduledFuture who's get will return when the task is complete and throw an exception if it is canceled
+     */
+    public ScheduledActionFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+        return new ScheduledActionFuture<>(scheduler.schedule(command, delay, unit));
+    }
+    public <V> ScheduledActionFuture<V> schedule(Callable<V> command, long delay, TimeUnit unit) {
         return new ScheduledActionFuture<>(scheduler.schedule(command, delay, unit));
     }
 
@@ -289,6 +334,9 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
      */
     public ScheduledActionFuture<?> schedule(Runnable command, TimeValue delay) {
         return schedule(command, null, delay);
+    }
+    public <V> ScheduledActionFuture<V> schedule(Callable<V> command, TimeValue delay) {
+        return new ScheduledActionFuture<V>(scheduler.<V>schedule(command, delay.millis(), TimeUnit.MILLISECONDS));
     }
 
     /**
@@ -329,6 +377,28 @@ public class ThreadPool extends AbstractLifecycleComponent<ThreadPool> {
 
             // continue
             job.run();
+        }, TimeValue.timeValueSeconds(10));
+    }
+
+    protected <T extends LifecycleComponent<T>, V> ScheduledActionFuture<V> scheduleAfterServiceState(Class<T> waitingServiceClass,
+                                                                                                   final Lifecycle.State waitingState,
+                                                                                                   final Callable<V> job) {
+        Preconditions.checkNotNull(waitingServiceClass);
+        Preconditions.checkNotNull(waitingState);
+        Preconditions.checkNotNull(job);
+
+        final T service = injector.getInstance(waitingServiceClass);
+        return schedule(() -> {
+            while(service.lifecycleState() != waitingState) {
+                try {
+                    Thread.sleep(100); // wait 100 ms
+                }
+                catch(InterruptedException e) {
+                }
+            }
+
+            // continue
+            return job.call();
         }, TimeValue.timeValueSeconds(10));
     }
 

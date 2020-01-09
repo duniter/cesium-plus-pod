@@ -30,7 +30,9 @@ import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.*;
 import org.duniter.elasticsearch.synchro.SynchroService;
+import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
@@ -41,6 +43,7 @@ import org.elasticsearch.rest.RestRequest;
 
 import java.io.Closeable;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -70,7 +73,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         // Configure HTTP API access rules (run once)
         threadPool.scheduleOnStarted(this::defineHttpAccessRules);
 
-        // First time the node is the master
+        // Each time the node is the master
         threadPool.onMasterStart(() -> {
 
             logger.info(String.format("Starting core jobs..."
@@ -87,23 +90,23 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             // Create indices (once)
             createIndices();
 
-            // Each time node is the master
             threadPool.scheduleOnClusterReady(() -> {
+                // Migrate old data
+                startDataMigration().actionGet();
 
-                // Start blockchain indexation (if enable)
-                safeStartIndexBlockchain();
+                // Start blockchain indexation
+                startIndexBlockchain().map(ScheduledActionFuture::actionGet);
 
-                // Start synchro and peering
-                startSynchro();
+                // Start synchro
+                startSynchro().map(ScheduledActionFuture::actionGet);
 
-                // Start synchro and peering
-                startPublishingPeer();
+                // Start publish peering
+                startPublishingPeer().map(ScheduledActionFuture::actionGet);
 
                 // Start doc stats
-                startDocStatistics();
+                startDocStatistics().map(ScheduledActionFuture::actionGet);
 
-                // Migrate old data
-                startDataMigration();
+                logger.info("Starting core jobs... [OK]");
             });
         });
     }
@@ -201,7 +204,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         }
     }
 
-    protected void createIndices() {
+    protected ScheduledActionFuture<?> createIndices() {
 
         checkMasterNode();
 
@@ -258,6 +261,9 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                 logger.debug("Checking indices [OK]");
             }
         }
+
+        // IMPORTANT: make sure cluster is ready (=all indices created)
+        return threadPool.scheduleOnClusterReady(() -> {});
     }
 
     protected void checkMasterNode() {
@@ -307,16 +313,15 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         }
     }
 
-    protected void safeStartIndexBlockchain() {
-        if (!pluginSettings.enableBlockchainIndexation()) return; // Skip
+    protected Optional<ScheduledActionFuture<?>> startIndexBlockchain() {
+        if (!pluginSettings.enableBlockchainIndexation()) return Optional.empty(); // Skip
 
         checkMasterNode();
 
         try {
             // Index the currency
             Peer peer = pluginSettings.checkAndGetDuniterPeer();
-            Currency currency = createCurrencyFromPeer(peer)
-                    .orElseThrow(() -> new TechnicalException(String.format("Cannot load currency from peer {%s}", peer.toString())));
+            Currency currency = createCurrencyFromPeer(peer).actionGet();
 
             // Reload some blockchain blocks
             // TODO: Move this reload feature, into a admin REST service ?
@@ -334,41 +339,42 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Index peers (and listen if new peer appear)
             startIndexPeers(peer);
+
+            return Optional.of(threadPool.scheduleOnClusterReady(() -> {}));
         }
 
         catch (Exception e) {
             // Log, then retying in 2s
-            logger.error("Failed during start of blockchain indexation. Retrying in 2s...", e);
-            threadPool.schedule(this::safeStartIndexBlockchain, 2, TimeUnit.SECONDS).actionGet();
+            logger.error("Failed during start of blockchain indexation. Retrying in 10s...", e);
+            return Optional.of(threadPool.schedule(this::startIndexBlockchain, 10, TimeUnit.SECONDS));
         }
 
     }
 
-    protected Optional<Currency> createCurrencyFromPeer(Peer peer) {
+    protected ScheduledActionFuture<Currency> createCurrencyFromPeer(Peer peer) {
         Preconditions.checkNotNull(peer);
+        Preconditions.checkArgument(pluginSettings.enableBlockchainIndexation());
 
-        if (pluginSettings.enableBlockchainIndexation()) {
-            Currency currency;
-            try {
-                // Index (or refresh) node's currency
-                currency = injector.getInstance(CurrencyService.class)
-                        .indexCurrencyFromPeer(peer, true);
-            } catch (Throwable e) {
-                logger.error(String.format("Error while indexing currency. Skipping blockchain indexation.", e.getMessage()), e);
-                throw e;
-            }
-
-            final String currencyId = currency.getId();
-            peer.setCurrency(currencyId);
-
-            // Define the main peer for this currency (will fill a cache in PeerService)
-            injector.getInstance(PeerService.class)
-                    .setCurrencyMainPeer(currencyId, peer);
-
-            return Optional.of(currency);
+        Currency currency;
+        try {
+            // Index (or refresh) node's currency
+            currency = injector.getInstance(CurrencyService.class)
+                    .indexCurrencyFromPeer(peer, true);
+        } catch (Throwable e) {
+            logger.error(String.format("Error while indexing currency. Skipping blockchain indexation.", e.getMessage()), e);
+            throw e;
         }
 
-        return Optional.empty();
+        final String currencyId = currency.getId();
+        peer.setCurrency(currencyId);
+
+        // Define the main peer for this currency (will fill a cache in PeerService)
+        injector.getInstance(PeerService.class)
+                .setCurrencyMainPeer(currencyId, peer);
+
+        // Wait enf of currency index creation
+        final Currency result = currency;
+        return threadPool.scheduleOnClusterReady(() -> result);
     }
 
     protected void startIndexBlocks(Peer peer) {
@@ -438,35 +444,45 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         }
     }
 
-    protected void startSynchro() {
+    protected Optional<ScheduledActionFuture<?>> startSynchro() {
 
         checkMasterNode();
 
         // Start synchro, if enable in config
         if (pluginSettings.enableSynchro()) {
-            Closeable stop = injector.getInstance(SynchroService.class)
+            ScheduledActionFuture future = injector.getInstance(SynchroService.class)
                     .startScheduling();
 
-            // Stop to listen, if master stop
-            threadPool.scheduleOnMasterFirstStop(stop);
+            // Stop action when master stop
+            threadPool.scheduleOnMasterFirstStop((Runnable) () -> future.cancel(true));
+
+            return Optional.of(future);
         }
+
+        return Optional.empty();
     }
 
-    protected void startPublishingPeer() {
+    protected Optional<ScheduledActionFuture<?>> startPublishingPeer() {
 
         checkMasterNode();
 
         // Start publish peering to network, if enable in config
         if (pluginSettings.enablePeering()) {
-            Closeable stop = injector.getInstance(NetworkService.class)
-                    .startPublishingPeerDocumentToNetwork();
+            Optional<ScheduledActionFuture<?>> optionalFuture = injector.getInstance(NetworkService.class)
+                    .startPublishingPeerDocumentToNetwork()
+                    // Stop to listen, if master stop
+                    .map(future -> {
+                        threadPool.scheduleOnMasterFirstStop((Runnable) () -> future.cancel(true));
+                        return future;
+                    });
 
-            // Stop to listen, if master stop
-            threadPool.scheduleOnMasterFirstStop(stop);
+            return optionalFuture;
         }
+
+        return Optional.empty();
     }
 
-    protected void startDocStatistics() {
+    protected Optional<ScheduledActionFuture<?>> startDocStatistics() {
         // Start doc stats, if enable in config
         if (pluginSettings.enableDocStats()) {
 
@@ -475,19 +491,22 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .getInstance(DocStatService.class)
                     .registerIndex(CurrencyExtendDao.INDEX, CurrencyExtendDao.RECORD_TYPE);
 
-            // Wait end of currency index creation, then index blocks
-            threadPool.scheduleOnClusterReady(() -> {
-                Closeable stop = docStatService.startScheduling();
+            ScheduledActionFuture<?> future = docStatService.startScheduling();
 
-                // Stop to listen, if master stop
-                threadPool.scheduleOnMasterFirstStop(stop);
-            });
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop((Runnable)() -> future.cancel(true));
+
+            return Optional.of(future);
         }
+
+        return Optional.empty();
     }
 
-    protected void startDataMigration() {
-        // Start migration (if need)
-        injector.getInstance(DocStatService.class)
-                .startDataMigration();
+    protected ScheduledActionFuture<?> startDataMigration() {
+        return threadPool.scheduleOnClusterReady(() -> {
+            // Start migration (if need)
+            injector.getInstance(DocStatService.class)
+                    .startDataMigration();
+        });
     }
 }

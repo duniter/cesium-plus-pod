@@ -25,7 +25,6 @@ package org.duniter.elasticsearch.synchro;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
@@ -48,18 +47,16 @@ import org.duniter.elasticsearch.exception.DuniterElasticsearchException;
 import org.duniter.elasticsearch.exception.InvalidFormatException;
 import org.duniter.elasticsearch.exception.InvalidSignatureException;
 import org.duniter.elasticsearch.model.SearchHit;
-import org.duniter.elasticsearch.model.SearchResponse;
 import org.duniter.elasticsearch.model.SearchScrollResponse;
 import org.duniter.elasticsearch.model.SynchroResult;
 import org.duniter.elasticsearch.service.AbstractService;
 import org.duniter.elasticsearch.service.ServiceLocator;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
-import org.duniter.elasticsearch.service.changes.ChangeEvents;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.synchro.impl.NullSynchroActionResult;
 import org.duniter.elasticsearch.synchro.impl.SynchroActionResultImpl;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.duniter.elasticsearch.util.bytes.BytesJsonNode;
+import org.duniter.elasticsearch.util.bytes.JsonNodeBytesReference;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -68,12 +65,13 @@ import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.util.*;
 
@@ -150,33 +148,44 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         Preconditions.checkArgument(fromTime >= 0);
         Preconditions.checkNotNull(result);
 
+        String logPrefix = String.format("[%s] [%s] [%s/%s]", peer.getCurrency(), peer, toIndex, toType);
+
+        // Log start
         if (logger.isDebugEnabled()) {
             if (Record.PROPERTY_TIME.equals(versionFieldName)) {
                 // Since a date
                 if (fromTime > 0) {
-                    logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {since %s}...", peer.getCurrency(), peer, toIndex, toType,
+                    logger.debug(String.format("%s Synchronization {since %s}...", logPrefix,
                             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
                                     .format(new Date(fromTime * 1000))));
                 }
                 // Force full synchro
                 else {
-                    logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {All}...", peer.getCurrency(), peer, toIndex, toType));
+                    logger.debug(String.format("%s Synchronization {All}...", logPrefix));
                 }
             }
             else {
                 // From a value
-                logger.debug(String.format("[%s] [%s] [%s/%s] Synchronization {where %s > %s}...", peer.getCurrency(), peer, toIndex, toType, versionFieldName, fromTime));
+                logger.debug(String.format("%s Synchronization {where %s > %s}...", logPrefix, versionFieldName, fromTime));
             }
         }
 
         try {
             QueryBuilder query = createQuery(fromTime);
+
+            // Apply synchro
             synchronize(peer, query, result);
+
+            // Log end
+            if (logger.isDebugEnabled()) logger.debug(String.format("%s Synchronization [OK]", logPrefix));
         }
-        catch(Exception e1) {
-            // Log the first error
-            logger.error(e1.getMessage(), e1);
+        catch(IndexNotFoundException e1) {
+            logger.debug(String.format("%s Index not exists locally. Skipping", logPrefix));
         }
+//        catch(DuniterElasticsearchException e) {
+//            // Log the first error
+//            logger.error(e.getMessage());
+//        }
     }
 
     @Override
@@ -310,24 +319,35 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                                          long size) {
         HttpPost httpPost = new HttpPost(httpService.getPath(peer, fromIndex, fromType, "_search?scroll=" + scrollTime));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
-        httpPost.setHeader("Accept-Encoding", "gzip");
+        //httpPost.setHeader("Accept-Encoding", "gzip");
 
         try {
             // Query to String
-            BytesStreamOutput bos = new BytesStreamOutput();
-            XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, bos);
-            query.toXContent(builder, null);
-            builder.flush();
+            String queryString;
+            {
+                BytesStreamOutput bos = new BytesStreamOutput();
+                XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, bos);
+                query.toXContent(builder, null);
+                builder.flush();
+                queryString = bos.bytes().toUtf8();
+                String qt = query.buildAsBytes(XContentType.JSON).toUtf8();
+                if (qt != null && qt.equalsIgnoreCase(queryString)) {
+                    logger.warn("TODO: simplify query -> String");
+                }
+            }
 
-            // Sort on "_doc" - see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/search-request-scroll.html
-            String content = String.format("{\"query\":%s, \"from\":%s, \"size\":%s, \"sort\": [\"_doc\"]}",
-                    // Query
-                    bos.bytes().toUtf8(),
-                    // From
-                    from,
-                    // Size
-                    size
-            );
+            String content = null;
+            if (from == 0) {
+                // Sort on "_doc" - see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/search-request-scroll.html
+                content = String.format("{\"query\":%s, \"size\":%s, \"sort\": [\"_doc\"]}",
+                        queryString, size);
+            }
+            else {
+                // Sort on "_doc" - see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/search-request-scroll.html
+                content = String.format("{\"query\":%s, \"from\":%s, \"size\":%s, \"sort\": [\"_doc\"]}",
+                        queryString, from, size);
+            }
+
             httpPost.setEntity(new StringEntity(content, "UTF-8"));
 
             if (trace) {
@@ -343,13 +363,13 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
     private HttpPost createNextScrollRequest(Peer peer,
                                              String scrollId,
-                                             String scrollTime) {
+                                             String scrollKeepAliveTime) {
 
         HttpPost httpPost = new HttpPost(httpService.getPath(peer, "_search", "scroll"));
         httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
-        httpPost.setHeader("Accept-Encoding", "gzip");
+        //httpPost.setHeader("Accept-Encoding", "gzip");
         httpPost.setEntity(new StringEntity(String.format("{\"scroll\": \"%s\", \"scroll_id\": \"%s\"}",
-                scrollTime,
+                scrollKeepAliveTime,
                 scrollId), "UTF-8"));
         return httpPost;
     }
@@ -373,92 +393,82 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                              QueryBuilder query,
                              SynchroResult result) {
 
-        if (!client.existsIndex(toIndex)) {
-            throw new TechnicalException(String.format("Unable to import changes. Index [%s] not exists locally", toIndex));
-        }
-
-        ObjectMapper objectMapper = getObjectMapper();
 
         // DEV ONLY: skip
-//        if (!"history".equalsIgnoreCase(fromIndex) || !"delete".equalsIgnoreCase(fromType)) {
-//            return;
-//        }
+        //if (!"user".equalsIgnoreCase(fromIndex) || !"profile".equalsIgnoreCase(fromType)) {
+        //if (!"market".equalsIgnoreCase(fromIndex) || !"record".equalsIgnoreCase(fromType)) {
+        //    return;
+        //}
+
+        // Check index exists locally
+        if (!client.existsIndex(toIndex)) {
+            throw new IndexNotFoundException(String.format("Index [%s] not exists locally. Skipping", toIndex));
+        }
 
         String logPrefix = String.format("[%s] [%s] [%s/%s] ", peer.getCurrency(), peer, toIndex, toType);
+        ObjectMapper objectMapper = getObjectMapper();
 
-        long bulkSize = pluginSettings.getIndexBulkSizeForSynchro();
-        long offset = 0;
-        long counter = 0;
-        boolean stop = false;
-        String scrollId = null;
-        String scrollTime = SCROLL_TIME_TO_LIVE_SHORT;
+        int size = pluginSettings.getIndexBulkSizeForSynchro();
+        long from = 0;
+        long total = -1;
+
+        String currentScrollId = null;
+        String scrollKeepAliveTime = SCROLL_TIME_TO_LIVE_SHORT;
         int scrollRetryCounter = 0;
-        long total = 0;
-        while(!stop) {
-            SearchScrollResponse response = null;
-            // A scroll request already sent, so try to reuse it
-            if (scrollId != null) {
-                try {
-                    HttpUriRequest request = createNextScrollRequest(peer, scrollId, scrollTime);
-                    response = executeAndParseRequest(peer, request);
-                    scrollRetryCounter = 0; // Reset the scroll request count
-                }
-                catch(HttpNotFoundException e) {
-                    // Scroll was disable by node, so continue (will create a new scroll)
-                    scrollId = null;
-                    counter = 0;
-                }
-            }
 
-            // Create a new scroll
-            while (scrollId == null && !stop){
-                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query, scrollTime, counter, bulkSize);
+        do {
+            SearchScrollResponse response = null;
+
+            // If exists, reuse the previous scroll
+            if (currentScrollId != null) {
                 try {
+                    HttpUriRequest request = createNextScrollRequest(peer, currentScrollId, scrollKeepAliveTime);
                     response = executeAndParseRequest(peer, request);
-                    if (response != null) {
-                        scrollId = response.getScrollId();
-                        if (scrollId == null) {
-                            logger.warn(String.format("%s Missing scroll id in the response. Skipping", logPrefix));
-                            stop = true;
-                        }
-                        else if (total == 0) { // Do once
-                            total = response.getHits().getTotalHits();
-                            if (total > 0 && logger.isDebugEnabled()) {
-                                logger.debug(String.format("%s %s documents to check...", logPrefix, total));
-                            }
-                        }
-                    }
+                    scrollRetryCounter = 0; // Reset the scroll retry count
                 }
                 catch(HttpNotFoundException e) {
                     scrollRetryCounter++;
-                    // Max try of scroll: stop here
                     if (scrollRetryCounter >= SCROLL_MAX_RETRY) throw e;
-                    // ALready 2 retry: retry but increase the scroll duration
+                    // Already 2 retry: retry but increase the scroll duration
                     if (scrollRetryCounter >= 2) {
-                        scrollTime = SCROLL_TIME_TO_LIVE_LONG; // Increase the scroll time
+                        scrollKeepAliveTime = SCROLL_TIME_TO_LIVE_LONG; // Increase the scroll time
                     }
-                    logger.warn(String.format("[%s] [%s] [%s/%s] Scroll request was closed by remote pod. Retrying {%s/%s}...",
-                            peer.getCurrency(), peer,
-                            toIndex, toType, scrollRetryCounter, SCROLL_MAX_RETRY));
-                    // Scroll was disable by node, so continue with a new scroll
-                    scrollId = null;
-                    counter = 0;
-                    break;
+
+                    // Reset the scroll id (will create a new scroll request)
+                    currentScrollId = null;
+
+                    logger.warn(String.format("%s Scroll request closed (by remote pod). Retrying {%s/%s}...",
+                            logPrefix, scrollRetryCounter, SCROLL_MAX_RETRY));
                 }
             }
 
-            if (response == null) {
-                stop = true;
-            }
-            else {
-                if (logger.isInfoEnabled() && total > 0) {
-                    logger.info(String.format("%s Indexing documents... %s / %s (%s%%)", logPrefix, counter, total, Math.min(100, Math.round(counter * 100 / total))));
+            // Create a new scroll request
+            if (currentScrollId == null){
+                HttpUriRequest request = createScrollRequest(peer, fromIndex, fromType, query, scrollKeepAliveTime, from, size);
+                response = executeAndParseRequest(peer, request);
+                currentScrollId = (response != null) ? response.getScrollId() : null;
+                if (currentScrollId == null) {
+                    logger.warn(String.format("%s Missing scroll id in the response. Skipping", logPrefix));
                 }
+            }
+
+            if (currentScrollId != null) {
+
+                // Indexing
                 fetchAndSave(peer, response, objectMapper, result);
-                counter += bulkSize;
-                stop = offset >= total;
+                from += size;
+                if (total == -1) total = response.getHits().getTotalHits();
+
+                // Log progress
+                if (logger.isInfoEnabled() && total > 0) {
+                    long pct = Math.min(100, Math.round(from * 100 / total));
+                    logger.info(String.format("%s Indexing documents... %s / %s (%s%%)", logPrefix, from, total, pct));
+                }
             }
         }
+        while(currentScrollId != null && from<total);
+
+
     }
 
     private long fetchAndSave(final Peer peer,
@@ -489,6 +499,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             else {
                 // Save (create or update)
                 save(id, hit.getSource(),
+                     objectMapper,
                      bulkRequest,
                      true, // allow old documents
                      actionResult,
@@ -528,18 +539,35 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         return counter;
     }
 
-    protected void save(String id, BytesReference source, String logPrefix) throws IOException{
-        save(id, BytesJsonNode.readTree(getObjectMapper(), source), null, false, NULL_ACTION_RESULT, logPrefix);
+    protected void save(String id, BytesReference sourceRef, String logPrefix) throws IOException{
+        ObjectMapper om = getObjectMapper();
+        save(id, sourceRef, om, null, false, NULL_ACTION_RESULT, logPrefix);
+    }
+
+    protected void save(String id,
+                        final JsonNode source,
+                        final ObjectMapper objectMapper,
+                        final BulkRequestBuilder bulkRequest,
+                        final boolean allowOldDocuments,
+                        final SynchroActionResult actionResult,
+                        final String logPrefix) {
+        save(id, new JsonNodeBytesReference(source, objectMapper), objectMapper, bulkRequest, allowOldDocuments, actionResult, logPrefix);
     }
 
     protected void save(final String id,
-                        final JsonNode source,
+                        final BytesReference sourceRef,
+                        final ObjectMapper objectMapper,
                         final BulkRequestBuilder bulkRequest,
                         final boolean allowOldDocuments,
                         final SynchroActionResult actionResult,
                         final String logPrefix) {
 
         try {
+            // Parse byte reference
+            // WARN: always use BytesJsonNode.readTree(), because it can reuse the existing JsonNode,
+            // if source use BytesJsonNode as implementation class
+            JsonNode source = JsonNodeBytesReference.readTree(sourceRef, objectMapper);
+
             String issuer = source.get(issuerFieldName).asText();
             if (StringUtils.isBlank(issuer)) {
                 throw new InvalidFormatException(String.format("Invalid format: missing or null %s field.", issuerFieldName));
@@ -564,7 +592,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
                 // Execute insertion
                 IndexRequestBuilder request = client.prepareIndex(toIndex, toType, id)
-                        .setSource(source);
+                        .setSource(sourceRef.toBytes());
                 if (bulkRequest != null) {
                     bulkRequest.add(request);
                 }
@@ -630,11 +658,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
         } catch (DuniterElasticsearchException e) {
             // Skipping document: log, then continue
-            if (logger.isDebugEnabled()) {
-                logger.warn(String.format("%s %s. Skipping.\n%s", logPrefix, e.getMessage(), source.toString()));
-            } else {
-                logger.warn(String.format("%s %s. Skipping.", logPrefix, e.getMessage()));
-            }
+            logger.warn(String.format("%s %s. Skipping.", logPrefix, e.getMessage()));
         } catch (Throwable e) {
             // Skipping document: log, then continue
             logger.error(String.format("%s %s. Skipping.", logPrefix, e.getMessage()), e);
