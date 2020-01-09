@@ -189,7 +189,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         // Allow scroll search (need by synchro from other peers)
         injector.getInstance(RestSecurityController.class)
                 .allow(RestRequest.Method.POST, "^/_search/scroll$")
-                .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NOT authorized -XDELETE /_search/scroll/all
+                .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NEVER authorized URL likes /_search/scroll/all (= ALL scroll )
 
         // Add access to docstat index
         if (pluginSettings.enableDocStats()) {

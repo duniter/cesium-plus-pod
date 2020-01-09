@@ -37,7 +37,6 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.HttpService;
 import org.duniter.core.client.service.exception.HttpNotFoundException;
 import org.duniter.core.client.service.exception.HttpUnauthorizeException;
-import org.duniter.core.exception.BusinessException;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
@@ -65,10 +64,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -104,6 +100,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     private List<SourceConsumer> insertionListeners;
     private List<SourceConsumer> updateListeners;
     private List<SourceConsumer> validationListeners;
+    private int bulkSize;
 
     private boolean trace = false;
 
@@ -130,6 +127,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 .addIndex(fromIndex)
                 .addType(fromType);
         this.trace = logger.isTraceEnabled();
+        this.bulkSize = pluginSettings.getSynchroBulkSize();
         threadPool.scheduleOnStarted(() -> httpService = ServiceLocator.instance().getHttpService());
     }
 
@@ -157,37 +155,43 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             if (Record.PROPERTY_TIME.equals(versionFieldName)) {
                 // Since a date
                 if (fromTime > 0) {
-                    logger.debug(String.format("%s Synchronization {since %s}...", logPrefix,
+                    logger.debug(String.format("%s Synchronizing... {delta since %s}", logPrefix,
                             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
                                     .format(new Date(fromTime * 1000))));
                 }
                 // Force full synchro
                 else {
-                    logger.debug(String.format("%s Synchronization {All}...", logPrefix));
+                    logger.debug(String.format("%s Synchronizing... {full}", logPrefix));
                 }
             }
             else {
                 // From a value
-                logger.debug(String.format("%s Synchronization {where %s > %s}...", logPrefix, versionFieldName, fromTime));
+                logger.debug(String.format("%s Synchronizing... {where %s > %s}", logPrefix, versionFieldName, fromTime));
             }
         }
 
         try {
+            // Create the query to filter remote data
             QueryBuilder query = createQuery(fromTime);
 
             // Apply synchro
             synchronize(peer, query, result);
 
             // Log end
-            if (logger.isDebugEnabled()) logger.debug(String.format("%s Synchronization [OK]", logPrefix));
+            if (logger.isDebugEnabled()) logger.debug(String.format("%s Synchronizing [OK]", logPrefix));
         }
         catch(IndexNotFoundException e1) {
             logger.debug(String.format("%s Index not exists locally. Skipping", logPrefix));
         }
-//        catch(DuniterElasticsearchException e) {
-//            // Log the first error
-//            logger.error(e.getMessage());
-//        }
+        catch(HttpUnauthorizeException e) {
+            logger.error(String.format("%s Unauthorized remote acces. Skipping", logPrefix));
+        }
+        catch(Throwable e) {
+            if (logger.isDebugEnabled())
+                logger.error(String.format("%s Unexpected error: %s. Skipping", logPrefix, e.getMessage()), e);
+            else
+                logger.error(String.format("%s Unexpected error: %s. Skipping", logPrefix, e.getMessage()));
+        }
     }
 
     @Override
@@ -213,7 +217,8 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             if (trace) {
                 logger.trace(String.format("%s Processing new change event...", logPrefix));
             }
-            // Save doc
+
+            // Save event source
             save(changeEvent.getId(), changeEvent.getSource(), logPrefix);
         }
         catch(Exception e1) {
@@ -308,7 +313,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     protected QueryBuilder createQuery(long fromTime) {
         return QueryBuilders.constantScoreQuery(
                 QueryBuilders.boolQuery()
-                        .filter(QueryBuilders.rangeQuery("time").gte(fromTime))
+                        .filter(QueryBuilders.rangeQuery(timeFieldName).gte(fromTime))
             );
     }
 
@@ -367,18 +372,14 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         return httpDelete;
     }
 
-    private SearchScrollResponse executeAndParseRequest(HttpUriRequest request, String logPrefix) {
+    private SearchScrollResponse executeAndParseRequest(HttpUriRequest request, String logPrefix) throws HttpUnauthorizeException, HttpNotFoundException {
         try {
             // Execute query & parse response
             return httpService.executeRequest(request, SearchScrollResponse.class);
-        } catch (HttpUnauthorizeException e) {
-            throw new TechnicalException(String.format("%sUnable to access (%s).", logPrefix, e.getMessage()), e);
-        } catch (TechnicalException e) {
-            throw new TechnicalException(String.format("%sUnable to scroll request: %s", logPrefix, e.getMessage()), e);
-        } catch (BusinessException e) {
-            throw e; // Keep HttpNotFoundException
+        } catch (HttpNotFoundException | HttpUnauthorizeException e) {
+            throw e; // Keep HttpNotFoundException, HttpUnauthorizeException
         } catch (Exception e) {
-            throw new TechnicalException(String.format("%sUnable to parse response: ", logPrefix, e.getMessage()), e);
+            throw new TechnicalException(String.format("%sUnable to execute request (or parse response): %s", logPrefix, e.getMessage()), e);
         }
     }
 
@@ -401,7 +402,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         String logPrefix = String.format("[%s] [%s] [%s/%s] ", peer.getCurrency(), peer, toIndex, toType);
         ObjectMapper objectMapper = getObjectMapper();
 
-        int size = pluginSettings.getIndexBulkSizeForSynchro();
+        int size = this.bulkSize;
         long from = 0;
         long total = -1;
 
@@ -450,7 +451,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 if (total == -1 && response.getHits() != null) total = response.getHits().getTotalHits();
 
                 // Log progress
-                if (logger.isInfoEnabled() && total > 0) {
+                if (logger.isInfoEnabled() && from<total) {
                     long pct = Math.min(100, Math.round(from * 100 / total));
                     logger.info(String.format("%s Indexing documents... %s / %s (%s%%)", logPrefix, from, total, pct));
                 }
@@ -468,12 +469,15 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             try {
                 httpService.executeRequest(deleteRequest, HttpResponse.class);
             }
+            catch(HttpUnauthorizeException | HttpNotFoundException e) {
+                logger.debug(String.format("%s Unauthorized to delete scroll. Continue.", logPrefix));
+            }
             catch(Exception e) {
                 // Log, and continue
                 if (logger.isDebugEnabled())
-                    logger.warn(logPrefix + " Unable to clean scroll in the remote pod: " + e.getMessage(), e);
+                    logger.warn(String.format("%s Failed to delete scroll: ", logPrefix, e.getMessage()), e);
                 else
-                    logger.warn(logPrefix + " Unable to clean scroll in the remote pod: " + e.getMessage());
+                    logger.warn(String.format("%s Failed to delete scroll: ", logPrefix, e.getMessage()));
 
             }
         }
@@ -548,8 +552,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     }
 
     protected void save(String id, BytesReference sourceRef, String logPrefix) throws IOException{
-        ObjectMapper om = getObjectMapper();
-        save(id, sourceRef, om, null, false, NULL_ACTION_RESULT, logPrefix);
+        save(id, sourceRef, getObjectMapper(), null, false, NULL_ACTION_RESULT, logPrefix);
     }
 
     protected void save(String id,
@@ -688,6 +691,10 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
     protected void setEnableUpdate(boolean enableUpdate) {
         this.enableUpdate = enableUpdate;
+    }
+
+    protected void setBulkSize(int bulkSize) {
+        this.bulkSize = bulkSize;
     }
 
     protected void setEnableSignatureValidation(boolean enableSignatureValidation) {

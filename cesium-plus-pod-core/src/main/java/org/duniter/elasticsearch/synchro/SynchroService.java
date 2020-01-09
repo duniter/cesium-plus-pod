@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
@@ -220,7 +221,7 @@ public class SynchroService extends AbstractService {
     }
 
     public SynchroResult synchronizePeer(final Peer peer, boolean enableSynchroWebsocket) {
-        long startExecutionTime = System.currentTimeMillis();
+        long startTimeMs = System.currentTimeMillis();
 
         // Check if peer alive and valid
         boolean isAliveAndValid = networkService.isEsNodeAliveAndValid(peer);
@@ -247,10 +248,10 @@ public class SynchroService extends AbstractService {
 
         if (logger.isInfoEnabled()) {
             if (fromTime == 0) {
-                logger.info(String.format("[%s] [%s] Synchronization {ALL}...", peer.getCurrency(), peer));
+                logger.info(String.format("[%s] [%s] Synchronizing... {full}", peer.getCurrency(), peer));
             }
             else {
-                logger.info(String.format("[%s] [%s] Synchronization delta since {%s}...",
+                logger.info(String.format("[%s] [%s] Synchronizing... {delta since %s}",
                         peer.getCurrency(),
                         peer,
                         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
@@ -259,23 +260,30 @@ public class SynchroService extends AbstractService {
         }
 
         // Execute actions
+        MutableInt failureCounter = new MutableInt(0);
         List<SynchroAction> executedActions = actions.stream()
                 .filter(a -> a.getEndPointApi().name().equals(peer.getApi()))
                 .map(a -> {
                     try {
                         a.handleSynchronize(peer, fromTime, result);
                     } catch(Throwable e) {
-                        logger.error(String.format("[%s] [%s] Failed to execute synchro action: %s", peer.getCurrency(), peer, e.getMessage()), e);
+                        // Count, by continue
+                        failureCounter.increment();
                     }
                     return a;
                 })
                 .collect(Collectors.toList());
 
-        if (logger.isDebugEnabled()) {
-            logger.debug(String.format("[%s] [%s] Synchronized in %s ms: %s", peer.getCurrency(), peer, System.currentTimeMillis() - startExecutionTime, result.toString()));
-        }
+        long executionTimeMs = System.currentTimeMillis() - startTimeMs;
+        logger.info(String.format("[%s] [%s] Synchronizing [OK] - %s %s in %s ms",
+                peer.getCurrency(),
+                peer,
+                result.toString(),
+                (failureCounter.getValue() > 0 ? String.format("and %s actions in failure", failureCounter.getValue()) : ""),
+                executionTimeMs));
 
-        saveExecution(peer, result, startExecutionTime);
+        // Save result
+        saveExecution(peer, result, startTimeMs, executionTimeMs);
 
         // Start listen changes on this peer
         if (enableSynchroWebsocket) {
@@ -300,7 +308,9 @@ public class SynchroService extends AbstractService {
         }
     }
 
-    protected void saveExecution(Peer peer, SynchroResult result, long startExecutionTime) {
+    protected void saveExecution(Peer peer, SynchroResult result,
+                                 long startTimeMs,
+                                 long executionTimeMs) {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getId());
         Preconditions.checkNotNull(result);
@@ -310,11 +320,11 @@ public class SynchroService extends AbstractService {
             execution.setCurrency(peer.getCurrency());
             execution.setPeer(peer.getId());
             execution.setApi(peer.getApi());
-            execution.setExecutionTime(System.currentTimeMillis() - startExecutionTime);
+            execution.setExecutionTime(executionTimeMs);
             execution.setResult(result);
 
             // Start execution time (in seconds)
-            execution.setTime(startExecutionTime/1000);
+            execution.setTime(startTimeMs/1000);
 
             synchroExecutionDao.save(execution);
         }

@@ -137,10 +137,9 @@ public class SynchroResult implements Serializable {
     }
 
     public String toString() {
-        return new StringBuilder()
-            .append("inserts [").append(insertTotal).append("]")
-            .append(", updates [").append(updateTotal).append("]")
-            .append(", deletes [").append(deleteTotal).append("]")
-            .toString();
+        return String.format("%s inserts, %s updates, %s deletes",
+                insertTotal,
+                updateTotal,
+                deleteTotal);
     }
 }
