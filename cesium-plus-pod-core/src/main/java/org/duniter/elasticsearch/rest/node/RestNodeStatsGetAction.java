@@ -23,13 +23,13 @@ package org.duniter.elasticsearch.rest.node;
  */
 
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.elasticsearch.action.admin.cluster.stats.ClusterStatsResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -83,9 +83,7 @@ public class RestNodeStatsGetAction extends BaseRestHandler {
             // Cluster
             {
                 ClusterStatsResponse response = client.admin().cluster().prepareClusterStats().execute().actionGet();
-                mapping.startObject("cluster")
-                        .value(response)
-                        .endObject();
+                mapping.field("cluster").rawValue(new BytesArray(response.toString()));
             }
 
             mapping.endObject().endObject();
