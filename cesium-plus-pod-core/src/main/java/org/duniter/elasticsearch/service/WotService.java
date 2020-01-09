@@ -65,7 +65,7 @@ public class WotService extends AbstractService {
     private WotRemoteService wotRemoteService;
     private BlockchainService blockchainService;
     private ThreadPool threadPool;
-    private final LockManager lockManager = new LockManager(2, 4);
+    private final LockManager lockManager = new LockManager(1, 4);
     private Map<String, ChangeService.ChangeListener> currentBlockListeners = Maps.newConcurrentMap();
 
     @Inject

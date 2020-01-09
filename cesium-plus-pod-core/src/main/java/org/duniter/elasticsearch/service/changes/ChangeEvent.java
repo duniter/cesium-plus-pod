@@ -39,6 +39,7 @@ package org.duniter.elasticsearch.service.changes;
 */
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.commons.io.Charsets;
 import org.duniter.core.exception.TechnicalException;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -47,6 +48,7 @@ import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.joda.time.DateTime;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 public class ChangeEvent {
     private final String id;
@@ -120,9 +122,7 @@ public class ChangeEvent {
         if (sourceText != null) return sourceText;
         if (source == null) return null;
         try {
-            //XContentBuilder builder = new XContentBuilder(JsonXContent.jsonXContent, new BytesStreamOutput());
-            //builder.rawValue(source);
-            sourceText = new String(source.toBytesArray().toBytes(), "UTF8");
+            sourceText = new String(source.toBytes(), StandardCharsets.UTF_8);
             return sourceText;
         } catch (Exception e) {
             throw new TechnicalException("Error while generating JSON from source", e);

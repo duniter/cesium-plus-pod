@@ -88,7 +88,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
         {
             DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
             this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
-            flushBulkRequestOrSchedule();
+            flushBulk();
         }
 
         // Joiners
@@ -139,6 +139,8 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
                 processCertification(block, cert);
             }
         }
+
+        flushBulkRequestOrSchedule();
     }
 
     @Override
@@ -198,9 +200,6 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             }
         };
     }
-
-
-
 
     private void processTx(BlockchainBlock block, BlockchainBlock.Transaction tx) {
         Set<String> senders = ImmutableSet.copyOf(tx.getIssuers());
@@ -265,7 +264,11 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             bulkRequest.add(client.prepareIndex(UserEventService.INDEX, UserEventService.EVENT_TYPE)
                     .setSource(getObjectMapper().writeValueAsBytes(event))
                     .setRefresh(false));
-            flushBulkRequestOrSchedule();
+
+            // Flush if need
+            if (bulkRequest.numberOfActions() % bulkSize == 0) {
+                flushBulk();
+            }
         }
         catch(JsonProcessingException e) {
             logger.error("Could not serialize UserEvent into JSON: " + e.getMessage(), e);

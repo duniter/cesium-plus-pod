@@ -29,6 +29,7 @@ import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPeersPostAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeersGetAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkWs2pHeadsGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
+import org.duniter.elasticsearch.rest.node.RestNodeStatsGetAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityAuthAction;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.rest.security.RestSecurityFilter;
@@ -44,6 +45,7 @@ public class RestModule extends AbstractModule implements Module {
 
         // Common
         bind(RestNodeSummaryGetAction.class).asEagerSingleton();
+        bind(RestNodeStatsGetAction.class).asEagerSingleton();
 
         // Authentication & Security
         bind(RestSecurityGetChallengeAction.class).asEagerSingleton();

@@ -38,6 +38,7 @@ package org.duniter.elasticsearch.service.changes;
     limitations under the License.
 */
 
+import com.google.common.collect.ImmutableMap;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.CollectionUtils;
 import org.elasticsearch.common.inject.Inject;
@@ -248,5 +249,8 @@ public class ChangeService {
         }
     }
 
+    public Map<String, Integer> getUsageStatistics() {
+        return ImmutableMap.copyOf(LISTENERS_SOURCES_USAGE_COUNT);
+    }
 
 }

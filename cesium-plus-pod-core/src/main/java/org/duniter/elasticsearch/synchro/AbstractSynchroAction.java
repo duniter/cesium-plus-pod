@@ -70,6 +70,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.*;
 
@@ -343,7 +344,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                     queryString, from, size);
         }
 
-        httpPost.setEntity(new StringEntity(content, "UTF-8"));
+        httpPost.setEntity(new StringEntity(content, StandardCharsets.UTF_8));
 
         if (trace) {
             logger.trace(String.format("[%s] [%s] [%s/%s] Sending POST scroll request: %s", peer.getCurrency(), peer, fromIndex, fromType, content));
@@ -361,7 +362,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         //httpPost.setHeader("Accept-Encoding", "gzip");
         httpPost.setEntity(new StringEntity(String.format("{\"scroll\": \"%s\", \"scroll_id\": \"%s\"}",
                 scrollKeepAliveTime,
-                scrollId), "UTF-8"));
+                scrollId), StandardCharsets.UTF_8));
         return httpPost;
     }
 

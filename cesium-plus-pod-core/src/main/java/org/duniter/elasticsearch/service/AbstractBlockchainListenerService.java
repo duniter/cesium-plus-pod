@@ -50,6 +50,8 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
 
     private static final List<ChangeSource> CHANGE_LISTEN_SOURCES = ImmutableList.of(new ChangeSource("*", BlockchainService.BLOCK_TYPE));
 
+    private static final String LOCK_NAME = "blockchain-listenerListenerService";
+
     protected final boolean enable;
     protected final String listenerId;
     protected final ThreadPool threadPool;
@@ -139,22 +141,36 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
     protected abstract void processBlockDelete(ChangeEvent change);
 
     protected void flushBulkRequestOrSchedule() {
-        if (flushing || bulkRequest.numberOfActions() == 0) return;
+        if (bulkRequest.numberOfActions() == 0) return;
 
-        // Flush now, if need or later
+        // Flush now, if bulk is full
         if (bulkRequest.numberOfActions() % bulkSize == 0) {
-            client.flushBulk(bulkRequest);
-            bulkRequest = client.prepareBulk();
+            flushBulk();
+            flushing = false;
         }
-        else {
+        else if (!flushing){
             flushing = true;
+            // Flush later (after the current block processing)
             threadPool.schedule(() -> {
-                synchronized (threadLock) {
-                    client.flushBulk(bulkRequest);
-                    bulkRequest = client.prepareBulk();
-                    flushing = false;
+                if (flushing) {
+                    try {
+                        flushBulk();
+                    } finally {
+                        flushing = false;
+                    }
                 }
             }, new TimeValue(500, TimeUnit.MILLISECONDS));
+        }
+    }
+
+    protected void flushBulk() {
+        if (bulkRequest.numberOfActions() != 0) {
+            synchronized (threadLock) {
+                if (bulkRequest.numberOfActions() != 0) {
+                    client.flushBulk(bulkRequest);
+                    bulkRequest = client.prepareBulk();
+                }
+            }
         }
     }
 
