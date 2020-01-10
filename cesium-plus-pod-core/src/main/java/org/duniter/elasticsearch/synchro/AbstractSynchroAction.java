@@ -454,7 +454,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 // Log progress
                 if (logger.isInfoEnabled() && from<total) {
                     long pct = Math.min(100, Math.round(from * 100 / total));
-                    logger.info(String.format("%s Indexing %ss... %s / %s (%s%%)", logPrefix, toType, from, total, pct));
+                    logger.info(String.format("%s Indexing %s... %s / %s (%s%%)", logPrefix, toType, from, total, pct));
                 }
             }
         }
