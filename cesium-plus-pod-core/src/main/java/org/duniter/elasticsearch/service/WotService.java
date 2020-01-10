@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.service;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
 import org.duniter.core.client.model.local.Member;
@@ -219,31 +220,62 @@ public class WotService extends AbstractService {
 
         logger.info(String.format("[%s] Indexing WoT members...", currencyId));
 
-        BlockchainParameters parameters = blockchainService.getParameters(currencyId);
-        Set<String> wasMemberPubkeys = memberDao.getMemberPubkeys(currencyId);
-        List<Member> members = blockDao.getMembers(parameters);
+        final BlockchainParameters parameters = blockchainService.getParameters(currencyId);
+
+        // Retrieve previous members pubkeys. This list will be reduce later, to keep only excluded members
+        final Set<String> pubkeysToExclude = memberDao.getMemberPubkeys(currencyId);
+        final long previousMembersCount = CollectionUtils.size(pubkeysToExclude);
+
+        final List<Member> members = blockDao.getMembers(parameters);
 
         // Save members into index
+        final MutableInt becomesCount = new MutableInt(0);
         if (CollectionUtils.isNotEmpty(members)) {
             // Set currency
             members.forEach(m -> {
-                wasMemberPubkeys.remove(m.getPubkey());
+                // Remove from the list
+                boolean becomeMember = !pubkeysToExclude.remove(m.getPubkey());
+                // If not found in the previous list = new member
+                if(becomeMember) becomesCount.increment();
                 m.setCurrency(currencyId);
             });
+        }
+
+        int excludedCount = CollectionUtils.size(pubkeysToExclude);
+        long deltaCount = previousMembersCount - CollectionUtils.size(members);
+        boolean hasBecomes = becomesCount.getValue() > 0;
+        boolean hasExcluded = excludedCount > 0;
+        boolean hasChanges = deltaCount != 0 || hasBecomes || hasExcluded;
+
+        // Has changes
+        if (hasChanges) {
 
             // Save members
-            memberDao.save(currencyId, members);
+            if (hasBecomes) {
+                memberDao.save(currencyId, members);
+            }
+
+            // Update old members as "was member"
+            if (hasExcluded) {
+                memberDao.updateAsWasMember(currencyId, pubkeysToExclude);
+            }
+
+            // Update currency member count
+            if (deltaCount != 0) {
+                currencyDao.updateMemberCount(currencyId, members.size());
+            }
+
+            logger.info(String.format("[%s] Indexing WoT members [OK] - %s members (%s), %s becomes, %s excluded", currencyId,
+                    CollectionUtils.size(members),
+                    (deltaCount > 0 ? "+" + deltaCount : deltaCount),
+                    becomesCount.getValue(),
+                    excludedCount));
         }
 
-        // Update old members as "was member"
-        if (CollectionUtils.isNotEmpty(wasMemberPubkeys)) {
-            memberDao.updateAsWasMember(currencyId, wasMemberPubkeys);
+        // No changes: just log
+        else {
+            logger.info(String.format("[%s] Indexing WoT members [OK] - %s members (unchanged)", currencyId, CollectionUtils.size(members)));
         }
-
-        // Update currency member count
-        currencyDao.updateMemberCount(currencyId, members.size());
-
-        logger.info(String.format("[%s] Indexing WoT members [OK]", currencyId));
 
         return members;
     }

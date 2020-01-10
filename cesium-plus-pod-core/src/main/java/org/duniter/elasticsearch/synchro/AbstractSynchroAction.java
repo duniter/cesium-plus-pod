@@ -400,7 +400,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
             throw new IndexNotFoundException(String.format("Index [%s] not exists locally. Skipping", toIndex));
         }
 
-        String logPrefix = String.format("[%s] [%s] [%s/%s] ", peer.getCurrency(), peer, toIndex, toType);
+        String logPrefix = String.format("[%s] [%s] [%s/%s]", peer.getCurrency(), peer, toIndex, toType);
         ObjectMapper objectMapper = getObjectMapper();
 
         int size = this.bulkSize;
@@ -454,7 +454,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
                 // Log progress
                 if (logger.isInfoEnabled() && from<total) {
                     long pct = Math.min(100, Math.round(from * 100 / total));
-                    logger.info(String.format("%s Indexing documents... %s / %s (%s%%)", logPrefix, from, total, pct));
+                    logger.info(String.format("%s Indexing %ss... %s / %s (%s%%)", logPrefix, toType, from, total, pct));
                 }
             }
         }

@@ -70,18 +70,20 @@ public class RestNodeStatsGetAction extends BaseRestHandler {
                     .startObject("stats");
 
             // Listeners by source
-            mapping.startArray("listeners");
-            Map<String, Integer> sourcesListener = changeService.getUsageStatistics();
-            for (Map.Entry<String, Integer> entry: sourcesListener.entrySet()) {
-                mapping.startObject()
-                        .field("source", entry.getKey())
-                        .field("count", entry.getValue())
-                .endObject();
+            if (request.paramAsBoolean("listeners", true)) {
+                mapping.startArray("listeners");
+                Map<String, Integer> sourcesListener = changeService.getUsageStatistics();
+                for (Map.Entry<String, Integer> entry : sourcesListener.entrySet()) {
+                    mapping.startObject()
+                            .field("source", entry.getKey())
+                            .field("count", entry.getValue())
+                            .endObject();
+                }
+                mapping.endArray();
             }
-            mapping.endArray();
 
-            // Cluster
-            {
+            // Add cluster info
+            if (request.paramAsBoolean("cluster", true)) {
                 ClusterStatsResponse response = client.admin().cluster().prepareClusterStats().execute().actionGet();
                 mapping.field("cluster").rawValue(new BytesArray(response.toString()));
             }
