@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
+import org.duniter.core.client.model.bma.WotPendingMembership;
 import org.duniter.core.client.model.local.Member;
 import org.duniter.core.client.service.bma.WotRemoteService;
 import org.duniter.core.util.CollectionUtils;
@@ -39,6 +40,7 @@ import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.duniter.elasticsearch.dao.MemberDao;
+import org.duniter.elasticsearch.dao.PendingMembershipDao;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
@@ -63,6 +65,7 @@ public class WotService extends AbstractService {
     private BlockDao blockDao;
     private MemberDao memberDao;
     private CurrencyExtendDao currencyDao;
+    private PendingMembershipDao pendingMembershipDao;
     private WotRemoteService wotRemoteService;
     private BlockchainService blockchainService;
     private ThreadPool threadPool;
@@ -76,6 +79,7 @@ public class WotService extends AbstractService {
                       BlockDao blockDao,
                       MemberDao memberDao,
                       CurrencyDao currencyDao,
+                      PendingMembershipDao pendingMembershipDao,
                       BlockchainService blockchainService,
                       final ServiceLocator serviceLocator){
         super("duniter.wot", client, settings);
@@ -83,6 +87,7 @@ public class WotService extends AbstractService {
         this.blockDao = blockDao;
         this.memberDao = memberDao;
         this.currencyDao = (CurrencyExtendDao) currencyDao;
+        this.pendingMembershipDao = pendingMembershipDao;
         this.blockchainService = blockchainService;
         this.threadPool = threadPool;
         this.threadPool.scheduleOnStarted(() -> {
@@ -111,7 +116,6 @@ public class WotService extends AbstractService {
         else {
             return wotRemoteService.getMembers(currencyId);
         }
-
     }
 
     public void save(String currencyId, final List<Member> members) {
@@ -120,8 +124,6 @@ public class WotService extends AbstractService {
 
         memberDao.save(currencyId, members);
     }
-
-
 
     public Member save(final Member member) {
         Preconditions.checkNotNull(member);
@@ -242,7 +244,7 @@ public class WotService extends AbstractService {
         }
 
         int excludedCount = CollectionUtils.size(pubkeysToExclude);
-        long deltaCount = previousMembersCount - CollectionUtils.size(members);
+        long deltaCount = CollectionUtils.size(members) - previousMembersCount;
         boolean hasBecomes = becomesCount.getValue() > 0;
         boolean hasExcluded = excludedCount > 0;
         boolean hasChanges = deltaCount != 0 || hasBecomes || hasExcluded;
@@ -265,9 +267,10 @@ public class WotService extends AbstractService {
                 currencyDao.updateMemberCount(currencyId, members.size());
             }
 
-            logger.info(String.format("[%s] Indexing WoT members [OK] - %s members (%s), %s becomes, %s excluded", currencyId,
+            logger.info(String.format("[%s] Indexing WoT members [OK] - %s members (%s%s), %s becomes, %s excluded", currencyId,
                     CollectionUtils.size(members),
-                    (deltaCount > 0 ? "+" + deltaCount : deltaCount),
+                    (deltaCount > 0) ? "\u21D1" : "\u21D3",
+                    Math.abs(deltaCount),
                     becomesCount.getValue(),
                     excludedCount));
         }

@@ -232,7 +232,6 @@ public class CurrencyService extends AbstractService {
                     org.elasticsearch.common.settings.Settings indexSettings = org.elasticsearch.common.settings.Settings.settingsBuilder()
                             .put("number_of_shards", 3)
                             .put("number_of_replicas", 1)
-                            //.put("analyzer", createDefaultAnalyzer())
                             .build();
                     createIndexRequestBuilder.setSettings(indexSettings);
 
@@ -259,6 +258,10 @@ public class CurrencyService extends AbstractService {
                     // Add synchro execution
                     SynchroExecutionDao synchroExecutionDao = injector.getInstance(SynchroExecutionDao.class);
                     createIndexRequestBuilder.addMapping(synchroExecutionDao.getType(), synchroExecutionDao.createTypeMapping());
+
+                    // Add pending membership
+                    TypeDao<?> pendingMembershipDao = ServiceLocator.instance().getBean(PendingMembershipDao.class);
+                    createIndexRequestBuilder.addMapping(pendingMembershipDao.getType(), pendingMembershipDao.createTypeMapping());
 
                     // Creating the index
                     createIndexRequestBuilder.execute().actionGet();

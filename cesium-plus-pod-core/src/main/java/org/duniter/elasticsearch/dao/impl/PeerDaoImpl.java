@@ -165,7 +165,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                 .setTypes(TYPE)
                 .setSize(1000);
 
-        // Query = filter on lastUpTime
+        // Query = filter on status UP
         NestedQueryBuilder statusQuery = QueryBuilders.nestedQuery(Peer.PROPERTY_STATS,
                 QueryBuilders.boolQuery()
                         .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name())));

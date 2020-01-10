@@ -41,10 +41,8 @@ import org.duniter.core.service.MailServiceImpl;
 import org.duniter.elasticsearch.beans.ESBeanFactory;
 import org.duniter.elasticsearch.dao.BlockDao;
 import org.duniter.elasticsearch.dao.MemberDao;
-import org.duniter.elasticsearch.dao.impl.BlockDaoImpl;
-import org.duniter.elasticsearch.dao.impl.CurrencyDaoImpl;
-import org.duniter.elasticsearch.dao.impl.PeerDaoImpl;
-import org.duniter.elasticsearch.dao.impl.MemberDaoImpl;
+import org.duniter.elasticsearch.dao.PendingMembershipDao;
+import org.duniter.elasticsearch.dao.impl.*;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
@@ -110,6 +108,7 @@ public class ServiceLocator
                 .bind(PeerDao.class, PeerDaoImpl.class)
                 .bind(BlockDao.class, BlockDaoImpl.class)
                 .bind(MemberDao.class, MemberDaoImpl.class)
+                .bind(PendingMembershipDao.class, PendingMembershipDaoImpl.class)
 
                 .add(DataContext.class);
 

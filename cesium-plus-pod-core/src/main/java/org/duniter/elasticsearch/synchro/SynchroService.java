@@ -204,8 +204,6 @@ public class SynchroService extends AbstractService {
             return;
         }
 
-
-
         currencyIds.forEach(currencyId -> includeEndpointApis.forEach(endpointApi -> {
 
             String logPrefix = String.format("[%s] [%s]", currencyId, endpointApi.name());

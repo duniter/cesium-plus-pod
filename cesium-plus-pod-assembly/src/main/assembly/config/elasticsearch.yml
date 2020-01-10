@@ -143,6 +143,10 @@ duniter.blockchain.enable: true
 #
 # duniter.blockchain.peer.enable: false
 #
+# Enabling pending memberships indexation ? (default: ${duniter.blockchain.enable})
+#
+# duniter.blockchain.membership.pending.enable: false
+#
 # Enable user event on blockchain ? (default: true)
 #
 # duniter.blockchain.event.user.enable: false

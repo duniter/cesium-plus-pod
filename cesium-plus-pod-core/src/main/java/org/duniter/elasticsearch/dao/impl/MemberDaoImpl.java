@@ -267,18 +267,24 @@ public class MemberDaoImpl extends AbstractDao implements MemberDao {
                     .startObject("properties")
 
                     // uid
-                    .startObject(Identity.PROPERTY_UID)
+                    .startObject(Member.PROPERTY_UID)
                     .field("type", "string")
                     .endObject()
 
                     // pubkey
-                    .startObject(Identity.PROPERTY_PUBKEY)
+                    .startObject(Member.PROPERTY_PUBKEY)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
 
                     // isMember
-                    .startObject(Identity.PROPERTY_PUBKEY)
+                    .startObject(Member.PROPERTY_IS_MEMBER)
+                    .field("type", "string")
+                    .field("index", "not_analyzed")
+                    .endObject()
+
+                    // wasMember
+                    .startObject(Member.PROPERTY_WAS_MEMBER)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()

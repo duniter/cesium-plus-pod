@@ -289,6 +289,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.blockchain.peer.enable", enableBlockchainIndexation());
     }
 
+    public boolean enablePendingMembershipIndexation()  {
+        return settings.getAsBoolean("duniter.blockchain.membership.pending.enable", enableBlockchainIndexation());
+    }
+
     public boolean reloadBlockchainIndices()  {
         return settings.getAsBoolean("duniter.blockchain.reload", false);
     }

@@ -24,7 +24,6 @@ package org.duniter.elasticsearch;
 
 import org.duniter.core.client.model.elasticsearch.Currency;
 import org.duniter.core.client.model.local.Peer;
-import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.Preconditions;
 import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -32,7 +31,6 @@ import org.duniter.elasticsearch.service.*;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
@@ -43,7 +41,6 @@ import org.elasticsearch.rest.RestRequest;
 
 import java.io.Closeable;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -77,11 +74,12 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         threadPool.onMasterStart(() -> {
 
             logger.info(String.format("Starting core jobs..."
-                            + " {blockchain: block:%s, peer:%s},"
+                            + " {blockchain: block:%s, peer:%s, pending:%s},"
                             + " {p2p: synchro:%s, websocket:%s, emit_peering:%s},"
                             + " {doc_stats:%s}",
                     pluginSettings.enableBlockchainIndexation(),
                     pluginSettings.enableBlockchainPeerIndexation(),
+                    pluginSettings.enablePendingMembershipIndexation(),
                     pluginSettings.enableSynchro(),
                     pluginSettings.enableSynchroWebsocket(),
                     pluginSettings.enablePeering(),
@@ -176,6 +174,14 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .allowPostSearchIndexType(
                             CURRENCY_NAME_REGEXP,
                             MemberDao.TYPE)
+
+                    // Add access to <currency>/pending index
+                    .allowIndexType(RestRequest.Method.GET,
+                            CURRENCY_NAME_REGEXP,
+                            PendingMembershipDao.TYPE)
+                    .allowPostSearchIndexType(
+                            CURRENCY_NAME_REGEXP,
+                            PendingMembershipDao.TYPE)
 
                     // Add access to <currency>/synchro index
                     .allowIndexType(RestRequest.Method.GET,
@@ -332,13 +338,16 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             }
 
             // Index blocks (and listen if new block appear)
-            startIndexBlocks(peer);
+            //startIndexBlocks(peer);
 
             // Index WoT members
             startIndexMembers(peer);
 
+            // Start listening pending memberships
+            startIndexPendingMemberships(peer);
+
             // Index peers (and listen if new peer appear)
-            startIndexPeers(peer);
+            //startIndexPeers(peer);
 
             return Optional.of(threadPool.scheduleOnClusterReady(() -> {}));
         }
@@ -384,14 +393,13 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         Preconditions.checkNotNull(peer.getCurrency());
 
         try {
-            BlockchainService blockchainService = injector.getInstance(BlockchainService.class);
+            Closeable stoppable = injector.getInstance(BlockchainService.class)
+                // Index last blocks
+                .indexLastBlocks(peer)
+                // Listen for new blocks
+                .listenAndIndexNewBlock(peer);
 
-            // Index last blocks
-            blockchainService.indexLastBlocks(peer);
-
-            // Listen for new blocks
-            Closeable listener = blockchainService.listenAndIndexNewBlock(peer);
-            threadPool.scheduleOnMasterFirstStop(listener);
+            threadPool.scheduleOnMasterFirstStop(stoppable);
 
             if (logger.isInfoEnabled()) logger.info(String.format("[%s] Indexing blockchain [OK]", peer.getCurrency()));
 
@@ -438,6 +446,26 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Stop to listen, if master stop
             threadPool.scheduleOnMasterFirstStop(stop);
+        }  catch (Throwable e) {
+            logger.error(String.format("[%s] Indexing blockchain peers error: %s", peer.getCurrency(), e.getMessage()), e);
+            throw e;
+        }
+    }
+
+    protected void startIndexPendingMemberships(Peer peer) {
+        if (!pluginSettings.enablePendingMembershipIndexation()) return; // Skip
+
+        Preconditions.checkNotNull(peer);
+        Preconditions.checkNotNull(peer.getCurrency());
+
+        try {
+            // Index peers (and listen if new peer appear)
+            ScheduledActionFuture<?> job = injector.getInstance(PendingMembershipService.class)
+                    .indexFromPeer(peer)
+                    .startScheduling();
+
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop((Runnable)() -> job.cancel(true));
         }  catch (Throwable e) {
             logger.error(String.format("[%s] Indexing blockchain peers error: %s", peer.getCurrency(), e.getMessage()), e);
             throw e;

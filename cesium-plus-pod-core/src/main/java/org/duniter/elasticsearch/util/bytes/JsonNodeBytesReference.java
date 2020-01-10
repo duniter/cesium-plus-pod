@@ -40,6 +40,36 @@ import java.util.Objects;
 
 public class JsonNodeBytesReference implements BytesReference {
 
+    /* -- Helper functions  --*/
+
+    public static JsonNode readTree(BytesReference source) throws IOException {
+        if (source  == null) return null;
+
+        if (source instanceof JsonNodeBytesReference) {
+            // Avoid new deserialization
+            return ((JsonNodeBytesReference) source).toJsonNode();
+        }
+
+        return JacksonUtils.getThreadObjectMapper().readTree(source.streamInput());
+    }
+
+    public static JsonNode readTree(BytesReference source, ObjectMapper objectMapper) throws IOException {
+        if (source  == null) return null;
+
+        if (source instanceof JsonNodeBytesReference) {
+            // Avoid new deserialization
+            return ((JsonNodeBytesReference) source).toJsonNode();
+        }
+
+        return objectMapper.readTree(source.streamInput());
+    }
+
+    public static <T> T readValue(BytesReference source, Class<T> clazz) throws IOException {
+        if (source  == null) return null;
+
+        return new ObjectMapper().readValue(source.streamInput(), clazz);
+    }
+
     private JsonNode node;
     private BytesArray delegate;
     private ObjectMapper objectMapper;
@@ -51,6 +81,24 @@ public class JsonNodeBytesReference implements BytesReference {
     public JsonNodeBytesReference(JsonNode node, ObjectMapper objectMapper) {
         this.node = node;
         this.objectMapper = objectMapper;
+    }
+
+    public JsonNodeBytesReference(BytesArray delegate) {
+        this(delegate, new ObjectMapper());
+    }
+
+    public JsonNodeBytesReference(BytesArray delegate, ObjectMapper objectMapper) {
+        this.delegate = delegate;
+        this.objectMapper = objectMapper;
+    }
+
+    public <T> JsonNodeBytesReference(T object) throws IOException{
+        this(object, new ObjectMapper());
+    }
+
+    public <T> JsonNodeBytesReference(T object, ObjectMapper objectMapper) throws IOException{
+        this.objectMapper = objectMapper;
+        this.delegate = new BytesArray(this.objectMapper.writeValueAsBytes(object));
     }
 
     public byte get(int index) {
@@ -70,7 +118,15 @@ public class JsonNodeBytesReference implements BytesReference {
     }
 
     public void writeTo(OutputStream os) throws IOException {
-        objectMapper.writeValue(os, node);
+        if (delegate != null) {
+            delegate.writeTo(os);
+        }
+        else if (node != null) {
+            objectMapper.writeValue(os, node);
+        }
+        else {
+            throw new ElasticsearchException("Missing node or bytes array.");
+        }
     }
 
     public void writeTo(GatheringByteChannel channel) throws IOException {
@@ -78,12 +134,17 @@ public class JsonNodeBytesReference implements BytesReference {
     }
 
     public byte[] toBytes() {
-        try {
-            return objectMapper.writeValueAsBytes(node);
+        if (delegate != null) return delegate.toBytes();
+
+        if (node != null) {
+            try {
+                return objectMapper.writeValueAsBytes(node);
+            } catch (JsonProcessingException e) {
+                throw new ElasticsearchException(e);
+            }
         }
-        catch(JsonProcessingException e) {
-            throw new ElasticsearchException(e);
-        }
+
+        return null;
     }
 
     public BytesArray toBytesArray() {
@@ -127,11 +188,11 @@ public class JsonNodeBytesReference implements BytesReference {
     }
 
     public JsonNode toJsonNode() {
-        return node;
+        return getOrInitNode();
     }
 
     public JsonNode copyJsonNode() {
-        return node.deepCopy();
+        return getOrInitNode().deepCopy();
     }
 
     public boolean equals(Object obj) {
@@ -140,44 +201,31 @@ public class JsonNodeBytesReference implements BytesReference {
 
 
     protected BytesArray getOrInitDelegate() {
-        if (delegate == null) {
+        if (delegate != null) return delegate;
+        if (node != null) {
             try {
                 this.delegate = new BytesArray(objectMapper.writeValueAsBytes(node));
+                return this.delegate;
             }
             catch(JsonProcessingException e) {
                 throw new ElasticsearchException(e);
             }
         }
-        return delegate;
+        throw new ElasticsearchException("Missing node or bytes array");
     }
 
-    /* -- Helper functions  --*/
-
-    public static JsonNode readTree(BytesReference source) throws IOException {
-        if (source  == null) return null;
-
-        if (source instanceof JsonNodeBytesReference) {
-            // Avoid new deserialization
-            return ((JsonNodeBytesReference) source).toJsonNode();
+    protected JsonNode getOrInitNode() {
+        if (node != null) return node;
+        if (delegate != null) {
+            try {
+                this.node = objectMapper.readTree(delegate.toBytes());
+                return this.node;
+            }
+            catch(IOException e) {
+                throw new ElasticsearchException(e);
+            }
         }
-
-        return JacksonUtils.getThreadObjectMapper().readTree(source.streamInput());
+        throw new ElasticsearchException("Missing node or bytes array");
     }
 
-    public static JsonNode readTree(BytesReference source, ObjectMapper objectMapper) throws IOException {
-        if (source  == null) return null;
-
-        if (source instanceof JsonNodeBytesReference) {
-            // Avoid new deserialization
-            return ((JsonNodeBytesReference) source).toJsonNode();
-        }
-
-        return objectMapper.readTree(source.streamInput());
-    }
-
-    public static <T> T readValue(BytesReference source, Class<T> clazz) throws IOException {
-        if (source  == null) return null;
-
-        return new ObjectMapper().readValue(source.streamInput(), clazz);
-    }
 }

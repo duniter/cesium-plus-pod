@@ -122,12 +122,12 @@ public abstract class AbstractDao implements Bean {
         return Arrays.stream(response.getHits().getHits());
     }
 
-    protected <C extends LocalEntity<String>> List<C> toList(SearchResponse response, Class<? extends C> clazz) {
+    protected <C> List<C> toList(SearchResponse response, Class<? extends C> clazz) {
         final ObjectMapper objectMapper = getObjectMapper();
         return toList(response, hit -> readValueOrNull(objectMapper, hit, clazz));
     }
 
-    protected <C extends LocalEntity<String>> List<C> toList(SearchRequestBuilder request, Class<? extends C> clazz) {
+    protected <C> List<C> toList(SearchRequestBuilder request, Class<? extends C> clazz) {
 
         final List<C> result = Lists.newArrayList();
         final ObjectMapper objectMapper = getObjectMapper();

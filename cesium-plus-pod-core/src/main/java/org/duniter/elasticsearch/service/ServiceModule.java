@@ -57,6 +57,7 @@ public class ServiceModule extends AbstractModule implements Module {
         bind(BlockchainService.class).asEagerSingleton();
         bind(BlockchainListenerService.class).asEagerSingleton();
         bind(PeerService.class).asEagerSingleton();
+        bind(PendingMembershipService.class).asEagerSingleton();
 
         // Wot service
         bind(WotService.class).asEagerSingleton();

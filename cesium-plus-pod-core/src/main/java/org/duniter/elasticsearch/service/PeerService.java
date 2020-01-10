@@ -47,6 +47,7 @@ import org.nuiton.i18n.I18n;
 import java.io.Closeable;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -241,6 +242,17 @@ public class PeerService extends AbstractService  {
     public Long getMaxLastUpTime(String currencyId) {
         return peerDao.getMaxLastUpTime(currencyId);
     }
+
+    public List<Peer> getUpPeersByApis(String currencyId, EndpointApi... endpointApis) {
+        return Arrays.stream(endpointApis)
+                .flatMap(api -> {
+                    List<Peer> apiPeers = peerDao.getPeersByCurrencyIdAndApiAndPubkeys(currencyId, api.name(), null);
+                    return CollectionUtils.isEmpty(apiPeers) ? Stream.empty() : apiPeers.stream();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /* -- Internal methods -- */
 
     protected void addAllPeerIndexedEndpointApis(Collection<EndpointApi> apis) {
         Preconditions.checkNotNull(apis);

@@ -540,24 +540,23 @@ public class Duniter4jClientImpl implements Duniter4jClient {
 
     @Override
     public void flushBulk(final BulkRequestBuilder bulkRequest) {
-        if (bulkRequest.numberOfActions() > 0) {
+        if (bulkRequest.numberOfActions() == 0) return; // Nothing to flush
 
-            // Flush the bulk if not empty
-            BulkResponse bulkResponse = bulkRequest.get();
+        // Flush the bulk
+        BulkResponse bulkResponse = bulkRequest.get();
 
-            Set<String> missingDocIds = new LinkedHashSet<>();
+        Set<String> missingDocIds = new LinkedHashSet<>();
 
-            // If failures, continue but save missing blocks
-            if (bulkResponse.hasFailures()) {
-                // process failures by iterating through each bulk response item
-                for (BulkItemResponse itemResponse : bulkResponse) {
-                    boolean skip = !itemResponse.isFailed()
-                            || missingDocIds.contains(itemResponse.getId());
-                    if (!skip) {
-                        logger.error(String.format("[%s/%s] could not process _id=%s: %s. Skipping.",
-                                itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId(), itemResponse.getFailureMessage()));
-                        missingDocIds.add(itemResponse.getId());
-                    }
+        // If failures, continue but save missing blocks
+        if (bulkResponse.hasFailures()) {
+            // process failures by iterating through each bulk response item
+            for (BulkItemResponse itemResponse : bulkResponse) {
+                boolean skip = !itemResponse.isFailed()
+                        || missingDocIds.contains(itemResponse.getId());
+                if (!skip) {
+                    logger.error(String.format("[%s/%s] could not process _id=%s: %s. Skipping.",
+                            itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId(), itemResponse.getFailureMessage()));
+                    missingDocIds.add(itemResponse.getId());
                 }
             }
         }

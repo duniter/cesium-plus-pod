@@ -55,6 +55,7 @@ public class DaoModule extends AbstractModule implements Module {
         bindWithLocator(PeerDao.class);
         bindWithLocator(CurrencyDao.class);
         bindWithLocator(MemberDao.class);
+        bindWithLocator(PendingMembershipDao.class);
 
     }
 

@@ -143,7 +143,11 @@ duniter.blockchain.enable: true
 #
 # Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
 #
-duniter.blockchain.peer.enable: false
+duniter.blockchain.peer.enable: true
+#
+# Enabling pending memberships indexation ? (default: ${duniter.blockchain.enable})
+#
+duniter.blockchain.membership.pending.enable: true
 #
 # Enable user event on blockchain ? (default: true)
 #
@@ -210,7 +214,9 @@ duniter.p2p.discovery.enable: false
 # Pass a list of hosts to always synchronize (default: <empty>)
 #
 duniter.p2p.includes.endpoints: [
-  "ES_USER_API g1.data.le-sou.org 443"
+  "ES_CORE_API g1.data.le-sou.org 443",
+  "ES_USER_API g1.data.le-sou.org 443",
+  "ES_SUBSCRIPTION_API g1.data.le-sou.org 443"
 ]
 #
 # Pass a list of pubkeys to always synchronize (default: <empty>)
@@ -221,7 +227,7 @@ duniter.p2p.includes.endpoints: [
 #
 # Enable a full synchro. This will compare each documents from other peers.
 #
-duniter.p2p.fullResyncAtStartup: true
+#duniter.p2p.fullResyncAtStartup: true
 #
 # Peer API to index (default : ["BASIC_MERKLE_API", "BMAS", "WS2P" ] UNION ${duniter.p2p.peering.targetedApis} UNION ${duniter.p2p.peering.publishedApis})
 #
