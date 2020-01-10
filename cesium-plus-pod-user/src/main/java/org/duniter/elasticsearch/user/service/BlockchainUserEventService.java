@@ -56,26 +56,17 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
 
     private final UserService userService;
     private final UserEventService userEventService;
-    private final AdminService adminService;
 
     @Inject
     public BlockchainUserEventService(Duniter4jClient client, PluginSettings pluginSettings, CryptoService cryptoService,
                                       ThreadPool threadPool,
-                                      BlockchainService blockchainService,
                                       UserService userService,
-                                      AdminService adminService,
                                       UserEventService userEventService) {
         super("duniter.user.event.blockchain", client, pluginSettings.getDelegate(), cryptoService, threadPool,
                 new TimeValue(500, TimeUnit.MILLISECONDS),
                 pluginSettings.enableBlockchainUserEventIndexation());
         this.userService = userService;
-        this.adminService = adminService;
         this.userEventService = userEventService;
-
-        // Should notify admin when connection to node is DOWN ?
-        if (pluginSettings.enableBlockchainAdminEventIndexation()) {
-            blockchainService.registerConnectionListener(createConnectionListeners());
-        }
     }
 
 
@@ -158,48 +149,6 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
     }
 
     /* -- internal method -- */
-
-    /**
-     * Create a listener that notify admin when the Duniter node connection is lost or retrieve
-     */
-    private WebsocketClientEndpoint.ConnectionListener createConnectionListeners() {
-        return new WebsocketClientEndpoint.ConnectionListener() {
-            private boolean errorNotified = false;
-
-            @Override
-            public void onSuccess() {
-                // Send notify on reconnection
-                if (errorNotified) {
-                    errorNotified = false;
-                    adminService.notifyAdmin(UserEvent.newBuilder(UserEvent.EventType.INFO, UserEventCodes.NODE_BMA_UP.name())
-                            .setMessage(I18n.n("duniter.user.event.NODE_BMA_UP"),
-                                    pluginSettings.getDuniterNodeHost(),
-                                    String.valueOf(pluginSettings.getDuniterNodePort()),
-                                    pluginSettings.getClusterName())
-                            .build());
-                }
-            }
-
-            @Override
-            public void onError(Exception e, long lastTimeUp) {
-                if (errorNotified) return; // already notify
-
-                // Wait 1 min, then notify admin (once)
-                long now = System.currentTimeMillis() / 1000;
-                boolean wait = now - lastTimeUp < 60;
-                if (!wait) {
-                    errorNotified = true;
-                    adminService.notifyAdmin(UserEvent.newBuilder(UserEvent.EventType.ERROR, UserEventCodes.NODE_BMA_DOWN.name())
-                            .setMessage(I18n.n("duniter.user.event.NODE_BMA_DOWN"),
-                                    pluginSettings.getDuniterNodeHost(),
-                                    String.valueOf(pluginSettings.getDuniterNodePort()),
-                                    pluginSettings.getClusterName(),
-                                    String.valueOf(lastTimeUp))
-                            .build());
-                }
-            }
-        };
-    }
 
     private void processTx(BlockchainBlock block, BlockchainBlock.Transaction tx) {
         Set<String> senders = ImmutableSet.copyOf(tx.getIssuers());

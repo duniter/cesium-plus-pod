@@ -30,7 +30,6 @@ import org.elasticsearch.common.component.*;
 import org.elasticsearch.common.inject.Inject;
 
 import java.util.Collection;
-import java.util.List;
 
 /**
  * Access to configuration options
@@ -219,12 +218,12 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.getClusterName();
     }
 
-    public String getNodeBmaHost() {
-        return delegate.getNodeBmaHost();
+    public String getDuniterNodeHost() {
+        return delegate.getDuniterNodeHost();
     }
 
-    public int getNodeBmaPort() {
-        return delegate.getNodeBmaPort();
+    public int getDuniterNodePort() {
+        return delegate.getDuniterNodePort();
     }
 
     public int getIndexBulkSize() {

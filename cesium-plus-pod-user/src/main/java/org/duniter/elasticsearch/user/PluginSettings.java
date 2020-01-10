@@ -200,11 +200,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.getClusterRemoteUrlOrNull();
     }
 
-    public String getNodeBmaHost() {
+    public String getDuniterNodeHost() {
         return delegate.getDuniterNodeHost();
     }
 
-    public int getNodeBmaPort() {
+    public int getDuniterNodePort() {
         return delegate.getDuniterNodePort();
     }
 
