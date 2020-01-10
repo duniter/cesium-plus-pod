@@ -30,7 +30,17 @@ import org.duniter.elasticsearch.model.SynchroResult;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 
+import java.util.Comparator;
+
 public interface SynchroAction {
+
+    int EXECUTION_ORDER_FIRST = 0;
+    int EXECUTION_ORDER_MIDDLE = 50;
+    int EXECUTION_ORDER_END = 100;
+
+    int EXECUTION_ORDER_DEFAULT = EXECUTION_ORDER_MIDDLE;
+
+    Comparator<SynchroAction> EXECUTION_ORDER_COMPARATOR = Comparator.comparingInt(SynchroAction::getExecutionOrder);
 
     interface SourceConsumer {
         void accept(String id, JsonNode source, SynchroActionResult result) throws Exception;
@@ -39,6 +49,13 @@ public interface SynchroAction {
     EndpointApi getEndPointApi();
 
     ChangeSource getChangeSource();
+
+    /**
+     * An execution order, use to sort synchro actions between them, before execution.
+     * Useful to make sure some synchro actions are executed AFTER another action
+     * @return
+     */
+    int getExecutionOrder();
 
     void handleSynchronize(Peer peer,
                       long fromTime,

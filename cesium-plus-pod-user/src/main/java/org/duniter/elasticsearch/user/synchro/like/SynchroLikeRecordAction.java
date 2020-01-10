@@ -32,6 +32,7 @@ import org.duniter.elasticsearch.exception.DuniterElasticsearchException;
 import org.duniter.elasticsearch.exception.InvalidFormatException;
 import org.duniter.elasticsearch.exception.InvalidSignatureException;
 import org.duniter.elasticsearch.exception.NotFoundException;
+import org.duniter.elasticsearch.synchro.SynchroAction;
 import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
@@ -39,9 +40,13 @@ import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.LikeRecord;
 import org.duniter.elasticsearch.user.service.LikeService;
 import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
+import org.duniter.elasticsearch.user.synchro.group.SynchroGroupRecordAction;
 import org.elasticsearch.common.inject.Inject;
 
 public class SynchroLikeRecordAction extends AbstractSynchroUserAction {
+
+    // Execute at the very end
+    public static final int EXECUTION_ORDER = SynchroAction.EXECUTION_ORDER_END;
 
     private LikeService service;
 
@@ -55,14 +60,15 @@ public class SynchroLikeRecordAction extends AbstractSynchroUserAction {
         super(service.INDEX, service.RECORD_TYPE, client, pluginSettings, cryptoService, threadPool);
         this.service = service;
 
-        addValidationListener(this::onValidate);
-
-        setTimeFieldName(LikeRecord.PROPERTY_TIME);
-
-        synchroService.register(this);
+        setExecutionOrder(EXECUTION_ORDER);
 
         // Disable signature validation, as anonymous issuer can occur
         setEnableSignatureValidation(false);
+
+        addValidationListener(this::onValidate);
+
+        synchroService.register(this);
+
     }
 
     /* -- protected method -- */

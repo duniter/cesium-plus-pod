@@ -39,6 +39,7 @@ import org.elasticsearch.search.SearchHit;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -115,7 +116,9 @@ public interface Duniter4jClient extends Bean, Client {
                                             int bulkSize,
                                             boolean flushAll);
 
-    void safeExecuteRequest(ActionRequestBuilder<?, ?, ?> request, boolean wait);
+    <T extends ActionResponse> Optional<T> safeExecuteRequest(ActionRequestBuilder<?, T, ?> request, boolean wait);
+
+    <T extends ActionResponse> ListenableActionFuture<T> safeExecuteRequest(ActionRequestBuilder<?, T, ?> request);
 
     ScheduledThreadPoolExecutor scheduler();
 }

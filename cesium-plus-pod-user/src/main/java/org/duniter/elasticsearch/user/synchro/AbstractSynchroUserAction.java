@@ -6,6 +6,7 @@ import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.synchro.AbstractSynchroAction;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.duniter.elasticsearch.user.service.UserService;
 
 public abstract class AbstractSynchroUserAction extends AbstractSynchroAction {
 
@@ -39,4 +40,19 @@ public abstract class AbstractSynchroUserAction extends AbstractSynchroAction {
     public EndpointApi getEndPointApi() {
         return endpointApi;
     }
+
+    /* -- internal methods -- */
+
+    protected boolean hasUserProfile(final String pubkey) {
+       return client.isDocumentExists(UserService.INDEX, UserService.PROFILE_TYPE, pubkey);
+    }
+
+    protected boolean hasUserSettings(final String pubkey) {
+        return client.isDocumentExists(UserService.INDEX, UserService.SETTINGS_TYPE, pubkey);
+    }
+
+    protected boolean hasUserSettingsOrProfile(final String pubkey) {
+        return hasUserSettings(pubkey) || hasUserProfile(pubkey);
+    }
+
 }

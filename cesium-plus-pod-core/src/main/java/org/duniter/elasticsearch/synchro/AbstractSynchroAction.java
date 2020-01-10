@@ -92,6 +92,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
     private String versionFieldName = Record.PROPERTY_TIME;
     private String timeFieldName = versionFieldName;
     private ChangeSource changeSource;
+    private int executionOrder = SynchroAction.EXECUTION_ORDER_DEFAULT;
 
     private HttpService httpService;
 
@@ -706,4 +707,14 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
         this.enableTimeValidation = enableTimeValidation;
     }
 
+    @Override
+    public int getExecutionOrder() {
+        return executionOrder;
+    }
+
+    protected void setExecutionOrder(int order) {
+        Preconditions.checkArgument(order >= SynchroAction.EXECUTION_ORDER_FIRST, "Min value: " + SynchroAction.EXECUTION_ORDER_FIRST);
+
+        this.executionOrder = order;
+    }
 }

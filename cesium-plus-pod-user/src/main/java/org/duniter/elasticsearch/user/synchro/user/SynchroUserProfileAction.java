@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.AccessDeniedException;
+import org.duniter.elasticsearch.synchro.SynchroAction;
 import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
@@ -38,6 +39,13 @@ import java.util.Objects;
 
 public class SynchroUserProfileAction extends AbstractSynchroUserAction {
 
+    // Execute at start
+    public static final int EXECUTION_ORDER = Math.max(
+            SynchroAction.EXECUTION_ORDER_FIRST,
+            // But after user settings (because settings are more useful by end user)
+            SynchroUserSettingsAction.EXECUTION_ORDER + 1
+    );
+
     @Inject
     public SynchroUserProfileAction(Duniter4jClient client,
                                     PluginSettings pluginSettings,
@@ -45,6 +53,9 @@ public class SynchroUserProfileAction extends AbstractSynchroUserAction {
                                     ThreadPool threadPool,
                                     SynchroService synchroService) {
         super(UserService.INDEX, UserService.PROFILE_TYPE, client, pluginSettings, cryptoService, threadPool);
+
+        // Set the execution order
+        setExecutionOrder(EXECUTION_ORDER);
 
         setEnableUpdate(true); // with update
 

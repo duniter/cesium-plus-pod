@@ -24,15 +24,22 @@ package org.duniter.elasticsearch.user.synchro.page;
 
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.duniter.elasticsearch.synchro.SynchroAction;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
 import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
 import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
+import org.duniter.elasticsearch.user.synchro.user.SynchroUserProfileAction;
 import org.elasticsearch.common.inject.Inject;
 
 public class SynchroPageRecordAction extends AbstractSynchroUserAction {
+
+    // Execute AFTER user profile (and with a medium priority)
+    public static final int EXECUTION_ORDER = Math.max(
+            SynchroUserProfileAction.EXECUTION_ORDER + 1,
+            SynchroAction.EXECUTION_ORDER_MIDDLE);
 
     @Inject
     public SynchroPageRecordAction(Duniter4jClient client,
@@ -41,6 +48,8 @@ public class SynchroPageRecordAction extends AbstractSynchroUserAction {
                                    ThreadPool threadPool,
                                    SynchroService synchroService) {
         super(PageIndexDao.INDEX, PageRecordDao.TYPE, client, pluginSettings, cryptoService, threadPool);
+
+        setExecutionOrder(EXECUTION_ORDER);
 
         setEnableUpdate(true); // with update
 

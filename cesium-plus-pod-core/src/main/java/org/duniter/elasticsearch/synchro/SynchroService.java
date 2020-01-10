@@ -23,10 +23,10 @@ package org.duniter.elasticsearch.synchro;
  */
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.EndpointApi;
@@ -52,7 +52,6 @@ import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
-import java.io.Closeable;
 import java.text.DateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +74,7 @@ public class SynchroService extends AbstractService {
     private final NetworkService networkService;
 
     private boolean forceFullResync = false;
-    private MutableBoolean synchronizing = new MutableBoolean(false);
+    private boolean synchronizing = false;
 
     @Inject
     public SynchroService(Duniter4jClient client,
@@ -159,25 +158,25 @@ public class SynchroService extends AbstractService {
     }
 
     public void safeSynchronize() {
-        if (synchronizing.getValue()) {
-            logger.warn("Previous synchronization still running... Skipping this call");
+        if (synchronizing) {
+            logger.warn("Previous synchronization still running. Skipping execution.");
             return;
         }
 
-        try {
-            synchronized(synchronizing) {
-                synchronizing.setValue(true);
-            }
+        // Can only run once
+        synchronized(this) {
+            try {
 
-            synchronize();
-        }
-        catch(Throwable e) {
-            logger.error(String.format("Failed to execute synchronization: %s", e.getMessage()), e);
-            // Continue
-        }
-        finally {
-            synchronized(synchronizing) {
-                synchronizing.setValue(false);
+                synchronizing = true;
+
+                synchronize();
+            }
+            catch(Throwable e) {
+                logger.error(String.format("Failed to execute synchronization: %s", e.getMessage()), e);
+                // Continue
+            }
+            finally {
+                synchronizing = false;
             }
         }
     }
@@ -196,7 +195,7 @@ public class SynchroService extends AbstractService {
             currencyIds = currencyDao.getAllIds();
         }
         catch (Exception e) {
-            logger.error("Could not retrieve indexed currencies", e);
+            logger.error("Could not load indexed currencies", e);
             currencyIds = null;
         }
 
@@ -205,18 +204,34 @@ public class SynchroService extends AbstractService {
             return;
         }
 
-        currencyIds.forEach(currencyId -> includeEndpointApis.forEach(peerApiFilter -> {
 
-            logger.info(String.format("[%s] [%s] Starting synchronization from network... {peers discovery: %s}", currencyId, peerApiFilter.name(), pluginSettings.enableSynchroDiscovery()));
 
-            // Get peers for currencies and API
-            Collection<Peer> peers = networkService.getPeersFromApi(currencyId, peerApiFilter);
+        currencyIds.forEach(currencyId -> includeEndpointApis.forEach(endpointApi -> {
+
+            String logPrefix = String.format("[%s] [%s]", currencyId, endpointApi.name());
+            long startTimeMs = System.currentTimeMillis();
+
+            logger.info(String.format("%s Synchronization... {peers discovery: %s}", logPrefix, pluginSettings.enableSynchroDiscovery()));
+
+            // Get peers for this currency and current API
+            Collection<Peer> peers = networkService.getPeersFromApi(currencyId, endpointApi);
+
+            // If full resync (= only possible at startup), then use only one peer (the first one, usually from the configuration)
+            if (forceFullResync && CollectionUtils.size(peers) > 0) {
+                Peer firstPeer = peers.iterator().next();
+                peers = ImmutableList.of(firstPeer);
+                logger.debug(String.format("%s Full synchronization will be limited to first peer found {%s}", logPrefix, firstPeer));
+            }
+
+            // Execute the synchronization, on each peer
             if (CollectionUtils.isNotEmpty(peers)) {
                 peers.forEach(p -> synchronizePeer(p, enableSynchroWebsocket));
-                logger.info(String.format("[%s] [%s] Synchronization [OK]", currencyId, peerApiFilter.name()));
-            } else {
-                logger.info(String.format("[%s] [%s] Synchronization [OK] (no source peer found)", currencyId, peerApiFilter.name()));
             }
+
+            long executionTimeMs = System.currentTimeMillis() - startTimeMs;
+            logger.info(String.format("%s Synchronization [OK] - %s peers in %s ms", logPrefix,
+                    CollectionUtils.size(peers),
+                    executionTimeMs));
         }));
     }
 
@@ -262,7 +277,10 @@ public class SynchroService extends AbstractService {
         // Execute actions
         MutableInt failureCounter = new MutableInt(0);
         List<SynchroAction> executedActions = actions.stream()
+                // Filter on the expected api
                 .filter(a -> a.getEndPointApi().name().equals(peer.getApi()))
+                // Sort by execution order
+                .sorted(SynchroAction.EXECUTION_ORDER_COMPARATOR)
                 .map(a -> {
                     try {
                         a.handleSynchronize(peer, fromTime, result);

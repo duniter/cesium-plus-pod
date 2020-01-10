@@ -1069,9 +1069,20 @@ public class Duniter4jClientImpl implements Duniter4jClient {
         client.close();
     }
 
-    public void safeExecuteRequest(ActionRequestBuilder<?, ?, ?> request, boolean wait) {
+    public <T extends ActionResponse> Optional<T> safeExecuteRequest(ActionRequestBuilder<?, T, ?> request, boolean wait) {
         // Execute in a pool
-        ListenableActionFuture<?> actionFuture = null;
+        ListenableActionFuture<T> actionFuture = safeExecuteRequest(request);
+
+        // Wait end of action, if need
+        if (wait && actionFuture != null) {
+            return Optional.of(actionFuture.actionGet());
+        }
+        return Optional.empty();
+    }
+
+    public <T extends ActionResponse> ListenableActionFuture<T> safeExecuteRequest(ActionRequestBuilder<?, T, ?> request) {
+        // Execute in a pool
+        ListenableActionFuture<T> actionFuture = null;
         boolean acceptedInPool = false;
         long retryCounter = 0;
         while(!acceptedInPool) {
@@ -1097,9 +1108,7 @@ public class Duniter4jClientImpl implements Duniter4jClient {
                 }
             }
         }
-        // Wait end of action, if need
-        if (wait && actionFuture != null) {
-            actionFuture.actionGet();
-        }
+
+        return actionFuture;
     }
 }

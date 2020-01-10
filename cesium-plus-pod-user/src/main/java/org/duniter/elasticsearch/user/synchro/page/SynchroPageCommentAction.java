@@ -22,17 +22,29 @@ package org.duniter.elasticsearch.user.synchro.page;
  * #L%
  */
 
+import com.fasterxml.jackson.databind.JsonNode;
+import org.duniter.core.client.model.elasticsearch.RecordComment;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.duniter.elasticsearch.synchro.SynchroAction;
+import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.page.PageCommentDao;
 import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
+import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
+import org.duniter.elasticsearch.user.execption.UserProfileNotFoundException;
+import org.duniter.elasticsearch.user.service.PageService;
 import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
 public class SynchroPageCommentAction extends AbstractSynchroUserAction {
+
+    // Execute AFTER page record (and with a medium priority)
+    public static final int EXECUTION_ORDER = Math.max(
+            SynchroPageRecordAction.EXECUTION_ORDER + 1,
+            SynchroAction.EXECUTION_ORDER_MIDDLE);
 
     @Inject
     public SynchroPageCommentAction(Duniter4jClient client,
@@ -42,9 +54,22 @@ public class SynchroPageCommentAction extends AbstractSynchroUserAction {
                                     SynchroService synchroService) {
         super(PageIndexDao.INDEX, PageCommentDao.TYPE, client, pluginSettings, cryptoService, threadPool);
 
+        setExecutionOrder(EXECUTION_ORDER);
+
         setEnableUpdate(true); // with update
+
+        addValidationListener(this::onValidate);
 
         synchroService.register(this);
     }
 
+    protected void onValidate(String id, JsonNode source, SynchroActionResult result) {
+
+        String recordId = source.get(RecordComment.PROPERTY_RECORD).asText();
+
+        // Check issuer has a user profile
+        if (client.isDocumentExists(PageIndexDao.INDEX, PageRecordDao.TYPE, recordId)) {
+            throw new UserProfileNotFoundException(String.format("Comment on an unknown page {%}.", recordId));
+        }
+    }
 }

@@ -27,6 +27,7 @@ import org.duniter.core.client.model.elasticsearch.DeleteRecord;
 import org.duniter.core.service.CryptoService;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.NotFoundException;
+import org.duniter.elasticsearch.synchro.SynchroAction;
 import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
@@ -36,6 +37,9 @@ import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
 public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
+
+    // Execute at beginning (because can have delete THEN recreate the same document's id)
+    public static final int EXECUTION_ORDER = SynchroAction.EXECUTION_ORDER_FIRST;
 
     private HistoryService service;
     @Inject
@@ -47,6 +51,8 @@ public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
                                      HistoryService service) {
         super(service.INDEX, service.DELETE_TYPE, client, pluginSettings, cryptoService, threadPool);
         this.service = service;
+
+        setExecutionOrder(EXECUTION_ORDER);
 
         addValidationListener(this::onValidate);
         addInsertionListener(this::onInsert);
@@ -64,7 +70,9 @@ public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
             service.checkIsValidDeletion(source, true/* Allow old deletion documents*/);
 
         } catch(NotFoundException e) {
-            // doc not exists: continue
+            // doc not exists:
+            // - keep it in the history index, because can be sent to other peers
+            // - deletion will not be applied (see onInsert() method)
         }
     }
 

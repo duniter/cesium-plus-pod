@@ -177,10 +177,9 @@ public class UserEventService extends AbstractService implements ChangeService.C
             logger.trace(eventJson);
         }
 
-        return client.prepareIndex(INDEX, EVENT_TYPE)
+        return client.safeExecuteRequest(client.prepareIndex(INDEX, EVENT_TYPE)
                 .setSource(eventJson)
-                .setRefresh(false)
-                .execute();
+                .setRefresh(false));
     }
 
 

@@ -84,7 +84,9 @@ public class ScheduledActionFuture<T> implements ActionFuture<T>, ScheduledFutur
         canceled = true;
         if (delegate != null) {
             synchronized (delegate) {
-                return delegate.cancel(mayInterruptIfRunning);
+                if (delegate != null) {
+                    return delegate.cancel(mayInterruptIfRunning);
+                }
             }
         }
         return true;
@@ -93,8 +95,10 @@ public class ScheduledActionFuture<T> implements ActionFuture<T>, ScheduledFutur
     @Override
     public boolean isCancelled() {
         if (!canceled && delegate != null) {
-            synchronized (delegate) {
-                return delegate.isCancelled();
+            synchronized (this) {
+                if (delegate != null) {
+                    return delegate.isCancelled();
+                }
             }
         }
         return canceled;
@@ -102,27 +106,21 @@ public class ScheduledActionFuture<T> implements ActionFuture<T>, ScheduledFutur
 
     @Override
     public boolean isDone() {
-        synchronized (delegate) {
-            return delegate.isDone();
-        }
+        return delegate.isDone();
     }
 
     @Override
     public T get() throws InterruptedException, ExecutionException {
-        synchronized (delegate) {
-            return delegate.get();
-        }
+        return delegate.get();
     }
 
     @Override
     public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-        synchronized (delegate) {
-            return delegate.get(timeout, unit);
-        }
+        return delegate.get(timeout, unit);
     }
 
     public <V extends T> void setDelegate(ScheduledFuture<V> delegate) {
-        synchronized (delegate) {
+        synchronized (this) {
             this.delegate = delegate;
         }
     }
@@ -130,16 +128,12 @@ public class ScheduledActionFuture<T> implements ActionFuture<T>, ScheduledFutur
 
     @Override
     public long getDelay(TimeUnit timeUnit) {
-        synchronized (delegate) {
-            return delegate.getDelay(timeUnit);
-        }
+        return delegate.getDelay(timeUnit);
     }
 
     @Override
     public int compareTo(Delayed delayed) {
-        synchronized (delegate) {
-            return delegate.compareTo(delayed);
-        }
+        return delegate.compareTo(delayed);
     }
 
 
