@@ -247,16 +247,25 @@ public class DocStatService extends AbstractService  {
 
         SearchRequestBuilder searchRequest = client.prepareSearch(DocStatDao.OLD_INDEX)
                 .setTypes(DocStatDao.OLD_TYPE)
+                .setScroll("1m")
                 .setSize(size)
                 .setFetchSource(true);
 
         try {
             int from = 0;
             long total = -1;
+            String scrollId = null;
+            SearchResponse response = null;
 
             do {
-                SearchResponse response = searchRequest.setFrom(from)
-                        .execute().actionGet();
+                if (scrollId == null) {
+                    response = searchRequest.setFrom(from)
+                            .execute().actionGet();
+                    scrollId = response.getScrollId();
+                }
+                else {
+                    response = client.prepareSearchScroll(scrollId).get();
+                }
 
                 // Read response
                 SearchHit[] searchHits = response.getHits().getHits();
@@ -288,8 +297,13 @@ public class DocStatService extends AbstractService  {
             // last flush
             client.flushBulk(bulkRequest);
 
+            // Clear scroll (async)
+            if (scrollId != null) {
+                client.prepareClearScroll().addScrollId(scrollId).execute();
+            }
+
             logger.info(String.format("Document stats migration succeed. %s stats migrated in %s ms. Deleting old index...",
-                    from,
+                    total,
                     System.currentTimeMillis() - now));
 
         } catch (Exception e) {
