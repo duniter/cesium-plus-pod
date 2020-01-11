@@ -51,7 +51,7 @@ import java.util.List;
 public class PendingMembershipDaoImpl extends AbstractDao implements PendingMembershipDao {
 
     public PendingMembershipDaoImpl(){
-        super("duniter.dao.membership.pending");
+        super("duniter.dao.pending");
     }
 
     @Override

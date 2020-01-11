@@ -74,7 +74,7 @@ public class PendingMembershipService extends AbstractService  {
                                     PendingMembershipDao pendingMembershipDao,
                                     PeerService peerService,
                                     final ServiceLocator serviceLocator) {
-        super("duniter.blockchain.membership.pending", client, pluginSettings, cryptoService);
+        super("duniter.core", client, pluginSettings, cryptoService);
 
         this.threadPool = threadPool;
         this.pendingMembershipDao = pendingMembershipDao;
