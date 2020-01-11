@@ -308,7 +308,10 @@ public class DocStatService extends AbstractService  {
 
         } catch (Exception e) {
             // Failed or no item on index
-            logger.error(String.format("Error while doc stats migration: %s. Skipping migration.", e.getMessage()), e);
+            logger.error(String.format("Error while doc stats migration: %s. Rollback migration.", e.getMessage()), e);
+
+            // Clean the new index (to avoid duplicated entries next time migration is executed)
+            deleteIndex().createIndexIfNotExists();
 
             // Do NOT delete if something wrong occur !
             return this;
