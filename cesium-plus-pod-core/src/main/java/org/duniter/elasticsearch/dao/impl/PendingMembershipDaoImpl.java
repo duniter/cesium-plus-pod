@@ -31,6 +31,7 @@ import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.elasticsearch.dao.AbstractDao;
 import org.duniter.elasticsearch.dao.PendingMembershipDao;
+import org.duniter.elasticsearch.dao.SaveResult;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -114,14 +115,15 @@ public class PendingMembershipDaoImpl extends AbstractDao implements PendingMemb
 
 
     @Override
-    public void save(String currencyId, List<WotPendingMembership> memberships) {
+    public SaveResult save(String currencyId, List<WotPendingMembership> memberships) {
 
         long now = System.currentTimeMillis();
         if (logger.isDebugEnabled())
             logger.debug(String.format("[%s] Saving %s pending memberships...", currencyId, CollectionUtils.size(memberships)));
 
         int bulkSize = pluginSettings.getIndexBulkSize();
-        int counter = 0;
+        int insertions = 0;
+        int updates = 0;
         ObjectMapper objectMapper = getObjectMapper();
 
         BulkRequestBuilder bulkRequest = client.prepareBulk();
@@ -137,33 +139,38 @@ public class PendingMembershipDaoImpl extends AbstractDao implements PendingMemb
                                     .setId(docId)
                                     .setSource(objectMapper.writeValueAsBytes(m))
                     );
+                    insertions++;
                 }
                 // Add update to bulk
                 else {
                     bulkRequest.add(
-                            client.prepareUpdate(currencyId, TYPE,docId)
+                            client.prepareUpdate(currencyId, TYPE, docId)
                                     .setDoc(objectMapper.writeValueAsBytes(m))
                     );
+                    updates++;
                 }
-                counter++;
+
+                // Flush the bulk if not empty
+                if (bulkRequest.numberOfActions() % bulkSize == 0) {
+                    client.flushBulk(bulkRequest);
+                    bulkRequest = client.prepareBulk();
+                }
             } catch (Exception e) {
                 throw new TechnicalException(e);
             }
-
-            // Flush the bulk if not empty
-            if ((counter % bulkSize) == 0) {
-                client.flushBulk(bulkRequest);
-                bulkRequest = client.prepareBulk();
-            }
         }
 
-        // Flush the bulk if not empty
-        if (counter > 0 && (counter % bulkSize) != 0) {
-            client.flushBulk(bulkRequest);
-        }
+        // Final flush
+        client.flushBulk(bulkRequest);
+
+        SaveResult result = new SaveResult();
+        result.addInserts(currencyId, TYPE, insertions);
+        result.addUpdates(currencyId, TYPE, updates);
 
         if (logger.isDebugEnabled())
-            logger.debug(String.format("[%s] %s pending memberships saved in %s ms", currencyId, CollectionUtils.size(memberships), System.currentTimeMillis() - now));
+            logger.debug(String.format("[%s] Pending memberships saved in %s ms - %s", currencyId, CollectionUtils.size(memberships), System.currentTimeMillis() - now, result.toString()));
+
+        return result;
     }
 
     @Override

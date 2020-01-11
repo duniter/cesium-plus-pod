@@ -232,34 +232,31 @@ public class DocStatService extends AbstractService  {
     }
 
 
-    String OLD_INDEX = "docstat";
-    String OLD_TYPE = "record";
-
-
     public DocStatService startDataMigration() {
-        if (!client.existsIndex(OLD_INDEX)) return this; // Skip migration
+        if (!client.existsIndex(DocStatDao.OLD_INDEX)) return this; // Skip migration
 
         // Skip if empty
         if (CollectionUtils.isEmpty(statDefs)) return this;
 
-        logger.info(String.format("Start document stats migration from {%s/%s} to {%s/%s}...", OLD_INDEX, OLD_TYPE, DocStatDao.INDEX, DocStatDao.TYPE));
+        logger.info(String.format("Start document stats migration from {%s/%s} to {%s/%s}...",
+                DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE, DocStatDao.INDEX, DocStatDao.TYPE));
 
-        int bulkSize = pluginSettings.getIndexBulkSize();
+        int size = Math.min(1000, pluginSettings.getIndexBulkSize());
         long now = System.currentTimeMillis()/1000;
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
-        SearchRequestBuilder searchRequest = client.prepareSearch(OLD_INDEX)
-                .setTypes(OLD_TYPE)
-                .setSize(bulkSize)
+        SearchRequestBuilder searchRequest = client.prepareSearch(DocStatDao.OLD_INDEX)
+                .setTypes(DocStatDao.OLD_TYPE)
+                .setSize(size)
                 .setFetchSource(true);
 
         try {
-            int counter = 0;
-            boolean loop = true;
-            searchRequest.setFrom(counter);
-            SearchResponse response = searchRequest.execute().actionGet();
+            int from = 0;
+            long total = -1;
 
             do {
+                SearchResponse response = searchRequest.setFrom(from)
+                        .execute().actionGet();
 
                 // Read response
                 SearchHit[] searchHits = response.getHits().getHits();
@@ -274,37 +271,25 @@ public class DocStatService extends AbstractService  {
                         stat.setQueryName(null); // was not exists in old index
 
                         // Add insertion into bulk
-                        IndexRequestBuilder request = docStatDao.prepareIndex(stat);
-                        bulkRequest.add(request);
-                        counter++;
-
-                        // Flush the bulk if not empty
-                        if ((counter % bulkSize) == 0) {
-                            client.flushBulk(bulkRequest);
-                            bulkRequest = client.prepareBulk();
-                        }
+                        bulkRequest.add(docStatDao.prepareIndex(stat));
                     }
                 }
 
+                // Flush the bulk if not empty
+                client.flushBulk(bulkRequest);
+                bulkRequest = client.prepareBulk();
+
                 // Prepare next iteration
-                if (counter == 0 || counter >= response.getHits().getTotalHits()) {
-                    loop = false;
-                }
-                // Prepare next iteration
-                else {
-                    searchRequest.setFrom(counter);
-                    response = searchRequest.execute().actionGet();
-                }
+                from += size;
+                if (total == -1) total = response.getHits().getTotalHits();
             }
-            while(loop);
+            while(from < total);
 
             // last flush
-            if ((counter % bulkSize) != 0) {
-                client.flushBulk(bulkRequest);
-            }
+            client.flushBulk(bulkRequest);
 
             logger.info(String.format("Document stats migration succeed. %s stats migrated in %s ms. Deleting old index...",
-                    counter,
+                    from,
                     System.currentTimeMillis() - now));
 
         } catch (Exception e) {
@@ -317,7 +302,7 @@ public class DocStatService extends AbstractService  {
 
         // Delete the old index
         threadPool.scheduleOnClusterReady(() -> {
-            client.deleteIndexIfExists(OLD_INDEX);
+            client.deleteIndexIfExists(DocStatDao.OLD_INDEX);
         }).actionGet();
 
         return this;

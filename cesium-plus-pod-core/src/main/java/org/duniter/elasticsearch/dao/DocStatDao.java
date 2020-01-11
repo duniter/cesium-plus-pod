@@ -35,6 +35,11 @@ public interface DocStatDao extends IndexTypeDao<DocStatDao>{
     String INDEX = "document";
     String TYPE = "stats";
 
+    @Deprecated
+    String OLD_INDEX = "docstat";
+    @Deprecated
+    String OLD_TYPE = "record";
+
     long countDoc(String index, @Nullable String type);
 
     long countDoc(String index, @Nullable String type, QueryBuilder queryBuilder);

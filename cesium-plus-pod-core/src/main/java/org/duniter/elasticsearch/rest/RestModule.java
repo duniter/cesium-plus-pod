@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.rest;
 
 import org.duniter.elasticsearch.rest.attachment.RestImageAttachmentAction;
 import org.duniter.elasticsearch.rest.blockchain.*;
+import org.duniter.elasticsearch.rest.docstat.RestDocStatSearchAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeeringGetAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPeersPostAction;
 import org.duniter.elasticsearch.rest.network.RestNetworkPeersGetAction;
@@ -78,6 +79,9 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestWotLookupGetAction.class).asEagerSingleton();
         bind(RestWotMembersGetAction.class).asEagerSingleton();
         bind(RestWotPendingGetAction.class).asEagerSingleton();
+
+        // Doc stats backward compatibility
+        bind(RestDocStatSearchAction.class).asEagerSingleton();
 
 
     }

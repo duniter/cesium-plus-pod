@@ -23,18 +23,13 @@ package org.duniter.elasticsearch.service;
  */
 
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.bma.WotPendingMembership;
-import org.duniter.core.client.model.bma.WotPendingMemberships;
 import org.duniter.core.client.model.bma.WotRequirements;
-import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.local.Peer;
-import org.duniter.core.client.service.bma.BlockchainRemoteService;
 import org.duniter.core.client.service.bma.WotRemoteService;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
@@ -44,21 +39,14 @@ import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.CurrencyExtendDao;
 import org.duniter.elasticsearch.dao.PendingMembershipDao;
-import org.duniter.elasticsearch.model.SynchroResult;
-import org.duniter.elasticsearch.rest.RestXContentBuilder;
+import org.duniter.elasticsearch.dao.SaveResult;
 import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.util.bytes.JsonNodeBytesReference;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.common.bytes.BytesArray;
-import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.xcontent.XContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentType;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -91,6 +79,7 @@ public class PendingMembershipService extends AbstractService  {
         this.threadPool = threadPool;
         this.pendingMembershipDao = pendingMembershipDao;
         this.currencyDao = (CurrencyExtendDao)currencyDao;
+        this.peerService = peerService;
 
         threadPool.scheduleOnStarted(() -> {
             this.wotRemoteService = serviceLocator.getWotRemoteService();
@@ -101,11 +90,10 @@ public class PendingMembershipService extends AbstractService  {
 
     public ScheduledActionFuture<?> startScheduling() {
         return threadPool.scheduleAtFixedRate(this::safeIndexAllCurrencies,
-                0,
-                //1, TimeUnit.HOURS
-                // TODO: change this ! DEV only
-                5, TimeUnit.MINUTES
-                );
+                // start in 5 min
+                5,
+                // Then every 30 minutes
+                30, TimeUnit.MINUTES);
     }
 
 
@@ -138,7 +126,6 @@ public class PendingMembershipService extends AbstractService  {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
         Preconditions.checkArgument(isReady(), "Cannot index pending memberships (service not started yet).");
-        Preconditions.checkArgument(!indexing, "Another indexation is running");
 
         String currencyId = peer.getCurrency();
         long startTimeMs = System.currentTimeMillis();
@@ -150,10 +137,10 @@ public class PendingMembershipService extends AbstractService  {
             logger.info(String.format("[%s] [%s] Indexing pending memberships [OK] 0 pending membership", currencyId, peer));
         }
 
-
         // Do save in index
-        pendingMembershipDao.save(currencyId, memberships);
+        SaveResult result = pendingMembershipDao.save(currencyId, memberships);
 
+        // TODO: load requirements for each membership
 //        for (WotPendingMembership ms: memberships) {
 //            try {
 //                XContentBuilder sourceRef = getMembershipWithRequirements(peer, ms, om, requestCounter);
@@ -175,7 +162,8 @@ public class PendingMembershipService extends AbstractService  {
 //
 //        client.flushBulk(bulkRequest);
 
-        logger.info(String.format("[%s] [%s] Indexing pending memberships [OK] in %s ms", peer.getCurrency(), peer,
+        logger.info(String.format("[%s] [%s] Indexing pending memberships [OK] %s in %s ms", peer.getCurrency(), peer,
+                result.toString(),
                 System.currentTimeMillis() - startTimeMs));
 
         return this;
@@ -202,7 +190,7 @@ public class PendingMembershipService extends AbstractService  {
             }
             catch(Throwable t) {
                 // Log, then continue
-                logger.error(t.getMessage());
+                logger.error("Failed to index pending memberships: " + t.getMessage(), t);
             }
             finally {
                 indexing = false;
@@ -232,17 +220,16 @@ public class PendingMembershipService extends AbstractService  {
 
     }
 
-    protected void indexByCurrency(String currencyId) {
-        logger.info(String.format("[%s] Indexing pendings...", currencyId));
+    protected void indexByCurrency(String currency) {
+        final String currencyId = safeGetCurrency(currency);
 
         // Choose a UP peer randomly
         Peer peer = getRandomUpPeerWithBma(currencyId);
         if (peer == null) {
-            logger.debug(String.format("[%s] No peer found. Skipping update pending memberships.", currencyId));
+            logger.info(String.format("[%s] Indexing pending memberships [Skipped] - No peer found", currencyId));
             return;
         }
         peer.setCurrency(currencyId);
-        logger.debug(String.format("[%s] Using peer {%s} for updating pending memberships", currencyId, peer));
 
         // Run the indexation
         indexFromPeer(peer);

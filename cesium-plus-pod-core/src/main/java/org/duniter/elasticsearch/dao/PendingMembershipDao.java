@@ -40,5 +40,5 @@ public interface PendingMembershipDao extends Bean, TypeDao<PendingMembershipDao
 
     List<WotPendingMembership> getPendingMemberships(String currencyId, int from, int size);
 
-    void save(String currencyId, List<WotPendingMembership> members);
+    SaveResult save(String currencyId, List<WotPendingMembership> members);
 }
