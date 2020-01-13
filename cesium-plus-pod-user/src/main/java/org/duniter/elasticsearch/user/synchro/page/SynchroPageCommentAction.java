@@ -69,7 +69,7 @@ public class SynchroPageCommentAction extends AbstractSynchroUserAction {
 
         // Check issuer has a user profile
         if (client.isDocumentExists(PageIndexDao.INDEX, PageRecordDao.TYPE, recordId)) {
-            throw new UserProfileNotFoundException(String.format("Comment on an unknown page {%}.", recordId));
+            throw new UserProfileNotFoundException(String.format("Comment on an unknown page {%s}.", recordId));
         }
     }
 }
