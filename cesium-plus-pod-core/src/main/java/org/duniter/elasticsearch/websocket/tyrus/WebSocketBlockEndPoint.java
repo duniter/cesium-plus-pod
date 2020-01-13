@@ -127,7 +127,7 @@ public class WebSocketBlockEndPoint implements ChangeService.ChangeListener{
 
     @Override
     public String getId() {
-        return session == null ? null : session.getId();
+        return "duniter.ws.block." + (session == null ? null : session.getId());
     }
 
     @Override

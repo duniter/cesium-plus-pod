@@ -54,6 +54,8 @@ import org.joda.time.DateTime;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 
 public class ChangeService {
 
@@ -70,7 +72,7 @@ public class ChangeService {
     private static final Map<String, ChangeListener> LISTENERS = new ConcurrentHashMap<>();
 
     private static Map<String, ChangeSource> LISTENERS_SOURCES = new ConcurrentHashMap<>();
-    private static Map<String, Integer> LISTENERS_SOURCES_USAGE_COUNT = new ConcurrentHashMap<>();
+    private static Map<String, LongAdder> LISTENERS_SOURCES_USAGE_COUNT = new ConcurrentHashMap<>();
 
     @Inject
     public ChangeService(final Settings settings, IndicesService indicesService) {
@@ -161,7 +163,9 @@ public class ChangeService {
 
                         private boolean apply(ChangeListener listener, ChangeEvent change) {
                             Collection<ChangeSource> sources = listener.getChangeSources();
-                            if (CollectionUtils.isEmpty(sources)) return true;
+
+                            // Exclude when no source defined
+                            if (CollectionUtils.isEmpty(sources)) return false;
 
                             for (ChangeSource source : sources) {
                                 if (source.apply(change.getIndex(), change.getType(), change.getId())) {
@@ -174,16 +178,14 @@ public class ChangeService {
 
                         private void emitChange(final ChangeEvent change) {
                             LISTENERS.values().parallelStream()
-                                    .filter(listener -> apply(listener, change))
-                                    .forEach(listener -> {
-                                        try {
-                                            if (apply(listener, change)) {
-                                                listener.onChange(change);
-                                            }
-                                        } catch (Exception e) {
-                                            log.error("Failed to emit change event on listener: " + listener.getClass().getName(), e);
-                                        }
-                                    });
+                                .filter(listener -> apply(listener, change))
+                                .forEach(listener -> {
+                                    try {
+                                        listener.onChange(change);
+                                    } catch (Exception e) {
+                                        log.error("Failed to emit change event on listener: " + listener.getClass().getName(), e);
+                                    }
+                                });
                         }
                     });
                 }
@@ -208,11 +210,10 @@ public class ChangeService {
                 String sourceKey = source.toString();
                 if (!LISTENERS_SOURCES.containsKey(sourceKey)) {
                     LISTENERS_SOURCES.put(sourceKey, source);
-                    LISTENERS_SOURCES_USAGE_COUNT.put(sourceKey, 1);
                 }
-                else {
-                    LISTENERS_SOURCES_USAGE_COUNT.put(sourceKey, LISTENERS_SOURCES_USAGE_COUNT.get(sourceKey)+1);
-                }
+                LISTENERS_SOURCES_USAGE_COUNT
+                        .computeIfAbsent(sourceKey, k -> new LongAdder())
+                        .increment();
             }
         }
         return listener;
@@ -236,9 +237,10 @@ public class ChangeService {
             for (ChangeSource source: listener.getChangeSources()) {
                 String sourceKey = source.toString();
                 if (LISTENERS_SOURCES.containsKey(sourceKey)) {
-                    int usageCount = LISTENERS_SOURCES_USAGE_COUNT.get(sourceKey) - 1;
+                    LongAdder usageCounter = LISTENERS_SOURCES_USAGE_COUNT.get(sourceKey);;
+                    long usageCount = usageCounter != null ? usageCounter.longValue() : 0;
                     if (usageCount > 0) {
-                        LISTENERS_SOURCES_USAGE_COUNT.put(sourceKey, usageCount);
+                        usageCounter.decrement();
                     }
                     else {
                         LISTENERS_SOURCES.remove(sourceKey);
@@ -249,8 +251,13 @@ public class ChangeService {
         }
     }
 
-    public Map<String, Integer> getUsageStatistics() {
-        return ImmutableMap.copyOf(LISTENERS_SOURCES_USAGE_COUNT);
+    public Map<String, Long> getUsageStatistics() {
+        return LISTENERS_SOURCES_USAGE_COUNT
+                .entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().longValue()
+                ));
     }
 
 }

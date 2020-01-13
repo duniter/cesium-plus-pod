@@ -129,7 +129,7 @@ public class NettyWebSocketPeerHandler extends NettyBaseWebSocketEndpoint implem
 
     @Override
     public String getId() {
-        return session == null ? null : session.getId();
+        return "duniter.ws.peer." + (session == null ? null : session.getId());
     }
 
     @Override

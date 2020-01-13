@@ -46,48 +46,66 @@ import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeEvents;
 import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
+import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.settings.Settings;
 
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @ServerEndpoint(value = "/_changes")
 public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
     public static Collection<ChangeSource> DEFAULT_SOURCES = null;
+
     private static ESLogger logger;
+    private static ThreadPool threadPool;
+    private Session session;
+    private Map<String, ChangeSource> sources;
+    private String sessionId;
 
     public static class Init {
 
         @Inject
-        public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings) {
+        public Init(TyrusWebSocketServer webSocketServer, PluginSettings pluginSettings,
+                    ThreadPool threadPoolInstance) {
             logger = Loggers.getLogger("duniter.ws.changes", pluginSettings.getSettings(), new String[0]);
-            webSocketServer.addEndPoint(WebSocketChangesEndPoint.class);
+            threadPool = threadPoolInstance;
+
+            // Init default sources
             final String[] sourcesStr = pluginSettings.getWebSocketChangesListenSource();
             List<ChangeSource> sources = new ArrayList<>();
             for(String sourceStr : sourcesStr) {
                 sources.add(new ChangeSource(sourceStr));
             }
             DEFAULT_SOURCES = sources;
+
+            // Register endpoint
+            webSocketServer.addEndPoint(WebSocketChangesEndPoint.class);
         }
     }
 
-    private Session session;
-    private Map<String, ChangeSource> sources;
 
     @OnOpen
     public void onOpen(Session session) {
-        logger.debug("Connected ... " + session.getId());
-        this.session = session;
-        this.sources = null;
-        ChangeService.registerListener(this);
+        if (logger.isDebugEnabled())
+            logger.debug(String.format("Opening websocket session id {%s}. Waiting for sources...", session.getId()));
+
+        synchronized (this) {
+            this.session = session;
+            this.sessionId = "duniter.ws.changes#" + session.getId();
+            this.sources = null;
+        }
+
+        // Wait 10s that sources
+        threadPool.schedule(() -> checkHasSourceOrClose(), 30, TimeUnit.SECONDS);
     }
 
     @Override
@@ -97,7 +115,7 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
     @Override
     public String getId() {
-        return session == null ? null : session.getId();
+        return sessionId;
     }
 
     @Override
@@ -113,35 +131,59 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
     @OnClose
     public void onClose(CloseReason reason) {
-        logger.debug("Closing websocket: "+reason);
-        ChangeService.unregisterListener(this);
+        if (logger.isDebugEnabled()) logger.debug(String.format("Closing websocket session, id {%s}: %s",  sessionId,  reason));
+        synchronized (this) {
+            ChangeService.unregisterListener(this);
+        }
         this.session = null;
     }
 
     @OnError
     public void onError(Throwable t) {
-        logger.error("Error on websocket "+(session == null ? null : session.getId()), t);
+        logger.error(String.format("Error on websocket session, id {%s}", sessionId), t);
     }
 
 
     /* -- internal methods -- */
 
+    private void checkHasSourceOrClose() {
+        synchronized (this) {
+            if (session != null && MapUtils.isEmpty(sources)) {
+                try {
+                    session.close(new CloseReason(CloseReason.CloseCodes.UNEXPECTED_CONDITION, "Missing changes sources to listen (must be given before 10s)"));
+                }
+                catch (IOException e) {
+                    logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
+                    ChangeService.unregisterListener(this); // Make sure to unregistrer anyway
+                }
+            }
+        }
+    }
+
     private void addSourceFilter(String filter) {
 
         ChangeSource source = new ChangeSource(filter);
         if (source.isEmpty()) {
-            logger.debug("Rejecting changes filter (seems to be empty): " + filter);
+            if (logger.isDebugEnabled()) logger.debug("Rejecting changes filter (seems to be empty): " + filter);
             return;
         }
 
         String sourceKey = source.toString();
-        if (sources == null || !sources.containsKey(sourceKey)) {
-            logger.debug("Adding changes filter: " + filter);
-            if (sources == null) {
-                sources = Maps.newHashMap();
+        synchronized (this) {
+            if (sources == null || !sources.containsKey(sourceKey)) {
+                if (logger.isDebugEnabled())
+                    logger.debug(String.format("Adding changes {%s}, id {%s}", filter, sessionId));
+                if (sources == null) {
+                    sources = Maps.newHashMap();
+                    sources.put(sourceKey, source);
+                    ChangeService.registerListener(this);
+                }
+                else {
+                    // Replace the sourceKey, then refresh the listener registration
+                    sources.put(sourceKey, source);
+                    ChangeService.refreshListener(this);
+                }
             }
-            sources.put(sourceKey, source);
-            ChangeService.refreshListener(this);
         }
     }
 }

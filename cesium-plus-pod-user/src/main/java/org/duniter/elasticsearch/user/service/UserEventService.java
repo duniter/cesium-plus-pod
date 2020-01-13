@@ -83,15 +83,11 @@ public class UserEventService extends AbstractService implements ChangeService.C
     private static final List<ChangeSource> CHANGE_LISTEN_SOURCES = ImmutableList.of(new ChangeSource(INDEX, EVENT_TYPE));
 
     public static void registerListener(UserEventListener listener) {
-        synchronized (LISTENERS) {
-            LISTENERS.put(listener.getId(), listener);
-        }
+        LISTENERS.put(listener.getId(), listener);
     }
 
     public static synchronized void unregisterListener(UserEventListener listener) {
-        synchronized (LISTENERS) {
-            LISTENERS.remove(listener.getId());
-        }
+        LISTENERS.remove(listener.getId());
     }
 
     private final ThreadPool threadPool;
@@ -510,16 +506,13 @@ public class UserEventService extends AbstractService implements ChangeService.C
 
         event.setId(eventId);
 
-        if (LISTENERS.size() > 0) {
+        if (LISTENERS.size() > 0 && event.getRecipient() != null) {
             // Notify listeners
             threadPool.schedule(() -> {
-                synchronized (LISTENERS) {
-                    LISTENERS.values().forEach(listener -> {
-                        if (event.getRecipient().equals(listener.getPubkey())) {
-                            listener.onEvent(event);
-                        }
-                    });
-                }
+                LISTENERS.values()
+                        .parallelStream()
+                        .filter(listener -> event.getRecipient().equals(listener.getPubkey()))
+                        .forEach(listener -> listener.onEvent(event));
             });
         }
 

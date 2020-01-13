@@ -72,8 +72,8 @@ public class RestNodeStatsGetAction extends BaseRestHandler {
             // Listeners by source
             if (request.paramAsBoolean("listeners", true)) {
                 mapping.startArray("listeners");
-                Map<String, Integer> sourcesListener = changeService.getUsageStatistics();
-                for (Map.Entry<String, Integer> entry : sourcesListener.entrySet()) {
+                Map<String, Long> sourcesListener = changeService.getUsageStatistics();
+                for (Map.Entry<String, Long> entry : sourcesListener.entrySet()) {
                     mapping.startObject()
                             .field("source", entry.getKey())
                             .field("count", entry.getValue())
