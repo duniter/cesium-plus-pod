@@ -417,69 +417,69 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
                     .startObject("properties")
 
                     // currency
-                    .startObject("currency")
+                    .startObject(BlockchainBlock.PROPERTY_CURRENCY)
                     .field("type", "string")
                     .endObject()
 
                     // version
-                    .startObject("version")
+                    .startObject(BlockchainBlock.PROPERTY_VERSION)
                     .field("type", "integer")
                     .endObject()
 
                     // time
-                    .startObject("time")
+                    .startObject(BlockchainBlock.PROPERTY_TIME)
                     .field("type", "long")
                     .endObject()
 
                     // medianTime
-                    .startObject("medianTime")
+                    .startObject(BlockchainBlock.PROPERTY_MEDIAN_TIME)
                     .field("type", "long")
                     .endObject()
 
                     // number
-                    .startObject("number")
+                    .startObject(BlockchainBlock.PROPERTY_NUMBER)
                     .field("type", "integer")
                     .endObject()
 
                     // nonce
-                    .startObject("nonce")
+                    .startObject(BlockchainBlock.PROPERTY_NONCE)
                     .field("type", "long")
                     .endObject()
 
                     // hash
-                    .startObject("hash")
+                    .startObject(BlockchainBlock.PROPERTY_HASH)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
 
                     // issuer
-                    .startObject("issuer")
+                    .startObject(BlockchainBlock.PROPERTY_ISSUER)
                     .field("type", "string")
                     .field("index", "not_analyzed")
                     .endObject()
 
                     // previous hash
-                    .startObject("previousHash")
+                    .startObject(BlockchainBlock.PROPERTY_PREVIOUS_HASH)
                     .field("type", "string")
                     .endObject()
 
                     // membersCount
-                    .startObject("membersCount")
+                    .startObject(BlockchainBlock.PROPERTY_MEMBERS_COUNT)
                     .field("type", "integer")
                     .endObject()
 
                     // unitbase
-                    .startObject("unitbase")
+                    .startObject(BlockchainBlock.PROPERTY_UNIT_BASE)
                     .field("type", "integer")
                     .endObject()
 
                     // monetaryMass
-                    .startObject("monetaryMass")
+                    .startObject(BlockchainBlock.PROPERTY_MONETARY_MASS)
                     .field("type", "long")
                     .endObject()
 
                     // dividend
-                    .startObject("dividend")
+                    .startObject(BlockchainBlock.PROPERTY_DIVIDEND)
                     .field("type", "integer")
                     .endObject()
 

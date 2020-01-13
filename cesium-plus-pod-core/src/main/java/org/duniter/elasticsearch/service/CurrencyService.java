@@ -50,6 +50,7 @@ import org.elasticsearch.common.inject.Injector;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -61,7 +62,7 @@ public class CurrencyService extends AbstractService {
 
     private BlockchainRemoteService blockchainRemoteService;
     private CurrencyExtendDao currencyDao;
-    private Map<String, IndexDao<?>> currencyDataDaos = new HashMap<>();
+    private Map<String, IndexDao<?>> currencyDataDaos = new ConcurrentHashMap<>();
     private Injector injector;
 
     @Inject

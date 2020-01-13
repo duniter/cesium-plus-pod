@@ -258,7 +258,7 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
         org.elasticsearch.common.settings.Settings indexSettings = org.elasticsearch.common.settings.Settings.settingsBuilder()
                 .put("number_of_shards", 3)
                 .put("number_of_replicas", 1)
-                //.put("analyzer", createDefaultAnalyzer())
+                .put("analyzer", pluginSettings.getDefaultStringAnalyzer())
                 .build();
         createIndexRequestBuilder.setSettings(indexSettings);
         createIndexRequestBuilder.addMapping(RECORD_TYPE, createTypeMapping());

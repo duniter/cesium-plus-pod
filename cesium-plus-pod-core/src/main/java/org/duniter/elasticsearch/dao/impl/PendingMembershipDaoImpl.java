@@ -200,7 +200,6 @@ public class PendingMembershipDaoImpl extends AbstractDao implements PendingMemb
                     // currency
                     .startObject(WotPendingMembership.PROPERTY_CURRENCY)
                     .field("type", "string")
-                    .field("index", "not_analyzed")
                     .endObject()
 
                     // membership
