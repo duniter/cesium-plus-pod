@@ -135,6 +135,7 @@ public class PendingMembershipService extends AbstractService  {
         List<WotPendingMembership> memberships = wotRemoteService.getPendingMemberships(peer);
         if (CollectionUtils.isEmpty(memberships)) {
             logger.info(String.format("[%s] [%s] Indexing pending memberships [OK] 0 pending membership", currencyId, peer));
+            return this;
         }
 
         // Do save in index
