@@ -32,8 +32,8 @@ public class RestDocStatSearchAction extends BaseRestHandler {
         super(settings, controller, client);
 
         if (pluginSettings.enableDocStats()) {
-            securityController.allow(GET, String.format("/%s/%s/_search", DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE));
-            securityController.allow(POST, String.format("/%s/%s/_search", DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE));
+            securityController.allowGetSearchIndexType(DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE);
+            securityController.allowPostSearchIndexType(DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE);
             controller.registerHandler(GET, String.format("/%s/%s/_search", DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE), this);
             controller.registerHandler(POST, String.format("/%s/%s/_search", DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE), this);
         }
