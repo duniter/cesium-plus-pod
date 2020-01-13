@@ -157,12 +157,13 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
     private void checkHasSourceOrClose() {
         synchronized (this) {
             if (session != null && MapUtils.isEmpty(sources)) {
+                CloseReason reason = new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, "Missing source filter (must be send < 20s after connection)");
                 try {
-                    session.close(new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, "Missing changes sources to listen (must be send < 20s after connection)"));
+                    session.close(reason);
                 }
                 catch (IOException e) {
                     logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
-                    ChangeService.unregisterListener(this); // Make sure to unregister anyway
+                    onClose(reason);
                 }
             }
         }
