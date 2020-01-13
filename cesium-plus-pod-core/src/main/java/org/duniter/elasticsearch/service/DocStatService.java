@@ -242,7 +242,7 @@ public class DocStatService extends AbstractService  {
                 DocStatDao.OLD_INDEX, DocStatDao.OLD_TYPE, DocStatDao.INDEX, DocStatDao.TYPE));
 
         int size = Math.min(1000, pluginSettings.getIndexBulkSize());
-        long now = System.currentTimeMillis()/1000;
+        long now = System.currentTimeMillis();
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
         SearchRequestBuilder searchRequest = client.prepareSearch(DocStatDao.OLD_INDEX)
