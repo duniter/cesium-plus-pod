@@ -53,7 +53,8 @@ public enum UserEventCodes {
     INVITATION_TO_CERTIFY,
 
     // Like
-    LIKE,
-    DISLIKE,
-    ABUSE
+    LIKE_RECEIVED,
+    STAR__RECEIVED,
+    ABUSE_RECEIVED,
+    MODERATION_RECEIVED
 }

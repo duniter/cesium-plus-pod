@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.user.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
@@ -37,6 +38,8 @@ import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.profile.UserProfileDao;
 import org.duniter.elasticsearch.user.model.LikeRecord;
 import org.duniter.elasticsearch.user.model.UserEvent;
+import org.duniter.elasticsearch.user.model.UserEventCodes;
+import org.duniter.elasticsearch.user.model.UserProfile;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -51,6 +54,8 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.nuiton.i18n.I18n;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -60,6 +65,13 @@ public class LikeService extends AbstractService {
     public static final String INDEX = "like";
     public static final String RECORD_TYPE = "record";
 
+    static {
+        // Reserve i18n
+        I18n.n("duniter.user.event.MODERATION_RECEIVED");
+        I18n.n("duniter.user.event.LIKE_RECEIVED");
+        I18n.n("duniter.user.event.ABUSE_RECEIVED");
+        I18n.n("duniter.user.event.STAR_RECEIVED");
+    }
     private final AdminService adminService;
     private final UserEventService userEventService;
 
@@ -314,36 +326,55 @@ public class LikeService extends AbstractService {
     }
 
     public void notifyOnInsert(JsonNode actualObj) {
+        String kind = getMandatoryField(actualObj,LikeRecord.PROPERTY_KIND).asText();
+        LikeRecord.Kind kindEnum = LikeRecord.Kind.valueOf(kind);
+
+        // If not need notification: skip
+        if (kindEnum == LikeRecord.Kind.DISLIKE || kindEnum == LikeRecord.Kind.VIEW) return;
+
+        UserEvent.EventType eventType = kindEnum == LikeRecord.Kind.ABUSE ? UserEvent.EventType.WARN : UserEvent.EventType.INFO;
+
         String index = getMandatoryField(actualObj, LikeRecord.PROPERTY_INDEX).asText();
         String type = getMandatoryField(actualObj,LikeRecord.PROPERTY_TYPE).asText();
         String id = getMandatoryField(actualObj,LikeRecord.PROPERTY_ID).asText();
-        String kind = getMandatoryField(actualObj,LikeRecord.PROPERTY_KIND).asText();
         Long time = getMandatoryField(actualObj,LikeRecord.PROPERTY_TIME).asLong();
         String anchor = getOptionalField(actualObj, LikeRecord.PROPERTY_ANCHOR).map(JsonNode::asText).orElse(null);
+        String issuer = getMandatoryField(actualObj,LikeRecord.PROPERTY_ISSUER).asText();
+        String level = getOptionalField(actualObj,LikeRecord.PROPERTY_LEVEL).map(JsonNode::asText).orElse(null);
 
-        LikeRecord.Kind kindEnum = LikeRecord.Kind.valueOf(kind);
-        UserEvent.EventType eventType = kindEnum == LikeRecord.Kind.ABUSE ? UserEvent.EventType.WARN : UserEvent.EventType.INFO;
+        // Load some fields from the original document
+        Map<String, Object> docFields = docFields = client.getFieldsById(index, type, id, Record.PROPERTY_ISSUER, UserProfile.PROPERTY_TITLE);
+        String docIssuer = String.valueOf(docFields.get(Record.PROPERTY_ISSUER));
+        String docTitle = Optional.ofNullable(docFields.get(UserProfile.PROPERTY_TITLE)).orElse("?").toString();
 
-        UserEvent event = UserEvent.newBuilder(eventType, kindEnum.toString())
-                .setMessage(I18n.n("duniter.user.event." + kindEnum.toString()))
+        // Notify admin if abuse
+        if (kindEnum == LikeRecord.Kind.ABUSE) {
+            String comment = getMandatoryField(actualObj,LikeRecord.PROPERTY_COMMENT).asText();
+            UserEvent adminEvent = UserEvent.newBuilder(eventType, UserEventCodes.MODERATION_RECEIVED.toString())
+                    .setMessage(I18n.n("duniter.user.event.MODERATION_RECEIVED"),
+                            // Message params
+                            issuer, ModelUtils.minifyPubkey(issuer), docTitle, comment, level
+                    )
+                    .setTime(time)
+                    .setReference(index, type, id)
+                    .setReferenceAnchor(anchor)
+                    .build();
+
+            adminService.notifyAdmin(adminEvent);
+        }
+
+        // Notify the issuer of the document
+        String eventCode = kindEnum.toString() + "_RECEIVED";
+        UserEvent userEvent = UserEvent.newBuilder(eventType,eventCode )
+                .setRecipient(docIssuer)
+                .setMessage(I18n.n("duniter.user.event." + eventCode, ModelUtils.minifyPubkey(issuer)),
+                        // Message params
+                        issuer, ModelUtils.minifyPubkey(issuer), docTitle, level)
                 .setTime(time)
                 .setReference(index, type, id)
                 .setReferenceAnchor(anchor)
                 .build();
-
-        // Notify admin if abuse
-        if (kindEnum == LikeRecord.Kind.ABUSE) {
-            adminService.notifyAdmin(event);
-        }
-
-        // Notify the issuer of the document
-        if (kindEnum == LikeRecord.Kind.LIKE || kindEnum == LikeRecord.Kind.ABUSE || kindEnum == LikeRecord.Kind.STAR) {
-            String issuer = client.getMandatoryTypedFieldById(index, type, id, Record.PROPERTY_ISSUER);
-            UserEvent userEvent = UserEvent.newBuilder(event)
-                    .setRecipient(issuer)
-                    .build();
-            userEventService.notifyUser(userEvent);
-        }
+        userEventService.notifyUser(userEvent);
     }
 
     /* -- Internal methods -- */
