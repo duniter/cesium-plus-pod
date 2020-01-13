@@ -89,20 +89,21 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             createIndices();
 
             threadPool.scheduleOnClusterReady(() -> {
-                // Migrate old data
-                startDataMigration().actionGet();
 
-                // Start blockchain indexation
+                // Start blockchain indexation (and wait)
                 startIndexBlockchain().map(ScheduledActionFuture::actionGet);
 
-                // Start synchro
+                // Start synchro (and wait)
                 startSynchro().map(ScheduledActionFuture::actionGet);
 
-                // Start publish peering
+                // Start publish peering (and wait)
                 startPublishingPeer().map(ScheduledActionFuture::actionGet);
 
-                // Start doc stats
+                // Start doc stats (and wait)
                 startDocStatistics().map(ScheduledActionFuture::actionGet);
+
+                // Migrate old data (and wait)
+                startDataMigration().actionGet();
 
                 logger.info("Starting core jobs... [OK]");
             });
@@ -338,7 +339,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             }
 
             // Index blocks (and listen if new block appear)
-            //startIndexBlocks(peer);
+            startIndexBlocks(peer);
 
             // Index WoT members
             startIndexMembers(peer);
@@ -347,7 +348,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             startIndexPendingMemberships(peer);
 
             // Index peers (and listen if new peer appear)
-            //startIndexPeers(peer);
+            startIndexPeers(peer);
 
             return Optional.of(threadPool.scheduleOnClusterReady(() -> {}));
         }
