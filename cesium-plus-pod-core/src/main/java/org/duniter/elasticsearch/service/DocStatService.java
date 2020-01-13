@@ -264,7 +264,9 @@ public class DocStatService extends AbstractService  {
                     scrollId = response.getScrollId();
                 }
                 else {
-                    response = client.prepareSearchScroll(scrollId).get();
+                    response = client.prepareSearchScroll(scrollId)
+                            .setScroll("1m")
+                            .get();
                 }
 
                 // Read response
@@ -284,9 +286,11 @@ public class DocStatService extends AbstractService  {
                     }
                 }
 
-                // Flush the bulk if not empty
-                client.flushBulk(bulkRequest);
-                bulkRequest = client.prepareBulk();
+                // Flush the bulk if need
+                if (bulkRequest.numberOfActions() % size == 0) {
+                    client.flushBulk(bulkRequest);
+                    bulkRequest = client.prepareBulk();
+                }
 
                 // Prepare next iteration
                 from += size;
