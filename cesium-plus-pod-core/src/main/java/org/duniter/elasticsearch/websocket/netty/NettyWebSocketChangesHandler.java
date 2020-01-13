@@ -134,7 +134,12 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
 
     @Override
     public void onClose(CloseReason reason) {
-        if (logger.isDebugEnabled()) logger.debug(String.format("Closing websocket session, id {%s}: %s",  sessionId,  reason));
+        if (logger.isDebugEnabled())  {
+            if (reason != null && reason.getCloseCode() != CloseReason.CloseCodes.GOING_AWAY)
+                logger.debug(String.format("Closing websocket session, id {%s} - reason {%s}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
+            else
+                logger.debug(String.format("Closing websocket session, id {%s}"));
+        }
         synchronized (this) {
             ChangeService.unregisterListener(this);
         }
@@ -153,11 +158,11 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
         synchronized (this) {
             if (session != null && MapUtils.isEmpty(sources)) {
                 try {
-                    session.close(new CloseReason(CloseReason.CloseCodes.UNEXPECTED_CONDITION, "Missing changes sources to listen (must be given before 10s)"));
+                    session.close(new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, "Missing changes sources to listen (must be send < 20s after connection)"));
                 }
                 catch (IOException e) {
                     logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
-                    ChangeService.unregisterListener(this); // Make sure to unregistrer anyway
+                    ChangeService.unregisterListener(this); // Make sure to unregister anyway
                 }
             }
         }

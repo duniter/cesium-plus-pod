@@ -373,11 +373,8 @@ public class SynchroService extends AbstractService {
         // Prepare a map of actions by index/type
         final ArrayListMultimap<String, SynchroAction> actionsBySource = ArrayListMultimap.create(actions.size(), 2);
         actions.stream()
-            .forEach(a -> {
-                if (a.getChangeSource() != null) {
-                    actionsBySource.put(a.getChangeSource().toString(), a);
-                }
-            });
+                .filter(a -> a.getChangeSource() != null)
+                .forEach(a -> actionsBySource.put(a.getChangeSource().toString(), a));
 
         // Get (or create) the websocket endpoint
         WebsocketClientEndpoint wsClientEndPoint = httpService.getWebsocketClientEndpoint(peer, WS_CHANGES_URL, false);
