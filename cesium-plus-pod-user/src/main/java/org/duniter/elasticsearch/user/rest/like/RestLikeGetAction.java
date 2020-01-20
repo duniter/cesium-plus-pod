@@ -58,8 +58,7 @@ public class RestLikeGetAction extends BaseRestHandler {
         }
 
         // Allow some indices
-        allowLikeIndex(UserService.INDEX, UserProfileDao.TYPE); // TODO remove ?
-
+        allowLikeIndex(UserService.INDEX, UserProfileDao.TYPE);
         allowLikeIndex(PageIndexDao.INDEX, PageRecordDao.TYPE);
         allowLikeIndex(PageIndexDao.INDEX, PageCommentDao.TYPE);
     }
