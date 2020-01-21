@@ -168,7 +168,7 @@ public class PendingMembershipDaoImpl extends AbstractDao implements PendingMemb
         result.addUpdates(currencyId, TYPE, updates);
 
         if (logger.isDebugEnabled())
-            logger.debug(String.format("[%s] Pending memberships saved in %s ms - %s", currencyId, CollectionUtils.size(memberships), System.currentTimeMillis() - now, result.toString()));
+            logger.debug(String.format("[%s] Pending memberships saved in %s ms - %s", currencyId, System.currentTimeMillis() - now, result.toString()));
 
         return result;
     }

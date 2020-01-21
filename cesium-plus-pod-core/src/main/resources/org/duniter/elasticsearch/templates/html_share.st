@@ -59,7 +59,7 @@ html_share(type, title, summary, description, image, imageHeight, imageWidth, si
 
     $if(redirectUrl)$
         <script type="text/javascript">
-            //setTimeout("window.location.href=\"$redirectUrl$\";", 2000);
+            setTimeout("window.location.href=\"$redirectUrl$\";", 2000);
         </script>
     $endif$
     </head>
