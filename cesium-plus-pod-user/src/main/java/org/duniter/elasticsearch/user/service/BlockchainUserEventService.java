@@ -24,7 +24,9 @@ package org.duniter.elasticsearch.user.service;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.service.CryptoService;
@@ -32,6 +34,8 @@ import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.duniter.elasticsearch.dao.BlockDao;
+import org.duniter.elasticsearch.dao.SaveResult;
 import org.duniter.elasticsearch.service.AbstractBlockchainListenerService;
 import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
@@ -41,16 +45,21 @@ import org.duniter.elasticsearch.user.model.DocumentReference;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserEventCodes;
 import org.duniter.elasticsearch.user.model.UserProfile;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortOrder;
 import org.nuiton.i18n.I18n;
 
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -75,15 +84,132 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
         this.userEventService = userEventService;
     }
 
-
     @Override
     protected void processBlockIndex(ChangeEvent change) {
 
         BlockchainBlock block = readBlock(change);
+        processBlock(block);
+    }
+
+    @Override
+    protected void processBlockDelete(ChangeEvent change) {
+
+        DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
+
+        if (change.getSource() != null) {
+            BlockchainBlock block = readBlock(change);
+            reference.setHash(block.getHash());
+        }
+
+        this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
+        flushBulkRequestOrSchedule();
+    }
+
+    public BlockchainUserEventService checkMissingUserEvents(String currencyId) {
+        if (logger.isInfoEnabled()) {
+            logger.info(String.format("[%s] Checking user events...", currencyId));
+        }
+
+        long now = System.currentTimeMillis();
+        int size = pluginSettings.getIndexBulkSize();
+
+        QueryBuilder withEvents = QueryBuilders.boolQuery()
+                .minimumNumberShouldMatch(1)
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_JOINERS))
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_EXCLUDED))
+                .should(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_ACTIVES));
+
+        SearchRequestBuilder req = client.prepareSearch(currencyId)
+                .setTypes(BlockDao.TYPE)
+                .setScroll("1m")
+                .setSize(size)
+                .setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().must(withEvents)))
+                .addSort(BlockchainBlock.PROPERTY_NUMBER, SortOrder.ASC)
+                .setFetchSource(true);
+
+        SaveResult result = new SaveResult();
+        long total = -1;
+        int from = 0;
+        String scrollId = null;
+        do {
+            SearchResponse response;
+            if (scrollId == null) {
+                response = req.execute().actionGet();
+                scrollId = response.getScrollId();
+            }
+            else {
+                SearchScrollRequestBuilder request = client.prepareSearchScroll(scrollId).setScroll("1m");
+                response = request.execute().actionGet();
+            }
+
+            toStream(response).forEach(hit -> {
+
+                BlockchainBlock block = readBlock(hit.getSourceRef(), hit.getId());
+                DocumentReference blockReference = new DocumentReference(block.getCurrency(), BlockDao.TYPE, String.valueOf(block.getNumber()));
+                List<String> errors = Lists.newArrayList();
+
+                checkMissingEvents(blockReference, block.getJoiners(), UserEventCodes.MEMBER_JOIN, errors, result);
+                checkMissingEvents(blockReference, block.getActives(), UserEventCodes.MEMBER_ACTIVE, errors, result);
+                checkMissingEvents(blockReference, block.getLeavers(), UserEventCodes.MEMBER_LEAVE, errors, result);
+                checkMissingEvents(blockReference, block.getRevoked(), UserEventCodes.MEMBER_REVOKE, errors, result);
+                checkMissingEvents(blockReference, block.getExcluded(), UserEventCodes.MEMBER_EXCLUDE, errors, result);
+
+                // Missing events found
+                if (errors.size() > 0) {
+
+                    logger.warn(String.format("Missing user events on block #%s: %s", block.getNumber(), Joiner.on(", ").join(errors)));
+
+                    // Reindex ths block
+                    processBlock(block);
+                }
+            });
+
+            from += size;
+            req.setFrom(from);
+            if (total == -1) total = response.getHits().getTotalHits();
+        } while (from < total);
+
+        if (logger.isInfoEnabled()) {
+            if (result.getTotal() > 0) {
+                logger.info(String.format("[%s] Checking user events [OK] %s in %s ms", currencyId,
+                        result.toString(), System.currentTimeMillis() - now));
+            }
+            else {
+                logger.info(String.format("[%s] Checking user events [OK] no error found %s ms", currencyId,
+                        System.currentTimeMillis() - now));
+            }
+        }
+
+        return this;
+    }
+
+    /* -- internal method -- */
+
+    protected void checkMissingEvents(DocumentReference blockReference, Object[] values, UserEventCodes eventCode, List<String> errors, SaveResult result) {
+        Preconditions.checkNotNull(eventCode);
+        Preconditions.checkNotNull(errors);
+
+        long expectedCount = values != null ? values.length : 0;
+        long actualCount = userEventService.countEventsByCodeAndReference(eventCode.name(), blockReference);
+        long delta = expectedCount - actualCount;
+        if (delta != 0) {
+            int index = eventCode.name().indexOf('_');
+            if (delta > 0) {
+                result.addInserts(UserEventService.INDEX, UserEventService.EVENT_TYPE, delta);
+            }
+            else {
+                result.addDeletes(UserEventService.INDEX, UserEventService.EVENT_TYPE, Math.abs(delta));
+            }
+            String shortCode = index == -1 ?  eventCode.name() : eventCode.name().substring(index + 1);
+            errors.add(String.format("%s: %s", shortCode.toLowerCase(), delta));
+        }
+    }
+
+    protected void processBlock(BlockchainBlock block) {
 
         // First: Delete old events on same block
         {
-            DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
+            DocumentReference reference = new DocumentReference(block.getCurrency(), BlockchainService.BLOCK_TYPE, String.valueOf(block.getNumber()));
             this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
             flushBulk();
         }
@@ -139,22 +265,6 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
 
         flushBulkRequestOrSchedule();
     }
-
-    @Override
-    protected void processBlockDelete(ChangeEvent change) {
-
-        DocumentReference reference = new DocumentReference(change.getIndex(), BlockchainService.BLOCK_TYPE, change.getId());
-
-        if (change.getSource() != null) {
-            BlockchainBlock block = readBlock(change);
-            reference.setHash(block.getHash());
-        }
-
-        this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
-        flushBulkRequestOrSchedule();
-    }
-
-    /* -- internal method -- */
 
     private void processTx(BlockchainBlock block, BlockchainBlock.Transaction tx) {
         Set<String> issuers = ImmutableSet.copyOf(tx.getIssuers());
@@ -260,6 +370,12 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
         catch(JsonProcessingException e) {
             logger.error("Could not serialize UserEvent into JSON: " + e.getMessage(), e);
         }
+    }
+
+
+    protected Stream<SearchHit> toStream(SearchResponse response) {
+        if (response.getHits() == null || response.getHits().getTotalHits() == 0) return Stream.empty();
+        return Arrays.stream(response.getHits().getHits());
     }
 
 

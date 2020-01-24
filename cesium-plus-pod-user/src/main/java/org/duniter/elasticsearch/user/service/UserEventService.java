@@ -53,6 +53,8 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
@@ -179,7 +181,7 @@ public class UserEventService extends AbstractService implements ChangeService.C
 
             return signedEvent;
         } else {
-            logger.warn("Could not generate hash for new user event (no keyring)");
+            logger.debug("Could not generate hash+signature to user event (no keyring). Skipping");
             return event;
         }
     }
@@ -206,6 +208,27 @@ public class UserEventService extends AbstractService implements ChangeService.C
                 .setRefresh(false));
     }
 
+
+    public long countEventsByCodeAndReference(final String eventCode, final DocumentReference reference) {
+        Preconditions.checkNotNull(eventCode);
+        Preconditions.checkNotNull(reference);
+
+        QueryBuilder query = QueryBuilders.constantScoreQuery(
+                QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.termQuery(UserEvent.PROPERTY_CODE, eventCode))
+                    .filter(createNestedQueryForReference(reference)));
+
+        // Prepare search request
+        SearchRequestBuilder searchRequest = client
+                .prepareSearch(INDEX)
+                .setTypes(EVENT_TYPE)
+                .setSize(0)
+                .setFetchSource(false)
+                // Query = filter on reference
+                .setQuery(query);
+
+        return searchRequest.execute().actionGet().getHits().getTotalHits();
+    }
 
     public void deleteEventsByReference(final DocumentReference reference) {
         Preconditions.checkNotNull(reference);
@@ -406,27 +429,9 @@ public class UserEventService extends AbstractService implements ChangeService.C
                 .prepareSearch(INDEX)
                 .setTypes(EVENT_TYPE)
                 .setFetchSource(false)
-                .setSearchType(SearchType.QUERY_AND_FETCH);
-
-        // Query = filter on reference
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        if (StringUtils.isNotBlank(reference.getIndex())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_INDEX, reference.getIndex()));
-        }
-        if (StringUtils.isNotBlank(reference.getType())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_TYPE, reference.getType()));
-        }
-        if (StringUtils.isNotBlank(reference.getId())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ID, reference.getId()));
-        }
-        if (StringUtils.isNotBlank(reference.getHash())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_HASH, reference.getHash()));
-        }
-        if (StringUtils.isNotBlank(reference.getAnchor())) {
-            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ANCHOR, reference.getAnchor()));
-        }
-
-        searchRequest.setQuery(QueryBuilders.nestedQuery(UserEvent.PROPERTY_REFERENCE, QueryBuilders.constantScoreQuery(boolQuery)));
+                .setSearchType(SearchType.QUERY_AND_FETCH)
+                // Query = filter on reference
+                .setQuery(createNestedQueryForReference(reference));
 
         // Execute query, while there is some data
         return client.bulkDeleteFromSearch(INDEX, EVENT_TYPE, searchRequest, bulkRequest, bulkSize, flushAll);
@@ -523,5 +528,29 @@ public class UserEventService extends AbstractService implements ChangeService.C
 
         processEventCreate(eventId, event);
     }
+
+    protected NestedQueryBuilder createNestedQueryForReference(final DocumentReference reference) {
+        // Query = filter on reference
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        if (StringUtils.isNotBlank(reference.getIndex())) {
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_INDEX, reference.getIndex()));
+        }
+        if (StringUtils.isNotBlank(reference.getType())) {
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_TYPE, reference.getType()));
+        }
+        if (StringUtils.isNotBlank(reference.getId())) {
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ID, reference.getId()));
+        }
+        if (StringUtils.isNotBlank(reference.getHash())) {
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_HASH, reference.getHash()));
+        }
+        if (StringUtils.isNotBlank(reference.getAnchor())) {
+            boolQuery.filter(QueryBuilders.termQuery(UserEvent.PROPERTY_REFERENCE + "." + DocumentReference.PROPERTY_ANCHOR, reference.getAnchor()));
+        }
+
+        return QueryBuilders.nestedQuery(UserEvent.PROPERTY_REFERENCE,
+                QueryBuilders.constantScoreQuery(boolQuery));
+    }
+
 
 }

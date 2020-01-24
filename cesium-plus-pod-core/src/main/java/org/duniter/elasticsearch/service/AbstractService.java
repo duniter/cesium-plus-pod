@@ -62,6 +62,7 @@ public abstract class AbstractService implements Bean {
     protected Duniter4jClient client;
     protected PluginSettings pluginSettings;
     protected CryptoService cryptoService;
+    protected ObjectMapper objectMapper;
 
     private boolean ready = false;
     private final int retryCount;
@@ -113,7 +114,10 @@ public abstract class AbstractService implements Bean {
     }
 
     protected ObjectMapper getObjectMapper() {
-        return JacksonUtils.getThreadObjectMapper();
+        if (objectMapper == null) {
+            objectMapper = JacksonUtils.getThreadObjectMapper();
+        }
+        return objectMapper;
     }
 
     protected <T> T executeWithRetry(RetryFunction<T> retryFunction) throws TechnicalException{

@@ -35,6 +35,7 @@ import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
 
@@ -168,12 +169,16 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
 
     protected BlockchainBlock readBlock(ChangeEvent change) {
         Preconditions.checkNotNull(change);
-        Preconditions.checkNotNull(change.getSource());
+        return readBlock(change.getSource(), change.getId());
+    }
+
+    protected BlockchainBlock readBlock(BytesReference source, Object blockNumber) {
+        Preconditions.checkNotNull(source);
 
         try {
-            return getObjectMapper().readValue(change.getSource().streamInput(), BlockchainBlock.class);
+            return getObjectMapper().readValue(source.streamInput(), BlockchainBlock.class);
         } catch (IOException e) {
-            throw new TechnicalException(String.format("Unable to parse received block %s", change.getId()), e);
+            throw new TechnicalException(String.format("Unable to parse received block #%s", blockNumber), e);
         }
     }
 

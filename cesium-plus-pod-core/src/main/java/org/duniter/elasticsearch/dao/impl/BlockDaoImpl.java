@@ -507,15 +507,17 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
         for (Object value: values) {
             String[] parts = value.toString().split(":");
             String pubkey = parts[0];
+
+            // Membership in: add to list
             if (membershipIn) {
                 String uid = parts[parts.length -1 ];
                 result.put(pubkey, uid);
             }
+            // Membership out: add to list
             else {
                 result.remove(pubkey);
             }
         }
-
     }
 
     protected List<BlockchainBlock> toBlocks(SearchResponse response, boolean withHighlight) {

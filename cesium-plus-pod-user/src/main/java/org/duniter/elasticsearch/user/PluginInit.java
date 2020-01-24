@@ -22,6 +22,8 @@ package org.duniter.elasticsearch.user;
  * #L%
  */
 
+import org.duniter.core.util.CollectionUtils;
+import org.duniter.elasticsearch.service.CurrencyService;
 import org.duniter.elasticsearch.service.DocStatService;
 import org.duniter.elasticsearch.service.NetworkService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
@@ -41,6 +43,8 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.nuiton.i18n.I18n;
+
+import java.util.Set;
 
 /**
  * Created by blavenie on 17/06/16.
@@ -77,7 +81,13 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             createIndices();
 
             // Notify the admin that the node is ready
-            threadPool.scheduleOnClusterReady(() -> notifyAdminNodeStarted());
+            threadPool.scheduleOnClusterReady(() -> {
+
+                // Fix membership missing events - fix #34
+                fixMissingMembershipEvents();
+
+                notifyAdminNodeStarted();
+            });
         });
     }
 
@@ -198,5 +208,19 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                         clusterName));
     }
 
+    protected void fixMissingMembershipEvents() {
+
+        if (!pluginSettings.enableBlockchainUserEventIndexation()) return; // Skip
+
+        Set<String> currencies = injector.getInstance(CurrencyService.class)
+                .getAllIds();
+
+        if (CollectionUtils.isEmpty(currencies)) return; // no currencies
+
+        BlockchainUserEventService service = injector.getInstance(BlockchainUserEventService.class);
+
+        // Fix each currency
+        currencies.forEach(currencyId -> service.checkMissingUserEvents(currencyId));
+    }
 
 }

@@ -50,6 +50,7 @@ import org.elasticsearch.common.inject.Injector;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -216,6 +217,10 @@ public class CurrencyService extends AbstractService {
             getCurrencyDataDao(currency.getId())
                     .createIndexIfNotExists();
         }
+    }
+
+    public Set<String> getAllIds() {
+        return currencyDao.getAllIds();
     }
 
     /* -- Internal methods -- */

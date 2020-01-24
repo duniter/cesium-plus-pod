@@ -38,8 +38,10 @@ public class SaveResult implements Serializable {
 
     private long insertTotal = 0;
     private long updateTotal = 0;
+    private long deleteTotal = 0;
     private Map<String, Long> insertHits = new HashMap<>();
     private Map<String, Long> updateHits = new HashMap<>();
+    private Map<String, Long> deleteHits = new HashMap<>();
 
     public void addInserts(String index, String type, long nbHits) {
         insertHits.put(index + "/" + type, getInserts(index, type) + nbHits);
@@ -49,6 +51,12 @@ public class SaveResult implements Serializable {
     public void addUpdates(String index, String type, long nbHits) {
         updateHits.put(index + "/" + type, getUpdates(index, type) + nbHits);
         updateTotal += nbHits;
+    }
+
+
+    public void addDeletes(String index, String type, long nbHits) {
+        deleteHits.put(index + "/" + type, getDeletes(index, type) + nbHits);
+        deleteTotal += nbHits;
     }
 
     @JsonIgnore
@@ -69,9 +77,19 @@ public class SaveResult implements Serializable {
         return updateTotal;
     }
 
+
+    @JsonIgnore
+    public long getDeletes(String index, String type) {
+        return deleteHits.getOrDefault(index + "/" + type, 0l);
+    }
+
+    public long getDeletes() {
+        return deleteTotal;
+    }
+
     @JsonIgnore
     public long getTotal() {
-        return insertTotal + updateTotal;
+        return insertTotal + updateTotal + deleteTotal;
     }
 
     public void setInserts(long inserts) {
@@ -80,10 +98,14 @@ public class SaveResult implements Serializable {
     public void setUpdates(long updates) {
         this.updateTotal = updates;
     }
+    public void setDeletes(long deletes) {
+        this.deleteTotal = deletes;
+    }
 
     public String toString() {
-        return String.format("%s insertions, %s updates",
+        return String.format("%s insertions, %s updates, %s deletions,",
                 insertTotal,
-                updateTotal);
+                updateTotal,
+                deleteTotal);
     }
 }

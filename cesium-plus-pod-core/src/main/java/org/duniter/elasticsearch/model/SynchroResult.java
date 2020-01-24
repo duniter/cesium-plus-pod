@@ -37,17 +37,12 @@ public class SynchroResult extends SaveResult {
     public static final String PROPERTY_DELETES = "deletes";
     public static final String PROPERTY_INVALID_SIGNATURES = "invalidSignatures";
 
-    private long deleteTotal = 0;
+
     private long invalidSignatureTotal = 0;
     private long invalidTimeTotal = 0;
-    private Map<String, Long> deleteHits = new HashMap<>();
     private Map<String, Long> invalidSignatureHits = new HashMap<>();
     private Map<String, Long> invalidTimeHits = new HashMap<>();
 
-    public void addDeletes(String index, String type, long nbHits) {
-        deleteHits.put(index + "/" + type, getDeletes(index, type) + nbHits);
-        deleteTotal += nbHits;
-    }
 
     public void addInvalidSignatures(String index, String type, long nbHits) {
         invalidSignatureHits.put(index + "/" + type, getDeletes(index, type) + nbHits);
@@ -64,14 +59,6 @@ public class SynchroResult extends SaveResult {
         return invalidSignatureHits.getOrDefault(index + "/" + type, 0l);
     }
 
-    @JsonIgnore
-    public long getDeletes(String index, String type) {
-        return deleteHits.getOrDefault(index + "/" + type, 0l);
-    }
-
-    public long getDeletes() {
-        return deleteTotal;
-    }
 
     public long getInvalidSignatures() {
         return invalidSignatureTotal;
@@ -81,14 +68,6 @@ public class SynchroResult extends SaveResult {
         return invalidTimeTotal;
     }
 
-    @JsonIgnore
-    public long getTotal() {
-        return super.getTotal() + deleteTotal;
-    }
-
-    public void setDeletes(long deletes) {
-        this.deleteTotal = deletes;
-    }
     public void setInvalidSignatures(long invalidSignatures) {
         this.invalidSignatureTotal = invalidSignatures;
     }
@@ -97,9 +76,8 @@ public class SynchroResult extends SaveResult {
     }
 
     public String toString() {
-        return String.format("%s, %s deletions, %s invalid",
+        return String.format("%s, %s invalid",
                 super.toString(),
-                deleteTotal,
                 invalidSignatureTotal + invalidTimeTotal
                 );
     }
