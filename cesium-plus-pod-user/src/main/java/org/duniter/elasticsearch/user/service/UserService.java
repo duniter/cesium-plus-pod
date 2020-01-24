@@ -24,10 +24,12 @@ package org.duniter.elasticsearch.user.service;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.lucene.queryparser.flexible.core.util.StringUtils;
+import com.google.common.collect.Maps;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.Preconditions;
 import org.apache.commons.collections4.MapUtils;
 import org.duniter.core.client.model.ModelUtils;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.user.model.Attachment;
 import org.duniter.elasticsearch.user.model.UserProfile;
@@ -46,10 +48,8 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestStatus;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -201,17 +201,34 @@ public class UserService extends AbstractService {
         settingsDao.update(issuer, json);
     }
 
-
-    public String getProfileTitle(String issuer) {
-
-        Object title = client.getFieldById(INDEX, PROFILE_TYPE, issuer, UserProfile.PROPERTY_TITLE);
-        if (title == null) return null;
-        return title.toString();
+    public Optional<UserProfile> getProfileByPubkey(String pubkey, String... fieldNames) {
+        UserProfile result = client.getSourceByIdOrNull(INDEX, PROFILE_TYPE, pubkey, UserProfile.class, fieldNames);
+        if (result == null) return Optional.empty();
+        return Optional.of(result);
     }
 
-    public Map<String, String> getProfileTitles(Set<String> issuers) {
+    public Map<String, UserProfile> getProfilesByPubkey(Set<String> pubkeys, String... fieldNames) {
+        if (CollectionUtils.isEmpty(pubkeys)) return Maps.newHashMap();
+        Map<String, UserProfile> result = client.getSourcesByIds(INDEX, PROFILE_TYPE, pubkeys, UserProfile.class, fieldNames);
+        if (result == null) return Maps.newHashMap();
+        return result;
+    }
 
-        Map<String, Object> titles = client.getFieldByIds(INDEX, PROFILE_TYPE, issuers, UserProfile.PROPERTY_TITLE);
+    public Optional<String> getProfileTitle(String pubkey) {
+        Object title = client.getFieldById(INDEX, PROFILE_TYPE, pubkey, UserProfile.PROPERTY_TITLE);
+        if (title == null) return Optional.empty();
+        return Optional.of(title.toString().trim());
+    }
+
+    public Optional<Locale> getProfileLocale(String pubkey) {
+        Object locale = client.getFieldById(INDEX, PROFILE_TYPE, pubkey, UserProfile.PROPERTY_LOCALE);
+        if (locale == null) return Optional.empty();
+        return Optional.of(new Locale(locale.toString()));
+    }
+
+    public Map<String, String> getProfileTitles(Set<String> pubkeys) {
+
+        Map<String, Object> titles = client.getFieldByIds(INDEX, PROFILE_TYPE, pubkeys, UserProfile.PROPERTY_TITLE);
         if (MapUtils.isEmpty(titles)) return null;
         Map<String, String> result = new HashMap<>();
         titles.entrySet().forEach((entry) -> result.put(entry.getKey(), entry.getValue().toString()));
@@ -222,23 +239,30 @@ public class UserService extends AbstractService {
         Preconditions.checkNotNull(pubkeys);
         Preconditions.checkNotNull(separator);
         Preconditions.checkArgument(pubkeys.size()>0);
-        if (pubkeys.size() == 1) {
-            String pubkey = pubkeys.iterator().next();
-            String title = getProfileTitle(pubkey);
-            return title != null ? title :
-                    (minify ? ModelUtils.minifyPubkey(pubkey) : pubkey);
-        }
 
         Map<String, String> profileTitles = getProfileTitles(pubkeys);
-        StringBuilder sb = new StringBuilder();
-        pubkeys.forEach((pubkey)-> {
-            String title = profileTitles != null ? profileTitles.get(pubkey) : null;
-            sb.append(separator);
-            sb.append(title != null ? title :
-                    (minify ? ModelUtils.minifyPubkey(pubkey) : pubkey));
-        });
+        return pubkeys.stream()
+                .map(pubkey -> {
+                    String title = profileTitles != null ? profileTitles.get(pubkey) : null;
+                    // If title is too long, use the pubkey
+                    return StringUtils.isNotBlank(title) && title.length() <= 30 ? title :
+                            (minify ? ModelUtils.minifyPubkey(pubkey) : pubkey);
+                }).collect(Collectors.joining(separator));
+    }
 
-        return sb.substring(separator.length());
+    public String joinNamesFromProfiles(Set<String> pubkeys, Map<String, UserProfile> profiles, String separator, boolean minify) {
+        Preconditions.checkNotNull(pubkeys);
+        Preconditions.checkNotNull(separator);
+        Preconditions.checkArgument(pubkeys.size()>0);
+        Preconditions.checkNotNull(profiles);
+        return pubkeys.stream()
+                .map(pubkey -> {
+                    UserProfile profile = profiles.get(pubkey);
+                    String title = profile != null ? profile.getTitle() : null;
+                    // If title is too long, use the pubkey
+                    return StringUtils.isNotBlank(title) && title.length() <= 30 ? title :
+                            (minify ? ModelUtils.minifyPubkey(pubkey) : pubkey);
+                }).collect(Collectors.joining(separator));
     }
 
     public UserProfile getUserProfileForSharing(String id) {

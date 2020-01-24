@@ -166,15 +166,20 @@ public class MessageService extends AbstractService {
         String recipient = getMandatoryField(actualObj, Message.PROPERTY_RECIPIENT).asText();
         Long time = getMandatoryField(actualObj, Message.PROPERTY_TIME).asLong();
 
-        String issuerTitle = userService.getProfileTitle(issuer);
+        // Compute the issuer name, from profile (is any) or pubkey
+        String issuerTitle = userService.getProfileTitle(issuer).orElse(null);
+        String issuerName = StringUtils.isNotBlank(issuerTitle) && issuerTitle.length() <= 30 ?
+                issuerTitle :
+                ModelUtils.minifyPubkey(issuer);
 
         // Notify recipient
-        userEventService.notifyUser(UserEvent.newBuilder(UserEvent.EventType.INFO, UserEventCodes.MESSAGE_RECEIVED.name())
+        UserEvent event = UserEvent.newBuilder(UserEvent.EventType.INFO, UserEventCodes.MESSAGE_RECEIVED.name())
                 .setRecipient(recipient)
-                .setMessage(I18n.n("duniter.user.event.MESSAGE_RECEIVED"), issuer, StringUtils.isNotBlank(issuerTitle) ? issuerTitle : ModelUtils.minifyPubkey(issuer))
+                .setMessage(I18n.n("duniter.user.event.MESSAGE_RECEIVED"), issuer, issuerName)
                 .setTime(time)
                 .setReference(INDEX, INBOX_TYPE, messageId)
-                .build());
+                .build();
+        userEventService.notifyUser(event);
     }
 
     public void markMessageAsRead(String id, String signature) {

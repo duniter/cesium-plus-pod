@@ -26,8 +26,6 @@ package org.duniter.elasticsearch.user.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
-import org.duniter.core.client.model.bma.jackson.JacksonUtils;
-import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
@@ -91,15 +89,18 @@ public class UserEventService extends AbstractService implements ChangeService.C
     }
 
     private final ThreadPool threadPool;
+    private final UserService userService;
     private final boolean trace;
 
     @Inject
     public UserEventService(final Duniter4jClient client,
                             final PluginSettings pluginSettings,
                             final CryptoService cryptoService,
-                            final ThreadPool threadPool) {
+                            final ThreadPool threadPool,
+                            final UserService userService) {
         super("duniter.user.event", client, pluginSettings, cryptoService);
         this.threadPool = threadPool;
+        this.userService = userService;
         this.trace = logger.isTraceEnabled();
 
         ChangeService.registerListener(this);
@@ -113,34 +114,15 @@ public class UserEventService extends AbstractService implements ChangeService.C
         Preconditions.checkNotNull(event);
         Preconditions.checkNotNull(event.getRecipient());
 
-        // Get user profile locale
-        UserProfile userProfile = getUserProfile(event.getRecipient(),
-                UserProfile.PROPERTY_EMAIL, UserProfile.PROPERTY_TITLE, UserProfile.PROPERTY_LOCALE);
-
-        Locale locale = userProfile.getLocale() != null ? new Locale(userProfile.getLocale()) : null;
+        // Get recipient locale, from profile (if any)
+        Locale locale = userService.getProfileLocale(event.getRecipient()).orElse(null);
 
         // Add new event to index
-        return indexEvent(locale, event);
+        return notifyUser(locale, event);
     }
 
-    /**
-     * Notify a user
-     */
-    public UserEvent fillUserEvent(UserEvent event) {
-        Preconditions.checkNotNull(event);
-        Preconditions.checkNotNull(event.getRecipient());
 
-        // Get user profile locale
-        UserProfile userProfile = getUserProfile(event.getRecipient(),
-                UserProfile.PROPERTY_EMAIL, UserProfile.PROPERTY_TITLE, UserProfile.PROPERTY_LOCALE);
-
-        Locale locale = userProfile.getLocale() != null ? new Locale(userProfile.getLocale()) : null;
-
-        // Add new event to index
-        return fillUserEvent(locale, event);
-    }
-
-    public ActionFuture<IndexResponse> indexEvent(Locale locale, UserEvent event) {
+    public ActionFuture<IndexResponse> notifyUser(Locale locale, UserEvent event) {
 
         UserEvent completeUserEvent = fillUserEvent(locale, event);
 
@@ -152,15 +134,61 @@ public class UserEventService extends AbstractService implements ChangeService.C
         }
 
         // do indexation
-        return indexEvent(eventJson, false /*checkSignature*/);
+        return notifyUser(eventJson, false /*checkSignature*/);
 
     }
 
-    public ActionFuture<IndexResponse> indexEvent(String eventJson) {
-        return indexEvent(eventJson, true);
+    /**
+     * Fill user event
+     */
+    public UserEvent fillUserEvent(UserEvent event) {
+        Preconditions.checkNotNull(event);
+        Preconditions.checkNotNull(event.getRecipient());
+
+        // Get recipient locale, from profile (if any)
+        Locale locale = userService.getProfileLocale(event.getRecipient()).orElse(null);
+
+        // Add new event to index
+        return fillUserEvent(locale, event);
     }
 
-    public ActionFuture<IndexResponse> indexEvent(String eventJson, boolean checkSignature) {
+    /**
+     * Fill user event
+     */
+    protected UserEvent fillUserEvent(Locale locale, UserEvent event) {
+        Preconditions.checkNotNull(event.getRecipient());
+        Preconditions.checkNotNull(event.getType());
+        Preconditions.checkNotNull(event.getCode());
+
+        String nodePubkey = pluginSettings.getNodePubkey();
+
+        // Generate json
+        if (StringUtils.isNotBlank(nodePubkey)) {
+            UserEvent signedEvent = new UserEvent(event);
+            signedEvent.setMessage(event.getLocalizedMessage(locale));
+            // set issuer, hash, signature
+            signedEvent.setIssuer(nodePubkey);
+
+            // Add hash
+            String hash = cryptoService.hash(toJson(signedEvent, true));
+            signedEvent.setHash(hash);
+
+            // Add signature
+            String signature = cryptoService.sign(toJson(signedEvent, true), pluginSettings.getNodeKeypair().getSecKey());
+            signedEvent.setSignature(signature);
+
+            return signedEvent;
+        } else {
+            logger.warn("Could not generate hash for new user event (no keyring)");
+            return event;
+        }
+    }
+
+    public ActionFuture<IndexResponse> notifyUser(String eventJson) {
+        return notifyUser(eventJson, true);
+    }
+
+    public ActionFuture<IndexResponse> notifyUser(String eventJson, boolean checkSignature) {
 
         if (checkSignature) {
             JsonNode jsonNode = readAndVerifyIssuerSignature(eventJson);
@@ -266,34 +294,7 @@ public class UserEventService extends AbstractService implements ChangeService.C
     /* -- Internal methods -- */
 
 
-    protected UserEvent fillUserEvent(Locale locale, UserEvent event) {
-        Preconditions.checkNotNull(event.getRecipient());
-        Preconditions.checkNotNull(event.getType());
-        Preconditions.checkNotNull(event.getCode());
 
-        String nodePubkey = pluginSettings.getNodePubkey();
-
-        // Generate json
-        if (StringUtils.isNotBlank(nodePubkey)) {
-            UserEvent signedEvent = new UserEvent(event);
-            signedEvent.setMessage(event.getLocalizedMessage(locale));
-            // set issuer, hash, signature
-            signedEvent.setIssuer(nodePubkey);
-
-            // Add hash
-            String hash = cryptoService.hash(toJson(signedEvent, true));
-            signedEvent.setHash(hash);
-
-            // Add signature
-            String signature = cryptoService.sign(toJson(signedEvent, true), pluginSettings.getNodeKeypair().getSecKey());
-            signedEvent.setSignature(signature);
-
-            return signedEvent;
-        } else {
-            logger.warn("Could not generate hash for new user event (no keyring)");
-            return event;
-        }
-    }
 
     public static XContentBuilder createEventType() {
         try {
@@ -393,12 +394,6 @@ public class UserEventService extends AbstractService implements ChangeService.C
         catch(IOException ioe) {
             throw new TechnicalException(String.format("Error while getting mapping for index [%s/%s]: %s", INDEX, EVENT_TYPE, ioe.getMessage()), ioe);
         }
-    }
-
-    private UserProfile getUserProfile(String pubkey, String... fieldnames) {
-        UserProfile result = client.getSourceByIdOrNull(UserService.INDEX, UserService.PROFILE_TYPE, pubkey, UserProfile.class, fieldnames);
-        if (result == null) result = new UserProfile();
-        return result;
     }
 
     public BulkRequestBuilder addDeleteEventsByReferenceToBulk(final DocumentReference reference,

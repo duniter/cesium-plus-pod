@@ -29,7 +29,8 @@ import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.websocket.WebsocketClientEndpoint;
+import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.service.AbstractBlockchainListenerService;
 import org.duniter.elasticsearch.service.BlockchainService;
@@ -39,11 +40,15 @@ import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.DocumentReference;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserEventCodes;
+import org.duniter.elasticsearch.user.model.UserProfile;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
 import org.nuiton.i18n.I18n;
 
 import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -52,6 +57,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class BlockchainUserEventService extends AbstractBlockchainListenerService  {
 
+    public static final UserProfile EMPTY_PROFILE = new UserProfile();
     public static final String DEFAULT_PUBKEYS_SEPARATOR = ", ";
 
     private final UserService userService;
@@ -151,54 +157,86 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
     /* -- internal method -- */
 
     private void processTx(BlockchainBlock block, BlockchainBlock.Transaction tx) {
-        Set<String> senders = ImmutableSet.copyOf(tx.getIssuers());
+        Set<String> issuers = ImmutableSet.copyOf(tx.getIssuers());
 
-        // Received
-        String senderNames = userService.joinNamesFromPubkeys(senders, DEFAULT_PUBKEYS_SEPARATOR, true);
-        String sendersPubkeys = ModelUtils.joinPubkeys(senders, DEFAULT_PUBKEYS_SEPARATOR, false);
+
+        // Collect receivers
         Set<String> receivers = new HashSet<>();
         for (String output : tx.getOutputs()) {
             String[] parts = output.split(":");
             if (parts.length >= 3 && parts[2].startsWith("SIG(")) {
                 String receiver = parts[2].substring(4, parts[2].length() - 1);
-                if (!senders.contains(receiver) && !receivers.contains(receiver)) {
-                    notifyUserEvent(block, receiver, UserEventCodes.TX_RECEIVED, I18n.n("duniter.user.event.TX_RECEIVED"), sendersPubkeys, senderNames);
+                if (!issuers.contains(receiver) && !receivers.contains(receiver)) {
                     receivers.add(receiver);
                 }
             }
         }
 
-        // Sent
-        if (CollectionUtils.isNotEmpty(receivers)) {
-            String receiverNames = userService.joinNamesFromPubkeys(receivers, DEFAULT_PUBKEYS_SEPARATOR, true);
-            String receiverPubkeys = ModelUtils.joinPubkeys(receivers, DEFAULT_PUBKEYS_SEPARATOR, false);
-            for (String sender : senders) {
-                notifyUserEvent(block, sender, UserEventCodes.TX_SENT, I18n.n("duniter.user.event.TX_SENT"), receiverPubkeys, receiverNames);
+        Map<String, UserProfile> issuerProfiles = userService.getProfilesByPubkey(issuers, UserProfile.PROPERTY_TITLE, UserProfile.PROPERTY_LOCALE);
+        Map<String, UserProfile> receiverProfiles = userService.getProfilesByPubkey(receivers, UserProfile.PROPERTY_TITLE, UserProfile.PROPERTY_LOCALE);
+
+        // Emit TX_RECEIVED events
+        if (CollectionUtils.isNotEmpty(issuers)) {
+            String issuerNames = userService.joinNamesFromProfiles(issuers, issuerProfiles, DEFAULT_PUBKEYS_SEPARATOR, true);
+            String issuersAsString = ModelUtils.joinPubkeys(issuers, DEFAULT_PUBKEYS_SEPARATOR, false);
+            for (String receiver : receivers) {
+                UserProfile receiverProfile = receiverProfiles.get(receiver);
+                String receiverLocale = receiverProfile != null ? receiverProfile.getLocale() : null;
+                notifyUserEvent(block, receiver, receiverLocale, UserEventCodes.TX_RECEIVED, I18n.n("duniter.user.event.TX_RECEIVED"), issuersAsString, issuerNames);
             }
         }
+
+
+        // Emit TX_SENT events
+        if (CollectionUtils.isNotEmpty(receivers)) {
+            String receiverNames = userService.joinNamesFromProfiles(receivers, receiverProfiles, DEFAULT_PUBKEYS_SEPARATOR, true);
+            String receiversAsString = ModelUtils.joinPubkeys(receivers, DEFAULT_PUBKEYS_SEPARATOR, false);
+            for (String issuer : issuers) {
+                UserProfile issuerProfile = issuerProfiles.get(issuer);
+                String issuerLocale = issuerProfile != null ? issuerProfile.getLocale() : null;
+                notifyUserEvent(block, issuer, issuerLocale, UserEventCodes.TX_SENT, I18n.n("duniter.user.event.TX_SENT"), receiversAsString, receiverNames);
+            }
+        }
+
+
 
     }
 
     private void processCertification(BlockchainBlock block, BlockchainBlock.Certification certification) {
-        String sender = certification.getFromPubkey();
+        String issuer = certification.getFromPubkey();
+        UserProfile issuerProfile = userService.getProfileByPubkey(issuer).orElse(EMPTY_PROFILE);
+
         String receiver = certification.getToPubkey();
+        UserProfile receiverProfile = userService.getProfileByPubkey(receiver).orElse(EMPTY_PROFILE);
 
         // Received
-        String senderName = userService.getProfileTitle(sender);
-        if (senderName == null) {
-            senderName = ModelUtils.minifyPubkey(sender);
-        }
-        notifyUserEvent(block, receiver, UserEventCodes.CERT_RECEIVED, I18n.n("duniter.user.event.CERT_RECEIVED"), sender, senderName);
+        String issuerName = StringUtils.isNotBlank(issuerProfile.getTitle()) ? issuerProfile.getTitle() : ModelUtils.minifyPubkey(issuer);
+        notifyUserEvent(block, receiver, receiverProfile.getLocale(), UserEventCodes.CERT_RECEIVED,
+                I18n.n("duniter.user.event.CERT_RECEIVED"), issuer, issuerName);
 
         // Sent
-        String receiverName = userService.getProfileTitle(receiver);
-        if (receiverName == null) {
-            receiverName = ModelUtils.minifyPubkey(receiver);
-        }
-        notifyUserEvent(block, sender, UserEventCodes.CERT_SENT, I18n.n("duniter.user.event.CERT_SENT"), receiver, receiverName);
+        String receiverName = StringUtils.isNotBlank(receiverProfile.getTitle()) ? receiverProfile.getTitle() : ModelUtils.minifyPubkey(receiver);
+        notifyUserEvent(block, issuer, issuerProfile.getLocale(), UserEventCodes.CERT_SENT,
+                I18n.n("duniter.user.event.CERT_SENT"),
+                receiver, receiverName);
+    }
+    private void notifyUserEvent(BlockchainBlock block, String pubkey,
+                                 UserEventCodes code,
+                                 String message,
+                                 String... params) {
+        notifyUserEvent(block, pubkey, null/*will read the locale from the profile, if any*/, code, message, params);
     }
 
-    private void notifyUserEvent(BlockchainBlock block, String pubkey, UserEventCodes code, String message, String... params) {
+    private void notifyUserEvent(BlockchainBlock block, String pubkey,
+                                 @Nullable String locale,
+                                 UserEventCodes code,
+                                 String message,
+                                 String... params) {
+        Preconditions.checkNotNull(block);
+        Preconditions.checkNotNull(pubkey);
+        Preconditions.checkNotNull(message);
+        Preconditions.checkNotNull(code);
+
         UserEvent event = UserEvent.newBuilder(UserEvent.EventType.INFO, code.name())
                 .setRecipient(pubkey)
                 .setMessage(message, params)
@@ -207,7 +245,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
                 .setReferenceHash(block.getHash())
                 .build();
 
-        event = userEventService.fillUserEvent(event);
+        event = locale == null ? userEventService.fillUserEvent(event) : userEventService.fillUserEvent(new Locale(locale), event) ;
 
         try {
             bulkRequest.add(client.prepareIndex(UserEventService.INDEX, UserEventService.EVENT_TYPE)

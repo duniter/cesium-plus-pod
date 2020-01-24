@@ -91,6 +91,8 @@ public interface Duniter4jClient extends Bean, Client {
      */
     <T extends Object> T getSourceById(String index, String type, String docId, Class<T> classOfT, String... fieldNames);
 
+    <T extends Object> Map<String, T> getSourcesByIds(String index, String type, Set<String> docIds, Class<T> classOfT, String... fieldNames);
+
     <C extends LocalEntity<String>> C readSourceOrNull(SearchHit searchHit, Class<? extends C> clazz);
 
     void bulkFromClasspathFile(String classpathFile, String indexName, String indexType);

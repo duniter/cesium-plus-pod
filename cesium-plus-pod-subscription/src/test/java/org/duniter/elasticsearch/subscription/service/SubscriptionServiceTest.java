@@ -24,34 +24,23 @@ package org.duniter.elasticsearch.subscription.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.client.model.local.Wallet;
 import org.duniter.core.client.service.ServiceLocator;
-import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.CryptoUtils;
 import org.duniter.core.util.json.JsonAttributeParser;
-import org.duniter.core.util.url.URLs;
 import org.duniter.elasticsearch.subscription.TestResource;
 import org.duniter.elasticsearch.subscription.model.email.EmailSubscription;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserEventCodes;
 import org.duniter.elasticsearch.user.service.UserEventService;
 import org.junit.*;
-import org.nuiton.i18n.I18n;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.stringtemplate.v4.ST;
-import org.stringtemplate.v4.STGroupFile;
 
-import java.util.Date;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Created by Benoit on 06/05/2015.
@@ -90,7 +79,7 @@ public class SubscriptionServiceTest {
             Assume.assumeNoException(e);
         }
 
-        userEventService.indexEvent(Locale.getDefault(),
+        userEventService.notifyUser(Locale.getDefault(),
                 UserEvent.newBuilder(
                         UserEvent.EventType.INFO,
                         UserEventCodes.MEMBER_JOIN.name())

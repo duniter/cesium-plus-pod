@@ -83,7 +83,7 @@ public class AdminService extends AbstractService {
                 I18n.getDefaultLocale();
         if (StringUtils.isNotBlank(nodePubkey)) {
             event.setRecipient(nodePubkey);
-            userEventService.indexEvent(locale, event);
+            userEventService.notifyUser(locale, event);
         }
 
         // Send email to admin

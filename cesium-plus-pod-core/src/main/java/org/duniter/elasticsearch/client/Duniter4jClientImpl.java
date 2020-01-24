@@ -393,6 +393,54 @@ public class Duniter4jClientImpl implements Duniter4jClient {
         }
     }
 
+    /**
+     * Retrieve a document by id
+     * @param docId
+     * @return
+     */
+    @Override
+    public <T extends Object> Map<String, T> getSourcesByIds(String index, String type, Set<String> docIds, Class<T> classOfT, String... fieldNames) {
+
+        // Prepare request
+        SearchRequestBuilder searchRequest = client
+                .prepareSearch(index)
+                .setSearchType(SearchType.QUERY_AND_FETCH);
+
+        searchRequest.setQuery(QueryBuilders.idsQuery(type).ids(docIds));
+        if (CollectionUtils.isNotEmpty(fieldNames)) {
+            searchRequest.setFetchSource(fieldNames, null);
+        }
+        else {
+            searchRequest.setFetchSource(true); // full source
+        }
+
+
+        Map<String, T> result = new HashMap<>();
+
+        // Execute query
+        try {
+            SearchResponse response = searchRequest.execute().actionGet();
+
+            if (response.getHits().getTotalHits() == 0) return result;
+
+            // Read query result
+            ObjectMapper objectMapper = JacksonUtils.getThreadObjectMapper();
+
+            for (SearchHit searchHit : response.getHits().getHits()) {
+                if (searchHit.source() != null) {
+                    result.put(searchHit.getId(), objectMapper.readValue(searchHit.source(), classOfT));
+                }
+            }
+            return result;
+        }
+        catch(SearchPhaseExecutionException | IOException e) {
+            // Failed to get source
+            throw new TechnicalException(String.format("[%s/%s] Error while getting id=%s",
+                    index, type,
+                    docIds.toString()), e);
+        }
+    }
+
     @Override
     public <C extends LocalEntity<String>> C readSourceOrNull(SearchHit searchHit, Class<? extends C> clazz) {
         try {
