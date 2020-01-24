@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.InvalidSignatureException;
 import org.duniter.elasticsearch.user.PluginSettings;
@@ -61,11 +62,15 @@ public class MessageService extends AbstractService {
 
     private final UserEventService userEventService;
 
+    private UserService userService;
+
     @Inject
     public MessageService(Duniter4jClient client, PluginSettings settings,
+                          UserService userService,
                           CryptoService cryptoService, UserEventService userEventService) {
         super("duniter." + INDEX, client, settings, cryptoService);
         this.userEventService = userEventService;
+        this.userService = userService;
     }
 
     /**
@@ -161,10 +166,12 @@ public class MessageService extends AbstractService {
         String recipient = getMandatoryField(actualObj, Message.PROPERTY_RECIPIENT).asText();
         Long time = getMandatoryField(actualObj, Message.PROPERTY_TIME).asLong();
 
+        String issuerTitle = userService.getProfileTitle(issuer);
+
         // Notify recipient
         userEventService.notifyUser(UserEvent.newBuilder(UserEvent.EventType.INFO, UserEventCodes.MESSAGE_RECEIVED.name())
                 .setRecipient(recipient)
-                .setMessage(I18n.n("duniter.user.event.MESSAGE_RECEIVED"), issuer, ModelUtils.minifyPubkey(issuer))
+                .setMessage(I18n.n("duniter.user.event.MESSAGE_RECEIVED"), issuer, StringUtils.isNotBlank(issuerTitle) ? issuerTitle : ModelUtils.minifyPubkey(issuer))
                 .setTime(time)
                 .setReference(INDEX, INBOX_TYPE, messageId)
                 .build());
