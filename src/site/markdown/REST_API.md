@@ -7,10 +7,11 @@
 - [Overview](#overview)
 - [ES CORE API](#ES_CORE_API)
    * [currency](#acurrency)
-      * [currency/block](#acurrencyblock)
-      * [currency/blockstat](#acurrencyblockstat)
-      * [currency/peer](#acurrencypeer)
-      * [currency/movement](#acurrencymovement)
+      * [currency/block](#currencyblock)
+      * [currency/blockstat](#currencyblockstat)
+      * [currency/peer](#currencypeer)
+      * [currency/movement](#currencymovement)
+      * [currency/pending](#currencypending)
 - [ES USER API](#es_user_api)
    * [user](#user)
       * [user/event](#userevent)
@@ -37,15 +38,14 @@ Data is made accessible through an HTTP API :
 
 ```text
     http[s]://node[:port]/...
-    |-- <currency_name>/
+    |-- <currency>/
     |   |-- block
     |   |-- blockstat
     |   |-- peer
-    |   `-- movement
-    |-- user/
-    |   |-- event
-    |   |-- profile
-    |   `-- settings
+    |   |-- movement
+    |   `-- pending
+    |-- document/
+    |   `-- stats
     |-- message/
     |   |-- inbox
     |   `-- outbox
@@ -96,17 +96,19 @@ For instance, a deletion on `message/inbox` should send this document:
           
 ## ES CORE API
 
-### `<currency>/*`
+### currency/*
 
-#### `<currency>/block`
+#### currency/block
 
  - Get the current block: `<currency>/block/current`
  - Get a block by number: `<currency>/block/<number>`
- - Search on blocks: `<currency>/block/_search` (POST or GET)
+ - Search on blocks (using the ElasticSearch search API): `<currency>/block/_search` (POST or GET)
 
 #### `<currency>/blockstat`
 
 #### `<currency>/peer`
+
+ - List all peers by endpoint and API, with a status (UP, DOWN) and other stats on blockchain (main consensus, ...)
 
 #### `<currency>/movement`
 
@@ -230,6 +232,24 @@ Some additional fields are `recipient` (the message recipient), `title` (the enc
  - Add a new invitation: `invitation/certification` (POST)
  - Delete an existing invitation: `invitation/certification/_delete` (POST)
  - Search on invitations: `invitation/certification/_search` (POST or GET)
+
+### `like/*`
+
+#### `like/record`
+
+All documents stored in the index have a mandatory type:
+ - LIKE
+ - DISLIKE
+ - STAR
+ - ABUSE
+ - VIEW
+
+This index allow you to:
+
+ - Count record of a type, on any pod's document (e.g. number of stars on a profile)
+ - Add or delete a record
+ 
+On VIEW type can be anonymous (without `issuer` and `signature` fields in the document).
 
 ## ES SUBSCRIPTION API
 
