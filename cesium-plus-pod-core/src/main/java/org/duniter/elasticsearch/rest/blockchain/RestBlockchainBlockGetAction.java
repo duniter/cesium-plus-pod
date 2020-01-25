@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.rest.blockchain;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.BlockDao;
+import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -81,9 +82,19 @@ public class RestBlockchainBlockGetAction extends BaseRestHandler {
                     .setFetchSource(includes, excludes)
                     .execute().actionGet();
 
-            BytesStreamOutput bso = new BytesStreamOutput();
-            response.getSourceAsBytesRef().writeTo(bso);
-            channel.sendResponse(new BytesRestResponse(RestStatus.OK, XContentType.JSON.restContentType(), bso.bytes()));
+            if (!response.isExists()) {
+                if (isCurrent) {
+                    throw new NotFoundException("No current block. Retry later");
+                }
+                else {
+                    throw new NotFoundException(String.format("Block #%s not found.", number));
+                }
+            }
+            else {
+                BytesStreamOutput bso = new BytesStreamOutput();
+                response.getSourceAsBytesRef().writeTo(bso);
+                channel.sendResponse(new BytesRestResponse(RestStatus.OK, XContentType.JSON.restContentType(), bso.bytes()));
+            }
         }
         catch(IOException ioe) {
             if (isCurrent)
