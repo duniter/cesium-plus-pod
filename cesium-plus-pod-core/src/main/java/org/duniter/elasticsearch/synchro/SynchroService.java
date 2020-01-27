@@ -223,11 +223,18 @@ public class SynchroService extends AbstractService {
 
             // Execute the synchronization, on each peer
             if (CollectionUtils.isNotEmpty(peers)) {
-                peers.forEach(peer -> {
-                    try {
-                        synchronizePeer(peer, enableSynchroWebsocket);
-                    } catch (Throwable t) {
-                        logger.error(String.format("%s Failed to synchronize {%s}: %s", logPrefix, peer, t.getMessage()), t);
+                peers.stream()
+                        .filter(Objects::nonNull)
+                        .forEach(peer -> {
+                    if (peer.getId() == null) {
+                        logger.error(String.format("%s Failed to synchronize {%s}: missing computed id", logPrefix, peer));
+                    }
+                    else {
+                        try {
+                            synchronizePeer(peer, enableSynchroWebsocket);
+                        } catch (Throwable t) {
+                            logger.error(String.format("%s Failed to synchronize {%s}: %s", logPrefix, peer, t.getMessage()), t);
+                        }
                     }
                 });
             }
