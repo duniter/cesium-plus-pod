@@ -11,3 +11,9 @@ target
 */target
 *.iml
 .local
+/pom.xml.releaseBackup
+/cesium-plus-pod-user/pom.xml.releaseBackup
+/cesium-plus-pod-subscription/pom.xml.releaseBackup
+/cesium-plus-pod-core/pom.xml.releaseBackup
+/cesium-plus-pod-assembly/pom.xml.releaseBackup
+/release.properties
