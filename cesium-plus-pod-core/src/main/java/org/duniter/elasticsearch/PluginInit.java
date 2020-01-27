@@ -371,7 +371,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             currency = injector.getInstance(CurrencyService.class)
                     .indexCurrencyFromPeer(peer, true);
         } catch (Throwable e) {
-            logger.error(String.format("Error while indexing currency. Skipping blockchain indexation.", e.getMessage()), e);
+            logger.error(String.format("Error while indexing currency: %s", e.getMessage()), e);
             throw e;
         }
 
