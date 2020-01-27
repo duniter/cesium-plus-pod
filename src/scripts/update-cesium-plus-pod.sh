@@ -11,7 +11,7 @@ ASSET_ZIP_URL=https://github.com/${REPO}/releases/download/${ASSET_BASENAME}-${V
 if [[ "${VERSION}" == "" ]]; then
         echo "ERROR: Missing version argument !"
         echo " "
-        echo "usage: sudo ./update-es.sh <version> [<old_version>]"
+        echo "usage: sudo $0 <version> [<old_version>]"
         exit
 fi
 if [[ "${OLD_VERSION}" == "" ]]; then
