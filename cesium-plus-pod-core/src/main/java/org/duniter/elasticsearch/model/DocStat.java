@@ -35,7 +35,7 @@ public class DocStat implements Serializable {
     @Deprecated
     public static final String PROPERTY_INDEX_TYPE = "indexType";
 
-    public static final String PROPERTY_COUNT = "docCount";
+    public static final String PROPERTY_COUNT = "count";
     public static final String PROPERTY_TIME = "time";
     public static final String PROPERTY_QUERY_NAME = "queryName";
 
