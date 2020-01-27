@@ -223,9 +223,13 @@ public class SynchroService extends AbstractService {
 
             // Execute the synchronization, on each peer
             if (CollectionUtils.isNotEmpty(peers)) {
-                peers.stream()
-                        .filter(Objects::nonNull)
-                        .forEach(p -> synchronizePeer(p, enableSynchroWebsocket));
+                peers.forEach(peer -> {
+                    try {
+                        synchronizePeer(peer, enableSynchroWebsocket);
+                    } catch (Throwable t) {
+                        logger.error(String.format("%s Failed to synchronize {%s}: %s", logPrefix, peer, t.getMessage()), t);
+                    }
+                });
             }
 
             long executionTimeMs = System.currentTimeMillis() - startTimeMs;
