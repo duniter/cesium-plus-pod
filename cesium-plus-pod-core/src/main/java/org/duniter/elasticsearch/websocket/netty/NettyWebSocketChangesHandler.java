@@ -138,7 +138,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
             if (reason != null && reason.getCloseCode() != CloseReason.CloseCodes.GOING_AWAY)
                 logger.debug(String.format("Closing websocket session, id {%s} - reason {%s}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
             else
-                logger.debug(String.format("Closing websocket session, id {%s}"));
+                logger.debug(String.format("Closing websocket session, id {%s}", sessionId));
         }
         synchronized (this) {
             ChangeService.unregisterListener(this);
