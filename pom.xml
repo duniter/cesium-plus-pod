@@ -3,7 +3,7 @@
 
   <groupId>org.duniter.cesium</groupId>
   <artifactId>cesium-plus-pod</artifactId>
-  <version>1.5.11</version>
+  <version>1.5.12-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Cesium+ pod</name>
   <description>Cesium+ pod :: An ElasticSearch cluster for Duniter network</description>
