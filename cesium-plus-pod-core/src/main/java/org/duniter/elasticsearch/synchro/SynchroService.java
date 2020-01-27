@@ -223,7 +223,9 @@ public class SynchroService extends AbstractService {
 
             // Execute the synchronization, on each peer
             if (CollectionUtils.isNotEmpty(peers)) {
-                peers.forEach(p -> synchronizePeer(p, enableSynchroWebsocket));
+                peers.stream()
+                        .filter(Objects::nonNull)
+                        .forEach(p -> synchronizePeer(p, enableSynchroWebsocket));
             }
 
             long executionTimeMs = System.currentTimeMillis() - startTimeMs;
