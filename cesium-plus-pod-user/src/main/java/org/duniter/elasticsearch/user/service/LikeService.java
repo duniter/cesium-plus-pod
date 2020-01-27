@@ -29,6 +29,7 @@ import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
+import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.exception.DuplicatedDocumentException;
@@ -52,6 +53,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.nuiton.i18n.I18n;
+import org.nuiton.util.StringUtil;
 
 import java.io.IOException;
 import java.util.Map;
@@ -375,6 +377,35 @@ public class LikeService extends AbstractService {
                 .setReferenceAnchor(anchor)
                 .build();
         userEventService.notifyUser(userEvent);
+    }
+
+    public long countByDocumentAndKind(String index, String type, String docId, LikeRecord.Kind kind) {
+        Preconditions.checkArgument(StringUtils.isNotBlank(index));
+        Preconditions.checkNotNull(StringUtils.isNotBlank(type));
+        Preconditions.checkNotNull(StringUtils.isNotBlank(docId));
+        Preconditions.checkNotNull(kind);
+
+        // Prepare search request
+        SearchRequestBuilder searchRequest = client
+                .prepareSearch(LikeService.INDEX)
+                .setTypes(LikeService.RECORD_TYPE)
+                .setFetchSource(false)
+                .setSearchType(SearchType.QUERY_AND_FETCH);
+
+        // Query = filter on index/type/id
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_INDEX, index))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_TYPE, type))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_ID, docId))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_KIND, kind.toString()));
+
+        searchRequest.setQuery(QueryBuilders.constantScoreQuery(boolQuery));
+
+        SearchResponse response = searchRequest
+                .setSize(0)
+                .get();
+
+        return response.getHits().getTotalHits();
     }
 
     /* -- Internal methods -- */

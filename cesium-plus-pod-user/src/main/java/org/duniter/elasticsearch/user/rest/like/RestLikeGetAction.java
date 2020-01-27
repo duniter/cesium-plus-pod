@@ -30,12 +30,9 @@ import org.duniter.elasticsearch.user.dao.profile.UserProfileDao;
 import org.duniter.elasticsearch.user.model.LikeRecord;
 import org.duniter.elasticsearch.user.service.LikeService;
 import org.duniter.elasticsearch.user.service.UserService;
-import org.elasticsearch.action.search.*;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.*;
 
 public class RestLikeGetAction extends BaseRestHandler {
@@ -45,13 +42,16 @@ public class RestLikeGetAction extends BaseRestHandler {
     public static final String PATH_ABUSE = "/_abuses";
 
     private RestSecurityController securityController;
+    private LikeService service;
 
     @Inject
     public RestLikeGetAction(Settings settings, RestController controller,
                              RestSecurityController securityController,
-                             Client client) {
+                             Client client,
+                             LikeService service) {
         super(settings, controller, client);
         this.securityController = securityController;
+        this.service = service;
 
         for (LikeRecord.Kind kind: LikeRecord.Kind.values()) {
             controller.registerHandler(RestRequest.Method.GET, "/{index}/{type}/{id}/_" + kind.toString().toLowerCase() + "s", this);
@@ -88,27 +88,7 @@ public class RestLikeGetAction extends BaseRestHandler {
             kind = LikeRecord.Kind.LIKE;
         }
 
-        // Prepare search request
-        SearchRequestBuilder searchRequest = client
-                .prepareSearch(LikeService.INDEX)
-                .setTypes(LikeService.RECORD_TYPE)
-                .setFetchSource(false)
-                .setSearchType(SearchType.QUERY_AND_FETCH);
-
-        // Query = filter on index/type/id
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
-                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_INDEX, index))
-                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_TYPE, type))
-                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_ID, id))
-                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_KIND, kind.toString()));
-
-        searchRequest.setQuery(QueryBuilders.constantScoreQuery(boolQuery));
-
-        SearchResponse response = searchRequest
-                .setSize(0)
-                .get();
-
-        Long count = response.getHits().getTotalHits();
+        Long count = service.countByDocumentAndKind(index, type, id, kind);
         channel.sendResponse(new BytesRestResponse(RestStatus.OK, BytesRestResponse.TEXT_CONTENT_TYPE, count.toString().getBytes()));
     }
 
