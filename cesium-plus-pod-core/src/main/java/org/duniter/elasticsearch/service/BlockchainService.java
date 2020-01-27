@@ -595,7 +595,7 @@ public class BlockchainService extends AbstractService {
                     indexCurrentBlockFromJson(currencyName, blockAsJson, true /*wait*/);
                 }
             }
-            catch(Throwable t) {
+            catch(BlockNotFoundException | TechnicalException t) {
                 logger.debug(String.format("Error while getting block #%s: %s. Skipping this block.", curNumber, t.getMessage()));
                 missingBlockNumbers.add(String.valueOf(curNumber));
             }
@@ -663,7 +663,7 @@ public class BlockchainService extends AbstractService {
             try {
                 final int batchFirstNumberFinal = batchFirstNumber;
                 blocksAsJson = executeWithRetry(()->blockchainRemoteService.getBlocksAsJson(peer, batchSize, batchFirstNumberFinal));
-            } catch(TechnicalException e) {
+            } catch(BlockNotFoundException | TechnicalException e) {
                 if (logger.isDebugEnabled()) {
                     logger.debug(String.format("[%s] [%s] Error while getting blocks from #%s (count=%s): %s. Skipping blocks.",currencyName, peer, batchFirstNumber, batchSize, e.getMessage()));
                 }
@@ -830,7 +830,7 @@ public class BlockchainService extends AbstractService {
                 // Update the list, for the next iteration
                 sortedMissingBlocks =  newMissingBlocks;
             }
-            catch(TechnicalException e) {
+            catch(BlockNotFoundException | TechnicalException e) {
                 if (debug) {
                     logger.debug(String.format("Error while getting blocks from peer [%s]: %s. Skipping this peer.", childPeer), e.getMessage());
                 }
@@ -912,7 +912,7 @@ public class BlockchainService extends AbstractService {
 
                 // Check is exists on ES index
                 sameBlockIndexed = isBlockIndexed(currencyName, forkOriginNumber, forkOriginHash);
-            } catch (TechnicalException e) {
+            } catch (BlockNotFoundException | TechnicalException e) {
                 logger.warn(I18n.t("duniter4j.blockIndexerService.detectFork.remoteBlockNotFound", currencyName, peer, forkOriginNumber, e.getMessage()));
                 sameBlockIndexed = false; // continue (go back again)
             }
