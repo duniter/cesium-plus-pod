@@ -34,6 +34,7 @@ public class LikeRecord extends Record {
         LIKE,
         DISLIKE,
         STAR,
+        FOLLOW,
         ABUSE
     }
 
