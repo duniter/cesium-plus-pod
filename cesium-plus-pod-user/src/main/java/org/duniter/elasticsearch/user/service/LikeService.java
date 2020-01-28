@@ -408,6 +408,8 @@ public class LikeService extends AbstractService {
         return response.getHits().getTotalHits();
     }
 
+
+
     /* -- Internal methods -- */
 
 

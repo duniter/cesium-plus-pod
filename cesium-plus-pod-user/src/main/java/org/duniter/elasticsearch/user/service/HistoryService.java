@@ -190,7 +190,7 @@ public class HistoryService extends AbstractService {
         String id = getMandatoryField(actualObj,DeleteRecord.PROPERTY_ID).asText();
 
         // Delete the document
-        client.prepareDelete(index, type, id).execute().actionGet();
+        client.safeExecuteRequest(client.prepareDelete(index, type, id)).actionGet();
     }
 
     public boolean existsInDeleteHistory(final String index, final String type, final String id) {

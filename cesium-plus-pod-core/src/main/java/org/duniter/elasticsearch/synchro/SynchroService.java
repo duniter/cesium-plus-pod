@@ -22,10 +22,7 @@ package org.duniter.elasticsearch.synchro;
  * #L%
  */
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
@@ -36,6 +33,7 @@ import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.core.util.DateUtils;
 import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.websocket.WebsocketClientEndpoint;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
@@ -204,57 +202,84 @@ public class SynchroService extends AbstractService {
             return;
         }
 
+        // Collect all hash of cluster endpoints
+        Peer clusterPeer = pluginSettings.getClusterPeer().orElse(null);
+
         currencyIds.forEach(currencyId -> includeEndpointApis.forEach(endpointApi -> {
 
             String logPrefix = String.format("[%s] [%s]", currencyId, endpointApi.name());
-            long startTimeMs = System.currentTimeMillis();
+            long now = System.currentTimeMillis();
 
             logger.info(String.format("%s Synchronization... {peers discovery: %s}", logPrefix, pluginSettings.enableSynchroDiscovery()));
 
             // Get peers for this currency and current API
             Collection<Peer> peers = networkService.getPeersFromApi(currencyId, endpointApi);
 
+            // Exclude peers when equals to the current cluster
+            if (CollectionUtils.isNotEmpty(peers) && clusterPeer != null) {
+                peers = peers.stream().filter(p -> !pluginSettings.sameAsClusterPeer(p))
+                        .collect(Collectors.toList());
+            }
+
             // If full resync (= only possible at startup), then use only one peer (the first one, usually from the configuration)
-            if (forceFullResync && CollectionUtils.size(peers) > 0) {
+            if (forceFullResync && CollectionUtils.isNotEmpty(peers)) {
                 Peer firstPeer = peers.iterator().next();
                 peers = ImmutableList.of(firstPeer);
                 logger.debug(String.format("%s Full synchronization will be limited to first peer found {%s}", logPrefix, firstPeer));
             }
 
-            // Execute the synchronization, on each peer
-            if (CollectionUtils.isNotEmpty(peers)) {
-                peers.stream()
-                        .filter(Objects::nonNull)
-                        .forEach(peer -> {
-                    if (peer.getId() == null) {
-                        logger.error(String.format("%s Failed to synchronize {%s}: missing computed id", logPrefix, peer));
+            if (CollectionUtils.isEmpty(peers)) {
+                logger.info(String.format("%s Synchronization [OK] - no UP peer found", logPrefix));
+            }
+            else {
+                final MutableInt counter = new MutableInt(0);
+
+                // Execute the synchronization, on each peer
+                peers.forEach(peer -> {
+                    // Check if peer alive and valid
+                    boolean isAliveAndValid = networkService.isEsNodeAliveAndValid(peer);
+                    if (!isAliveAndValid) {
+                        logger.warn(String.format("[%s] [%s] Not reachable, or running on another currency. Skipping.", peer.getCurrency(), peer));
+                        return;
+                    }
+
+                    if (StringUtils.isBlank(peer.getPubkey())) {
+                        logger.warn(String.format("%s Failed to synchronize {%s}: missing pubkey", logPrefix, peer));
                     }
                     else {
+                        if (peer.getHash() == null || peer.getId() == null) {
+                            String hash = cryptoService.hash(peer.computeKey());
+                            peer.setHash(hash);
+                            peer.setId(hash);
+                            if (logger.isDebugEnabled()) {
+                                logger.debug(String.format("%s Computing missing hash for {%s}: %s", logPrefix, peer, hash));
+                            }
+                        }
                         try {
                             synchronizePeer(peer, enableSynchroWebsocket);
+                            counter.increment();
                         } catch (Throwable t) {
                             logger.error(String.format("%s Failed to synchronize {%s}: %s", logPrefix, peer, t.getMessage()), t);
                         }
                     }
                 });
+
+                logger.info(String.format("%s Synchronization [OK] - %s/%s peers in %s ms", logPrefix,
+                        counter.intValue(),
+                        CollectionUtils.size(peers),
+                        System.currentTimeMillis() - now));
             }
 
-            long executionTimeMs = System.currentTimeMillis() - startTimeMs;
-            logger.info(String.format("%s Synchronization [OK] - %s peers in %s ms", logPrefix,
-                    CollectionUtils.size(peers),
-                    executionTimeMs));
         }));
     }
 
     public SynchroResult synchronizePeer(final Peer peer, boolean enableSynchroWebsocket) {
-        long startTimeMs = System.currentTimeMillis();
+        Preconditions.checkNotNull(peer);
+        Preconditions.checkNotNull(peer.getCurrency());
+        Preconditions.checkNotNull(peer.getId());
+        Preconditions.checkNotNull(peer.getApi());
 
-        // Check if peer alive and valid
-        boolean isAliveAndValid = networkService.isEsNodeAliveAndValid(peer);
-        if (!isAliveAndValid) {
-            logger.warn(String.format("[%s] [%s] Not reachable, or not running on this currency. Skipping.", peer.getCurrency(), peer));
-            return null;
-        }
+        long startTimeMs = System.currentTimeMillis();
 
         SynchroResult result = new SynchroResult();
 
@@ -341,13 +366,26 @@ public class SynchroService extends AbstractService {
                                  long startTimeMs,
                                  long executionTimeMs) {
         Preconditions.checkNotNull(peer);
+        Preconditions.checkNotNull(peer.getCurrency());
         Preconditions.checkNotNull(peer.getId());
+        Preconditions.checkNotNull(peer.getApi());
         Preconditions.checkNotNull(result);
+
+        // Compute hash, when missing
+        String hash = peer.getUrl();
+        if (StringUtils.isBlank(hash)) {
+            hash = cryptoService.hash(peer.computeKey());
+            peer.setHash(hash);
+            peer.setId(hash);
+            if (logger.isDebugEnabled()) {
+                logger.debug(String.format("[%s] [%s] Computing missing hash for {%s}: %s", peer.getCurrency(), peer.getApi(), peer, hash));
+            }
+        }
 
         try {
             SynchroExecution execution = new SynchroExecution();
             execution.setCurrency(peer.getCurrency());
-            execution.setPeer(peer.getId());
+            execution.setPeer(hash);
             execution.setApi(peer.getApi());
             execution.setExecutionTime(executionTimeMs);
             execution.setResult(result);

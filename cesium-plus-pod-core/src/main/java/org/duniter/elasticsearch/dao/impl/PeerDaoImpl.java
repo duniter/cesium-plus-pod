@@ -175,11 +175,11 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         if (CollectionUtils.isNotEmpty(pubkeys)) {
             boolQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
         }
+        boolQuery.must(statusQuery);
 
-        request.setQuery(QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery().must(boolQuery).must(statusQuery)));
+        request.setQuery(QueryBuilders.constantScoreQuery(boolQuery));
 
-        SearchResponse response = request.execute().actionGet();
-        return toList(response, Peer.class);
+        return toPeers(request);
     }
 
     @Override
@@ -207,7 +207,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         request.setQuery(QueryBuilders.constantScoreQuery(query));
 
-        return toList(request, Peer.class);
+        return toPeers(request);
     }
 
     @Override
@@ -242,8 +242,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         request.setQuery(QueryBuilders.constantScoreQuery(query));
 
-        SearchResponse response = request.execute().actionGet();
-        return toList(response, Peer.class).stream()
+        return toPeers(request).stream()
                 .map(Peers::toWs2pHead)
                 // Skip if no message
                 .filter(head -> head.getMessage() != null)
@@ -602,5 +601,34 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         }
     }
 
+    protected List<Peer> toPeers(SearchRequestBuilder request) {
+        List<Peer> result =  toList(request, Peer.class);
 
+        // Make sure to set all peers hash (and id)
+        result.forEach(peer -> {
+            if (peer.getHash() == null) {
+                String hash = cryptoService.hash(peer.computeKey());
+                peer.setHash(hash);
+            }
+            peer.setId(peer.getHash());
+        });
+
+        return result;
+    }
+
+
+    protected List<Peer> toPeers(SearchResponse response) {
+        List<Peer> result =  toList(response, Peer.class);
+
+        // Make sure to set all peers hash (and id)
+        result.forEach(peer -> {
+            if (peer.getHash() == null) {
+                String hash = cryptoService.hash(peer.computeKey());
+                peer.setHash(hash);
+            }
+            peer.setId(peer.getHash());
+        });
+
+        return result;
+    }
 }

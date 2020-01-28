@@ -133,21 +133,22 @@ public abstract class AbstractDao implements Bean {
         final ObjectMapper objectMapper = getObjectMapper();
 
         int size = this.pluginSettings.getIndexBulkSize();
-        request.setSize(size);
-
         long total = -1;
         int from = 0;
+
+        request.setSize(size).setFrom(from);
+
         do {
-            request.setFrom(from);
-            SearchResponse response = request.execute().actionGet();
+            SearchResponse response = client.safeExecuteRequest(request).actionGet();
             toStream(response)
                     .map(hit -> readValueOrNull(objectMapper, hit, clazz))
                     .filter(Objects::nonNull)
                     .forEach(result::add);
 
-            if (total == -1) total = response.getHits().getTotalHits();
             from += size;
-        } while(from<total);
+            request.setFrom(from);
+            if (total == -1) total = response.getHits().getTotalHits();
+        } while(from < total);
 
         return result;
     }

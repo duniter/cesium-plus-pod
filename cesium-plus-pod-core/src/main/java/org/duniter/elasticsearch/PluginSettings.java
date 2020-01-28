@@ -34,6 +34,7 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
+import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.CryptoUtils;
 import org.duniter.core.util.crypto.KeyPair;
@@ -68,8 +69,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static List<String> i18nBundleNames = new CopyOnWriteArrayList<>(); // Default
     private static boolean isI18nStarted = false;
     private static Peer duniterPeer;
+    private Optional<Peer> clusterPeer;
+    private List<Peer> clusterPeerEndpoints;
 
-    private String clusterRemoteUrl;
     private String softwareDefaultVersion;
 
     private final CryptoService cryptoService;
@@ -222,20 +224,70 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getClusterRemoteUrlOrNull() {
-        if (StringUtils.isBlank(getClusterRemoteHost())) return null;
-
-        if (clusterRemoteUrl == null) {
-
-            clusterRemoteUrl = Peer.newBuilder().setHost(getClusterRemoteHost())
-                    .setPort(getClusterRemotePort())
-                    .setUseSsl(getClusterRemoteUseSsl())
-                    .build()
-                    .getUrl();
-        }
-
-        return clusterRemoteUrl;
+        return getClusterPeer()
+                .map(Peer::getUrl)
+                .orElse(null);
     }
 
+    public Optional<Peer> getClusterPeer() {
+        if (clusterPeer == null) {
+            if (StringUtils.isBlank(getClusterRemoteHost())) {
+                clusterPeer = Optional.empty();
+            }
+            else {
+                clusterPeer = Optional.of(Peer.newBuilder().setHost(getClusterRemoteHost())
+                        .setPort(getClusterRemotePort())
+                        .setUseSsl(getClusterRemoteUseSsl())
+                        .setPubkey(getNodePubkey())
+                        .build());
+            }
+        }
+
+        return clusterPeer;
+    }
+
+    /**
+     * Test if a peer is same as the cluster peer (same host and port)
+     * @param aPeer
+     * @return
+     */
+    public boolean sameAsClusterPeer(Peer aPeer) {
+        return aPeer != null && getClusterPeer().map(clusterPeer -> clusterPeer.getHost().equalsIgnoreCase(aPeer.getHost())
+                && clusterPeer.getPort() == clusterPeer.getPort())
+                .orElse(false);
+    }
+
+    public List<Peer> getClusterPeerEndpoints() {
+        if (this.clusterPeerEndpoints != null) return clusterPeerEndpoints;
+
+        Set<EndpointApi> endpointApis = getPeeringPublishedApis();
+        if (StringUtils.isBlank(getClusterRemoteHost()) || CollectionUtils.isEmpty(endpointApis)) {
+            this.clusterPeerEndpoints = ImmutableList.of();
+        }
+        else {
+            // Make sure node has a pubkey
+            initNodeKeyring();
+
+            this.clusterPeerEndpoints = endpointApis.stream().map(api -> {
+                Peer p = Peer.newBuilder()
+                        .setHost(getClusterRemoteHost())
+                        .setPort(getClusterRemotePort())
+                        .setUseSsl(getClusterRemoteUseSsl())
+                        .setPubkey(getNodePubkey())
+                        .setApi(api.name())
+                        .build();
+                String hash = cryptoService.hash(p.computeKey());
+                p.setHash(hash);
+                p.setId(hash);
+                if (logger.isDebugEnabled()) {
+                    logger.debug(String.format("[%s] Computed hash to identify this endpoint: %", p.toString(), hash));
+                }
+                return p;
+            }).collect(Collectors.toList());
+        }
+
+        return this.clusterPeerEndpoints;
+    }
 
     /* -- Settings on Duniter node (with BMA API) -- */
 
@@ -573,7 +625,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     /**
      * Override the version default option, from the MANIFEST implementation version (if any)
-     * @param applicationConfig
      */
     protected String getPackageVersion() {
         // Override application version

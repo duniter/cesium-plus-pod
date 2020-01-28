@@ -35,6 +35,7 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.client.service.HttpService;
 import org.duniter.core.client.service.bma.NetworkRemoteService;
+import org.duniter.core.client.service.exception.HttpBadRequestException;
 import org.duniter.core.client.util.KnownBlocks;
 import org.duniter.core.client.util.KnownCurrencies;
 import org.duniter.core.exception.TechnicalException;
@@ -338,7 +339,7 @@ public class NetworkService extends AbstractService {
     }
 
 
-    public boolean isEsNodeAliveAndValid(Peer peer) {
+    public boolean isEsNodeAliveAndValid(Peer peer, String... excludePubkeys) {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
@@ -353,11 +354,14 @@ public class NetworkService extends AbstractService {
         try {
             NetworkPeering peering = httpService.executeRequest(peer, String.format("/%s/network/peering", peer.getCurrency()), NetworkPeering.class);
 
-            // Same pubkey as node's pubkey: skip
-            if (peering != null && peering.getPubkey().equals(pluginSettings.getNodePubkey())) {
+            // Exclude given pubkeys
+            if (peering != null && peering.getPubkey() != null && excludePubkeys != null && Arrays.asList(excludePubkeys).contains(peering.getPubkey())) {
                 logger.debug(String.format("[%s] [%s] Same pubkey as node's. Skipping synchronization (seems to be self)", peer.getCurrency(), peer));
                 return false;
             }
+
+            // Make sure to update pubkey, because can changed!
+            peer.setPubkey(peering.getPubkey());
 
             // Peer is alive, fine !
             return true;
@@ -429,7 +433,7 @@ public class NetworkService extends AbstractService {
         // Retrieve the currency to use
         currency = blockchainService.safeGetCurrency(currency);
 
-        // Get result from cache, is allow
+        // Get result from cache, if enable
         if (useCache) {
             NetworkPeering result = peeringByCurrencyCache.get(currency);
             if (result != null) return result;
@@ -652,6 +656,8 @@ public class NetworkService extends AbstractService {
             return;
         }
 
+        Peer clusterPeer = pluginSettings.getClusterPeer().orElse(null);
+
         // For each currency
         currencyIds.forEach(currencyId -> {
 
@@ -664,6 +670,12 @@ public class NetworkService extends AbstractService {
 
                 // Get peers for targeted APIs
                 Collection<Peer> peers = getPeersFromApis(currencyId, targetedApis);
+
+                // Exclude peers when equals to the current cluster
+                if (CollectionUtils.isNotEmpty(peers) && clusterPeer != null) {
+                    peers = peers.stream().filter(p -> !pluginSettings.sameAsClusterPeer(p))
+                            .collect(Collectors.toList());
+                }
 
                 if (CollectionUtils.isNotEmpty(peers)) {
                     // Send document to every peers
@@ -689,6 +701,13 @@ public class NetworkService extends AbstractService {
 
             networkRemoteService.postPeering(peer, peerDocument);
             return true;
+        }
+        catch(HttpBadRequestException e) {
+            // Document already known = OK
+            if (e.getCode() == 1015) return true;
+
+            if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Error when sending peer document: %s", currencyId, peer, e.getMessage()));
+            return false;
         }
         catch(Exception e) {
             if (logger.isDebugEnabled()) logger.debug(String.format("[%s] [%s] Error when sending peer document: %s", currencyId, peer, e.getMessage()));

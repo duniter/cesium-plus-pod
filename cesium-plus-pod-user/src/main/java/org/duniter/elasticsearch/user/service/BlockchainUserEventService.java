@@ -134,12 +134,12 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
         do {
             SearchResponse response;
             if (scrollId == null) {
-                response = req.execute().actionGet();
+                response = client.safeExecuteRequest(req).actionGet();
                 scrollId = response.getScrollId();
             }
             else {
-                SearchScrollRequestBuilder request = client.prepareSearchScroll(scrollId).setScroll("1m");
-                response = request.execute().actionGet();
+                response = client.safeExecuteRequest(client.prepareSearchScroll(scrollId).setScroll("1m"))
+                        .actionGet();
             }
 
             toStream(response).forEach(hit -> {
@@ -169,13 +169,18 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             if (total == -1) total = response.getHits().getTotalHits();
         } while (from < total);
 
+        // Clear scroll (async)
+        if (scrollId != null) {
+            client.prepareClearScroll().addScrollId(scrollId).execute();
+        }
+
         if (logger.isInfoEnabled()) {
             if (result.getTotal() > 0) {
                 logger.info(String.format("[%s] Checking user events [OK] %s in %s ms", currencyId,
                         result.toString(), System.currentTimeMillis() - now));
             }
             else {
-                logger.info(String.format("[%s] Checking user events [OK] no error found %s ms", currencyId,
+                logger.info(String.format("[%s] Checking user events [OK] no error detected, in %s ms", currencyId,
                         System.currentTimeMillis() - now));
             }
         }

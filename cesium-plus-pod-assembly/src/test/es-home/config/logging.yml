@@ -17,6 +17,7 @@ logger:
   duniter: DEBUG
   #duniter.core: DEBUG
   duniter.security: WARN
+  duniter.p2p: DEBUG
   duniter.dao.member: WARN
   duniter.threadpool: INFO
   duniter.blockchain.membership: DEBUG
