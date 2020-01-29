@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.user.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.Sets;
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
 import org.duniter.core.exception.TechnicalException;
@@ -52,12 +53,15 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
 import org.nuiton.i18n.I18n;
 import org.nuiton.util.StringUtil;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -408,7 +412,56 @@ public class LikeService extends AbstractService {
         return response.getHits().getTotalHits();
     }
 
+    public Set<String> getIssuersByDocumentAndKind(String index, String type, String docId, LikeRecord.Kind kind) {
+        Preconditions.checkArgument(StringUtils.isNotBlank(index));
+        Preconditions.checkArgument(StringUtils.isNotBlank(type));
+        Preconditions.checkArgument(StringUtils.isNotBlank(docId));
+        Preconditions.checkNotNull(kind);
 
+        int size = pluginSettings.getIndexBulkSize();
+
+        // Prepare search request
+        SearchRequestBuilder request = client
+                .prepareSearch(LikeService.INDEX)
+                .setTypes(LikeService.RECORD_TYPE)
+                .setFetchSource(false)
+                .addFields(LikeRecord.PROPERTY_ISSUER)
+                .setSearchType(SearchType.QUERY_AND_FETCH)
+                .setSize(size);
+
+        // Query = filter on index/type/id
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_INDEX, index))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_TYPE, type))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_ID, docId))
+                .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_KIND, kind.toString()));
+
+        request.setQuery(QueryBuilders.constantScoreQuery(boolQuery));
+
+
+        // Execute query
+        long total = -1;
+        int from = 0;
+        Set<String> result = Sets.newHashSet();
+        do {
+            SearchResponse response = client.safeExecuteRequest(request).actionGet();
+
+            // Read query result
+            SearchHit[] searchHits = response.getHits().getHits();
+            for (SearchHit searchHit : searchHits) {
+                Map<String, SearchHitField> hitFields = searchHit.getFields();
+                SearchHitField issuerField = hitFields.get(LikeRecord.PROPERTY_ISSUER);
+                if (issuerField != null) {
+                    result.add(issuerField.getValue());
+                }
+            }
+            from += size;
+            request.setFrom(from);
+            if (total == -1) total = (response.getHits() != null) ? response.getHits().getTotalHits() : 0;
+        } while (from < total);
+
+        return result;
+    }
 
     /* -- Internal methods -- */
 
