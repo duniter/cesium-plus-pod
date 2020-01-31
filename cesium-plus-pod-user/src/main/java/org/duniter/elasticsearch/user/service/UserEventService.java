@@ -230,13 +230,9 @@ public class UserEventService extends AbstractService implements ChangeService.C
         return searchRequest.execute().actionGet().getHits().getTotalHits();
     }
 
-    public void deleteEventsByReference(final DocumentReference reference) {
+    public void deleteAllByReference(final DocumentReference reference) {
         Preconditions.checkNotNull(reference);
-
-        final int bulkSize = pluginSettings.getIndexBulkSize();
-
-        BulkRequestBuilder bulkRequest = client.prepareBulk();
-        addDeleteEventsByReferenceToBulk(reference, bulkRequest, bulkSize, true);
+        addDeletesByReferenceToBulk(reference, client.prepareBulk(), pluginSettings.getIndexBulkSize(), true);
     }
 
     public void deleteBlockEventsFrom(final int fromBlockNumber) {
@@ -419,10 +415,10 @@ public class UserEventService extends AbstractService implements ChangeService.C
         }
     }
 
-    public BulkRequestBuilder addDeleteEventsByReferenceToBulk(final DocumentReference reference,
-                                                               BulkRequestBuilder bulkRequest,
-                                                               final int bulkSize,
-                                                               final boolean flushAll) {
+    public BulkRequestBuilder addDeletesByReferenceToBulk(final DocumentReference reference,
+                                                          BulkRequestBuilder bulkRequest,
+                                                          final int bulkSize,
+                                                          final boolean flushAll) {
 
         // Prepare search request
         SearchRequestBuilder searchRequest = client

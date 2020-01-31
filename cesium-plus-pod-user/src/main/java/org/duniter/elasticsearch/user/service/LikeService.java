@@ -38,11 +38,9 @@ import org.duniter.elasticsearch.exception.InvalidFormatException;
 import org.duniter.elasticsearch.exception.NotFoundException;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.profile.UserProfileDao;
-import org.duniter.elasticsearch.user.model.LikeRecord;
-import org.duniter.elasticsearch.user.model.UserEvent;
-import org.duniter.elasticsearch.user.model.UserEventCodes;
-import org.duniter.elasticsearch.user.model.UserProfile;
+import org.duniter.elasticsearch.user.model.*;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -52,11 +50,12 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.ConstantScoreQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.nuiton.i18n.I18n;
-import org.nuiton.util.StringUtil;
 
 import java.io.IOException;
 import java.util.Map;
@@ -463,6 +462,11 @@ public class LikeService extends AbstractService {
         return result;
     }
 
+    public void deleteAllByReference(final DocumentReference reference) {
+        Preconditions.checkNotNull(reference);
+        addDeletesByReferenceToBulk(reference, client.prepareBulk(), pluginSettings.getIndexBulkSize(), true);
+    }
+
     /* -- Internal methods -- */
 
 
@@ -549,6 +553,40 @@ public class LikeService extends AbstractService {
         }
     }
 
+    public BulkRequestBuilder addDeletesByReferenceToBulk(final DocumentReference reference,
+                                                          BulkRequestBuilder bulkRequest,
+                                                          final int bulkSize,
+                                                          final boolean flushAll) {
 
+        // Prepare search request
+        SearchRequestBuilder searchRequest = client
+                .prepareSearch(INDEX)
+                .setTypes(RECORD_TYPE)
+                .setFetchSource(false)
+                .setSearchType(SearchType.QUERY_AND_FETCH)
+                // Query = filter on reference
+                .setQuery(createQueryForReference(reference));
 
+        // Execute query, while there is some data
+        return client.bulkDeleteFromSearch(INDEX, RECORD_TYPE, searchRequest, bulkRequest, bulkSize, flushAll);
+    }
+
+    protected ConstantScoreQueryBuilder createQueryForReference(final DocumentReference reference) {
+        // Query = filter on reference
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        if (StringUtils.isNotBlank(reference.getIndex())) {
+            boolQuery.filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_INDEX, reference.getIndex()));
+        }
+        if (StringUtils.isNotBlank(reference.getType())) {
+            boolQuery.filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_TYPE, reference.getType()));
+        }
+        if (StringUtils.isNotBlank(reference.getId())) {
+            boolQuery.filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_ID, reference.getId()));
+        }
+        if (StringUtils.isNotBlank(reference.getAnchor())) {
+            boolQuery.filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_ANCHOR, reference.getAnchor()));
+        }
+
+        return QueryBuilders.constantScoreQuery(boolQuery);
+    }
 }

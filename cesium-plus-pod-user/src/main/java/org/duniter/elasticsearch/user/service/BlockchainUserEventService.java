@@ -47,7 +47,6 @@ import org.duniter.elasticsearch.user.model.UserEventCodes;
 import org.duniter.elasticsearch.user.model.UserProfile;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
@@ -101,7 +100,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             reference.setHash(block.getHash());
         }
 
-        this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
+        this.bulkRequest = userEventService.addDeletesByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
         flushBulkRequestOrSchedule();
     }
 
@@ -215,7 +214,7 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
         // First: Delete old events on same block
         {
             DocumentReference reference = new DocumentReference(block.getCurrency(), BlockchainService.BLOCK_TYPE, String.valueOf(block.getNumber()));
-            this.bulkRequest = userEventService.addDeleteEventsByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
+            this.bulkRequest = userEventService.addDeletesByReferenceToBulk(reference, this.bulkRequest, this.bulkSize, false);
             flushBulk();
         }
 
