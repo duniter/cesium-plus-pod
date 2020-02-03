@@ -3,7 +3,7 @@
 
   <groupId>org.duniter.cesium</groupId>
   <artifactId>cesium-plus-pod</artifactId>
-  <version>1.5.18-SNAPSHOT</version>
+  <version>1.5.18</version>
   <packaging>pom</packaging>
   <name>Cesium+ pod</name>
   <description>Cesium+ pod :: An ElasticSearch cluster for Duniter network</description>
@@ -148,7 +148,7 @@
     <url>https://git.duniter.org/clients/cesium-grp/cesium-plus-pod.git</url>
     <connection>scm:git:git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git</connection>
     <developerConnection>scm:git:git@git.duniter.org:clients/cesium-grp/cesium-plus-pod.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>cesium-plus-pod-1.5.18</tag>
   </scm>
 
   <issueManagement>
