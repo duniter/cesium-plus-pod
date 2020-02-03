@@ -1,4 +1,4 @@
-text_email(issuerPubkey, issuerName, senderPubkey, senderName, events, url, linkName) ::= <<
+text_email(title, issuerPubkey, issuerName, senderPubkey, senderName, events, url, linkName, locale) ::= <<
 $i18n_args("duniter4j.es.subscription.email.hello", issuerName)$
 $i18n_args("duniter4j.es.subscription.email.unreadCount", {$length(events)$} )$
 

@@ -22,6 +22,7 @@ package org.duniter.elasticsearch.user;
  * #L%
  */
 
+import com.google.common.base.Joiner;
 import org.duniter.core.util.CollectionUtils;
 import org.duniter.elasticsearch.service.CurrencyService;
 import org.duniter.elasticsearch.service.DocStatService;
@@ -33,6 +34,7 @@ import org.duniter.elasticsearch.user.dao.group.GroupRecordDao;
 import org.duniter.elasticsearch.user.dao.page.PageCommentDao;
 import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
 import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
+import org.duniter.elasticsearch.user.model.LikeRecord;
 import org.duniter.elasticsearch.user.model.UserEvent;
 import org.duniter.elasticsearch.user.model.UserEventCodes;
 import org.duniter.elasticsearch.user.service.*;
@@ -42,6 +44,8 @@ import org.elasticsearch.common.inject.Injector;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.nuiton.i18n.I18n;
 
 import java.util.Set;
@@ -69,8 +73,11 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
     @Override
     protected void doStart() {
-        // General config
+        // Configure network
         configPeeringEndpointApi();
+
+        // Configure doc stats
+        configDocStats();
 
         threadPool.onMasterStart(() -> {
             logger.info(String.format("Starting user jobs... {blockchain user events:%s},  {blockchain admin events:%s}",
@@ -79,6 +86,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             // Create indices
             createIndices();
+
 
             // Notify the admin that the node is ready
             threadPool.scheduleOnClusterReady(() -> {
@@ -110,7 +118,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
     protected void configDocStats() {
         // Register stats on indices
         if (pluginSettings.enableDocStats()) {
-            injector.getInstance(DocStatService.class)
+            DocStatService docStatService = injector.getInstance(DocStatService.class)
                     .registerIndex(UserService.INDEX, UserService.PROFILE_TYPE)
                     .registerIndex(UserService.INDEX, UserService.SETTINGS_TYPE)
                     .registerIndex(MessageService.INDEX, MessageService.INBOX_TYPE)
@@ -124,6 +132,20 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .registerIndex(HistoryService.INDEX, HistoryService.DELETE_TYPE)
                     .registerIndex(LikeService.INDEX, LikeService.RECORD_TYPE)
             ;
+
+            for (LikeRecord.Kind kind: LikeRecord.Kind.values()) {
+                QueryBuilder query = QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_KIND, kind.name()))
+                );
+
+                // Add stats by Like kinds (LIKE, DISLISKES, ABUSE, etc.)
+                String queryName = Joiner.on('_').join(UserService.INDEX, UserService.PROFILE_TYPE, kind.name().toLowerCase());
+                docStatService.registerIndex(UserService.INDEX, UserService.PROFILE_TYPE, queryName, query, null);
+
+                // Add stats by Like kinds (LIKE, DISLISKES, ABUSE, etc.)
+                queryName = Joiner.on('_').join(PageIndexDao.INDEX, PageRecordDao.TYPE, kind.name().toLowerCase());
+                docStatService.registerIndex(PageIndexDao.INDEX, PageRecordDao.TYPE, queryName, query, null);
+            }
         }
     }
 

@@ -525,12 +525,12 @@ public class NetworkService extends AbstractService {
             future.setDelegate(
                     threadPool.scheduleAtFixedRate(
                     this::publishPeerDocumentToNetwork,
-                    pluginSettings.getPeeringInterval() * 1000,
-                    pluginSettings.getPeeringInterval() * 1000 /* convert in ms */,
-                    TimeUnit.MILLISECONDS));
+                    pluginSettings.getPeeringInterval(),
+                    pluginSettings.getPeeringInterval(),
+                    TimeUnit.SECONDS));
         },
-        30 * 1000 /*wait 30 s */ ,
-        TimeUnit.MILLISECONDS));
+        30, TimeUnit.SECONDS // wait 30s
+        ));
 
         return Optional.of(future);
     }

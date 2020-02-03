@@ -124,7 +124,16 @@ public class DocStatService extends AbstractService  {
         Preconditions.checkArgument(StringUtils.isNotBlank(index));
         StatDef statDef = new StatDef(index, type, queryName, query);
         if (!statDefs.contains(statDef)) {
+            if (queryName == null) {
+                logger.debug(String.format("Add stats on {%s/%s}", index, type));
+            }
+            else {
+                logger.debug(String.format("Add stats on {%s/%s} with query {name:%s}", index, type, queryName));
+            }
             statDefs.add(statDef);
+        }
+        else {
+            logger.debug(String.format("Stats on {%s/%s} already registered. Skipping", index, type));
         }
 
         if (listener != null) {
@@ -182,6 +191,8 @@ public class DocStatService extends AbstractService  {
 
         int bulkSize = pluginSettings.getIndexBulkSize();
         long now = System.currentTimeMillis()/1000;
+        logger.info("Computing document stats...");
+
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
         DocStat stat = new DocStat();
@@ -229,6 +240,8 @@ public class DocStatService extends AbstractService  {
         if ((counter % bulkSize) != 0) {
             client.flushBulk(bulkRequest);
         }
+
+        logger.info(String.format("Computing document stats [OK] %s insertions, in %s ms", counter, System.currentTimeMillis() - now*1000));
     }
 
 

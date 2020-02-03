@@ -24,7 +24,9 @@ package org.duniter.elasticsearch.subscription.service;
 
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.exception.TechnicalException;
+import org.duniter.elasticsearch.subscription.TestResource;
 import org.duniter.elasticsearch.util.springtemplate.STUtils;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,8 @@ public class SubscriptionTemplateTest {
     private static final Logger log = LoggerFactory.getLogger(SubscriptionTemplateTest.class);
 
     private static final boolean verbose = true;
+    @ClassRule
+    public static final TestResource resource = TestResource.create();
 
     @Test
     public void testHtmlEmail() throws Exception{
@@ -50,17 +54,20 @@ public class SubscriptionTemplateTest {
         try {
             STGroup group = STUtils.newSTGroup("org/duniter/elasticsearch/subscription/templates");
 
-            ST tpl = group.getInstanceOf("html_email_content");
-            tpl.add("issuerName", "MyIssuerName");
-            tpl.add("issuerPubkey", "5ocqzyDMMWf1V8bsoNhWb1iNwax1e9M7VTUN6navs8of");
-            tpl.add("url", "https://g1.duniter.fr");
-            tpl.add("senderPubkey", "G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU");
-            tpl.add("senderName", ModelUtils.minifyPubkey("G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU"));
-            tpl.addAggr("events.{description, time}", new Object[]{"My event description", new Date()});
-            tpl.addAggr("events.{description, time}", new Object[]{"My event description 2", new Date()});
-            assertNotNull(tpl);
+            Locale locale = new Locale("en", "GB");
+            ST template = group.getInstanceOf("html_email_content");
+            template.add("title", "Cesium+ notifications");
+            template.add("issuerName", "MyIssuerName");
+            template.add("issuerPubkey", "5ocqzyDMMWf1V8bsoNhWb1iNwax1e9M7VTUN6navs8of");
+            template.add("url", "https://g1.duniter.fr");
+            template.add("senderPubkey", "G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU");
+            template.add("senderName", ModelUtils.minifyPubkey("G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU"));
+            template.add("locale", locale.getLanguage());
+            template.addAggr("events.{description, time}", "My event description", new Date());
+            template.addAggr("events.{description, time}", "My event description 2", new Date());
+            assertNotNull(template);
 
-            String email = tpl.render(new Locale("en", "GB"));
+            String email = template.render(locale);
 
             if (verbose) {
                 System.out.println(email);

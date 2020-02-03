@@ -76,6 +76,7 @@ public class LikeService extends AbstractService {
         I18n.n("duniter.user.event.LIKE_RECEIVED");
         I18n.n("duniter.user.event.ABUSE_RECEIVED");
         I18n.n("duniter.user.event.STAR_RECEIVED");
+        I18n.n("duniter.user.event.FOLLOW_RECEIVED");
     }
     private final AdminService adminService;
     private final UserEventService userEventService;

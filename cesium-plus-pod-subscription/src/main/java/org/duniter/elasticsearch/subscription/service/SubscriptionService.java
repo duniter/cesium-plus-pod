@@ -317,9 +317,12 @@ public class SubscriptionService extends AbstractService {
                 subscription.getContent().getLocale().split("-") : new String[]{"en", "GB"};
         Locale userLocale = localParts.length >= 2 ? new Locale(localParts[0].toLowerCase(), localParts[1].toUpperCase()) : new Locale(localParts[0].toLowerCase());
 
+        final String title = emailSubjectPrefix + I18n.t("duniter4j.es.subscription.email.subject", userEvents.size());
+
         // Compute text content
         final String text = fillTemplate(
                 templates.getInstanceOf("text_email"),
+                title,
                 subscription,
                 senderPubkey,
                 senderName,
@@ -333,6 +336,7 @@ public class SubscriptionService extends AbstractService {
         // Compute HTML content
         final String html = fillTemplate(
                 templates.getInstanceOf("html_email_content"),
+                title,
                 subscription,
                 senderPubkey,
                 senderName,
@@ -343,19 +347,18 @@ public class SubscriptionService extends AbstractService {
                 emailLinkName)
                 .render(userLocale);
 
-        final String object = emailSubjectPrefix + I18n.t("duniter4j.es.subscription.email.subject", userEvents.size());
         if (pluginSettings.isEmailSubscriptionsDebug()) {
             logger.info(String.format("---- Email to sendBlock (debug mode) ------\nTo:%s\nObject: %s\nText content:\n%s",
                     subscription.getContent().getEmail(),
-                    object,
+                    title,
                     text));
         }
         else {
             // Schedule email sending
             threadPool.schedule(() -> mailService.sendHtmlEmailWithText(
-                    object,
+                    title,
                     text,
-                    "<body>" + html + "</body>",
+                    html,
                     subscription.getContent().getEmail()));
         }
 
@@ -375,6 +378,7 @@ public class SubscriptionService extends AbstractService {
 
 
     public static ST fillTemplate(final ST template,
+                                  String title,
                                   EmailSubscription subscription,
                                   String senderPubkey,
                                   String senderName,
@@ -393,18 +397,18 @@ public class SubscriptionService extends AbstractService {
 
         try {
             // Compute body
-            template.add("linkName", linkName);
-            template.add("url", linkUrl);
+            template.add("title", title);
             template.add("issuerPubkey", subscription.getIssuer());
             template.add("issuerName", issuerName);
             template.add("senderPubkey", senderPubkey);
             template.add("senderName", senderName);
+            template.add("url", linkUrl);
+            template.add("linkName", linkName);
+            if (issuerLocale != null) template.add("locale", issuerLocale.getLanguage());
             userEvents.forEach(userEvent -> {
-                String description = getUserEventDescription(issuerLocale, userEvent);
-                template.addAggr("events.{description, time}", new Object[]{
-                        description,
-                    new Date(userEvent.getTime() * 1000)
-                });
+                template.addAggr("events.{description, time}",
+                        getUserEventDescription(issuerLocale, userEvent),
+                        new Date(userEvent.getTime() * 1000));
             });
 
             return template;
