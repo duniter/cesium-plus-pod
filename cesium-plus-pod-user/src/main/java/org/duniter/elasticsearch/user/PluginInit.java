@@ -138,13 +138,17 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                         .filter(QueryBuilders.termQuery(LikeRecord.PROPERTY_KIND, kind.name()))
                 );
 
-                // Add stats by Like kinds (LIKE, DISLISKES, ABUSE, etc.)
+                // Add stats by Like kinds, on user profile
                 String queryName = Joiner.on('_').join(UserService.INDEX, UserService.PROFILE_TYPE, kind.name().toLowerCase());
                 docStatService.registerIndex(UserService.INDEX, UserService.PROFILE_TYPE, queryName, query, null);
 
-                // Add stats by Like kinds (LIKE, DISLISKES, ABUSE, etc.)
+                // Add stats by Like kinds, on page
                 queryName = Joiner.on('_').join(PageIndexDao.INDEX, PageRecordDao.TYPE, kind.name().toLowerCase());
                 docStatService.registerIndex(PageIndexDao.INDEX, PageRecordDao.TYPE, queryName, query, null);
+
+                // Add stats by Like kinds, on group
+                queryName = Joiner.on('_').join(GroupIndexDao.INDEX, GroupRecordDao.TYPE, kind.name().toLowerCase());
+                docStatService.registerIndex(GroupIndexDao.INDEX, GroupRecordDao.TYPE, queryName, query, null);
             }
         }
     }
