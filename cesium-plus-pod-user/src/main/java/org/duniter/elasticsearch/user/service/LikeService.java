@@ -349,7 +349,7 @@ public class LikeService extends AbstractService {
         String level = getOptionalField(actualObj,LikeRecord.PROPERTY_LEVEL).map(JsonNode::asText).orElse(null);
 
         // Load some fields from the original document
-        Map<String, Object> docFields = docFields = client.getFieldsById(index, type, id, Record.PROPERTY_ISSUER, UserProfile.PROPERTY_TITLE);
+        Map<String, Object> docFields = client.getFieldsById(index, type, id, Record.PROPERTY_ISSUER, UserProfile.PROPERTY_TITLE);
         String docIssuer = String.valueOf(docFields.get(Record.PROPERTY_ISSUER));
         String docTitle = Optional.ofNullable(docFields.get(UserProfile.PROPERTY_TITLE)).orElse("?").toString();
 
