@@ -99,7 +99,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
     @OnOpen
     public void onOpen(NettyWebSocketSession session){
         if (logger.isDebugEnabled())
-            logger.debug(String.format("Opening websocket session id {%s}. Waiting for sources...", session.getId()));
+            logger.debug(String.format("Opening websocket session {id: %s}. Waiting for sources...", session.getId()));
 
         synchronized (this) {
             this.session = session;
@@ -107,7 +107,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
             this.sources = null;
         }
 
-        // Wait 30s for sources, else focre close
+        // Wait 30s for sources, else force close
         checkHasSourceOrClose(30, TimeUnit.SECONDS);
     }
 
@@ -136,9 +136,9 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
     public void onClose(CloseReason reason) {
         if (logger.isDebugEnabled())  {
             if (reason != null && reason.getCloseCode() != CloseReason.CloseCodes.GOING_AWAY)
-                logger.debug(String.format("Closing websocket session, id {%s} - reason {%s}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
+                logger.debug(String.format("Closing websocket session {id: %s, reason: '%s'}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
             else
-                logger.debug(String.format("Closing websocket session, id {%s}", sessionId));
+                logger.debug(String.format("Closing websocket session {id: %s}", sessionId));
         }
         synchronized (this) {
             ChangeService.unregisterListener(this);
@@ -148,7 +148,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
 
     @OnError
     public void onError(Throwable t) {
-        logger.error(String.format("Error on websocket session, id {%s}", sessionId), t);
+        logger.error(String.format("Error on websocket session {id: %s}", sessionId), t);
     }
 
 
@@ -184,7 +184,7 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
         synchronized (this) {
             if (sources == null || !sources.containsKey(sourceKey)) {
                 if (logger.isDebugEnabled())
-                    logger.debug(String.format("Adding changes {%s}, id {%s}", filter, sessionId));
+                    logger.debug(String.format("Adding sources filter {%s} to session {id: %s}", filter, sessionId));
                 if (sources == null) {
                     sources = Maps.newHashMap();
                     sources.put(sourceKey, source);

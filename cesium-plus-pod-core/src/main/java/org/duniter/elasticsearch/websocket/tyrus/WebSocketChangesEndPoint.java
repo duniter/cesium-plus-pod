@@ -96,7 +96,7 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
     @OnOpen
     public void onOpen(Session session) {
         if (logger.isDebugEnabled())
-            logger.debug(String.format("Opening websocket session id {%s}. Waiting for sources...", session.getId()));
+            logger.debug(String.format("Opening websocket session {id: %s}. Waiting for sources...", session.getId()));
 
         synchronized (this) {
             this.session = session;
@@ -104,8 +104,8 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
             this.sources = null;
         }
 
-        // Wait 10s that sources
-        threadPool.schedule(() -> checkHasSourceOrClose(), 30, TimeUnit.SECONDS);
+        // Wait 30s for sources, else force close
+        checkHasSourceOrClose(30, TimeUnit.SECONDS);
     }
 
     @Override
@@ -133,9 +133,9 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
     public void onClose(CloseReason reason) {
         if (logger.isDebugEnabled())  {
             if (reason != null && reason.getCloseCode() != CloseReason.CloseCodes.GOING_AWAY)
-                logger.debug(String.format("Closing websocket session, id {%s} - reason {%s}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
+                logger.debug(String.format("Closing websocket session {id: %s, reason: '%s'}: %s",  sessionId,  reason.getCloseCode(), reason.getReasonPhrase()));
             else
-                logger.debug(String.format("Closing websocket session, id {%s}"));
+                logger.debug(String.format("Closing websocket session {id: %s}", sessionId));
         }
         synchronized (this) {
             ChangeService.unregisterListener(this);
@@ -145,25 +145,28 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
 
     @OnError
     public void onError(Throwable t) {
-        logger.error(String.format("Error on websocket session, id {%s}", sessionId), t);
+        logger.error(String.format("Error on websocket session {id: %s}", sessionId), t);
     }
 
 
     /* -- internal methods -- */
 
-    private void checkHasSourceOrClose() {
-        synchronized (this) {
-            if (session != null && MapUtils.isEmpty(sources)) {
-                CloseReason reason = new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, "Missing source filter (must be send < 20s after connection)");
-                try {
-                    session.close(reason);
-                }
-                catch (IOException e) {
-                    logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
-                    onClose(reason);
+    private void checkHasSourceOrClose(long timeout, TimeUnit timeoutUnit) {
+        String reasonMessage = String.format("Missing source filter (must be send < %s %s after connection)", timeout, timeoutUnit.toString().toLowerCase());
+
+        threadPool.schedule(() -> {
+            synchronized (this) {
+                if (session != null && MapUtils.isEmpty(sources)) {
+                    CloseReason reason = new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, reasonMessage);
+                    try {
+                        session.close(reason);
+                    } catch (IOException e) {
+                        logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
+                        onClose(reason);
+                    }
                 }
             }
-        }
+        }, timeout, timeoutUnit);
     }
 
     private void addSourceFilter(String filter) {
@@ -178,7 +181,7 @@ public class WebSocketChangesEndPoint implements ChangeService.ChangeListener{
         synchronized (this) {
             if (sources == null || !sources.containsKey(sourceKey)) {
                 if (logger.isDebugEnabled())
-                    logger.debug(String.format("Adding changes {%s}, id {%s}", filter, sessionId));
+                    logger.debug(String.format("Adding sources filter {%s} to session {id: %s}", filter, sessionId));
                 if (sources == null) {
                     sources = Maps.newHashMap();
                     sources.put(sourceKey, source);
