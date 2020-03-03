@@ -119,9 +119,9 @@
     <site.path>/var/www/doc.e-is.pro/cesium-plus-pod</site.path>
     <site.repository>scpexe://${site.host}${site.path}</site.repository>
     <release.server>eis-nexus-deploy</release.server>
-    <release.repository>http://nexus.e-is.pro/nexus/content/repositories/duniter4j-releases</release.repository>
+    <release.repository>https://nexus.e-is.pro/nexus/content/repositories/duniter4j-releases</release.repository>
     <snapshot.server>eis-nexus-deploy</snapshot.server>
-    <snapshot.repository>http://nexus.e-is.pro/nexus/content/repositories/duniter4j-snapshots</snapshot.repository>
+    <snapshot.repository>https://nexus.e-is.pro/nexus/content/repositories/duniter4j-snapshots</snapshot.repository>
 
     <assembly.skip>false</assembly.skip>
 
@@ -638,7 +638,7 @@
   <repositories>
     <repository>
       <id>duniter4j-public-group</id>
-      <url>http://nexus.e-is.pro/nexus/content/groups/duniter4j</url>
+      <url>https://nexus.e-is.pro/nexus/content/groups/duniter4j</url>
       <snapshots>
         <enabled>true</enabled>
         <checksumPolicy>fail</checksumPolicy>
@@ -653,7 +653,7 @@
   <pluginRepositories>
     <pluginRepository>
       <id>duniter4j-public-group</id>
-      <url>http://nexus.e-is.pro/nexus/content/groups/duniter4j</url>
+      <url>https://nexus.e-is.pro/nexus/content/groups/duniter4j</url>
       <snapshots>
         <enabled>true</enabled>
         <checksumPolicy>fail</checksumPolicy>

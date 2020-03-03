@@ -122,7 +122,7 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
 
             // Add a insert to bulk
             Movements.stream(block)
-                .filter(this::filter)
+                .filter(this::filterMovement)
                 .forEach(movement -> {
                     try {
                         bulkRequest.add(client.prepareIndex(block.getCurrency(), MovementDao.TYPE)
@@ -168,7 +168,7 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
                         .collect(Collectors.toSet());
     }
 
-    protected boolean filter(Movement movement) {
+    protected boolean filterMovement(Movement movement) {
         if (this.txIncludesCommentPatterns == null && this.txExcludesCommentPatterns == null) {
             return true;
         }
