@@ -24,21 +24,31 @@ package org.duniter.elasticsearch.service;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.service.CryptoService;
+import org.duniter.core.util.CollectionUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
 import org.duniter.elasticsearch.dao.BlockStatDao;
 import org.duniter.elasticsearch.dao.MovementDao;
-import org.duniter.elasticsearch.model.Movement;
 import org.duniter.elasticsearch.model.BlockchainBlockStat;
+import org.duniter.elasticsearch.model.Movement;
 import org.duniter.elasticsearch.model.Movements;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
+import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.duniter.elasticsearch.util.bytes.JsonNodeBytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
 
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Created by Benoit on 26/04/2017.
@@ -48,6 +58,10 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
     private final BlockStatDao blockStatDao;
     private final MovementDao movementDao;
 
+    private final boolean enableMovementIndexation;
+    private final Collection<Pattern> txIncludesCommentPatterns;
+    private final Collection<Pattern> txExcludesCommentPatterns;
+
     @Inject
     public BlockchainListenerService(Duniter4jClient client,
                                      PluginSettings settings,
@@ -56,15 +70,25 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
                                      BlockStatDao blockStatDao,
                                      MovementDao movementDao) {
         super("duniter.blockchain.listener", client, settings, cryptoService, threadPool,
-                new TimeValue(500, TimeUnit.MILLISECONDS),
-                settings.enableBlockchainIndexation());
+                new TimeValue(500, TimeUnit.MILLISECONDS));
         this.blockStatDao = blockStatDao;
         this.movementDao = movementDao;
+
+        this.enableMovementIndexation = settings.enableMovementIndexation();
+
+        // Include/Exclude TX by comment patterns
+        this.txIncludesCommentPatterns = compilePatternsOrNull(settings.getMovementIncludesComment());
+        this.txExcludesCommentPatterns = compilePatternsOrNull(settings.getMovementExcludesComment());
+
+        if (settings.enableBlockchainIndexation()) {
+            ChangeService.registerListener(this);
+        }
     }
 
     @Override
     protected void processBlockIndex(ChangeEvent change) {
 
+        ObjectMapper objectMapper = getObjectMapper();
         BlockchainBlock block = readBlock(change);
 
         // Block stat
@@ -80,7 +104,7 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
             try {
                 bulkRequest.add(client.prepareIndex(block.getCurrency(), BlockStatDao.TYPE, String.valueOf(block.getNumber()))
                         .setRefresh(false) // recommended for heavy indexing
-                        .setSource(getObjectMapper().writeValueAsBytes(stat)));
+                        .setSource(objectMapper.writeValueAsBytes(stat)));
                 flushBulkRequestOrSchedule();
             } catch (JsonProcessingException e) {
                 logger.error("Could not serialize BlockStat into JSON: " + e.getMessage(), e);
@@ -88,7 +112,8 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
         }
 
         // Movements
-        {
+        if (enableMovementIndexation) {
+
             // Delete previous indexation
             bulkRequest = movementDao.bulkDeleteByBlock(block.getCurrency(),
                     String.valueOf(block.getNumber()),
@@ -97,31 +122,30 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
 
             // Add a insert to bulk
             Movements.stream(block)
+                .filter(this::filter)
                 .forEach(movement -> {
                     try {
                         bulkRequest.add(client.prepareIndex(block.getCurrency(), MovementDao.TYPE)
                                 .setRefresh(false) // recommended for heavy indexing
-                                .setSource(getObjectMapper().writeValueAsBytes(movement)));
+                                .setSource(new JsonNodeBytesReference(movement, objectMapper)));
                         flushBulkRequestOrSchedule();
-                    } catch (JsonProcessingException e) {
+                    } catch (IOException e) {
                         logger.error("Could not serialize BlockOperation into JSON: " + e.getMessage(), e);
                     }
                 });
         }
 
-        // TODO: get members IN
-
     }
 
     protected void processBlockDelete(ChangeEvent change) {
-        // blockStat
+        // Block stat
         {
             // Add delete to bulk
             bulkRequest.add(client.prepareDelete(change.getIndex(), BlockStatDao.TYPE, change.getId())
                     .setRefresh(false));
         }
 
-        // Operation
+        // Movements
         {
             // Add delete to bulk
             bulkRequest = movementDao.bulkDeleteByBlock(
@@ -135,4 +159,33 @@ public class BlockchainListenerService extends AbstractBlockchainListenerService
 
     /* -- internal method -- */
 
+    protected Collection<Pattern> compilePatternsOrNull(String[] patterns) {
+        return ArrayUtils.isEmpty(patterns) ? null :
+                Arrays.stream(patterns)
+                        .filter(StringUtils::isNotBlank)
+                        .map(p -> "^" + p.replaceAll("[*]", ".*") + "$")
+                        .map(Pattern::compile)
+                        .collect(Collectors.toSet());
+    }
+
+    protected boolean filter(Movement movement) {
+        if (this.txIncludesCommentPatterns == null && this.txExcludesCommentPatterns == null) {
+            return true;
+        }
+        String comment = StringUtils.trimToNull(movement.getComment());
+
+        Boolean included = (this.txIncludesCommentPatterns == null) ? null :
+                ((comment == null) ? Boolean.FALSE :
+                        this.txIncludesCommentPatterns.stream()
+                                .filter(pattern -> pattern.matcher(comment).matches()).map(p -> Boolean.TRUE)
+                                .findFirst().orElse(Boolean.FALSE));
+        Boolean excluded = (this.txExcludesCommentPatterns == null) ? null :
+                ((comment == null) ? Boolean.FALSE :
+                this.txExcludesCommentPatterns.stream()
+                    .filter(pattern -> pattern.matcher(comment).matches()).map(p -> Boolean.TRUE)
+                    .findFirst().orElse(Boolean.FALSE));
+
+        boolean result = !Objects.equals(included, Boolean.FALSE) && !Objects.equals(excluded, Boolean.TRUE);
+        return result;
+    }
 }

@@ -51,9 +51,6 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
 
     private static final List<ChangeSource> CHANGE_LISTEN_SOURCES = ImmutableList.of(new ChangeSource("*", BlockchainService.BLOCK_TYPE));
 
-    private static final String LOCK_NAME = "blockchain-listenerListenerService";
-
-    protected final boolean enable;
     protected final String listenerId;
     protected final ThreadPool threadPool;
     protected final int bulkSize;
@@ -70,11 +67,9 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
                                              PluginSettings settings,
                                              CryptoService cryptoService,
                                              ThreadPool threadPool,
-                                             TimeValue processingInterval,
-                                             boolean enable) {
+                                             TimeValue processingInterval) {
         super(loggerName, client, settings, cryptoService);
         this.listenerId = loggerName;
-        this.enable = enable;
         this.threadPool = threadPool;
 
         this.bulkSize = pluginSettings.getIndexBulkSize();
@@ -83,9 +78,6 @@ public abstract class AbstractBlockchainListenerService extends AbstractService 
         this.flushInterval = processingInterval;
         this.flushing = false;
 
-        if (this.enable) {
-            ChangeService.registerListener(this);
-        }
     }
 
 

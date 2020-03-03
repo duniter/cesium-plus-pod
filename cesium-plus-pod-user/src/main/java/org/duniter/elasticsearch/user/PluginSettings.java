@@ -243,6 +243,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.allowDocumentDeletionByAdmin();
     }
 
+    public String[] getUserModeratorsPubkeys() {
+        return this.settings.getAsArray("duniter.user.moderators.pubkeys");
+    }
+
     public void addI18nBundleName(String bundleName) {
         delegate.addI18nBundleName(bundleName);
     }

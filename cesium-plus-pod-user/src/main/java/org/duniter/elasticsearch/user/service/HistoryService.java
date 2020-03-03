@@ -25,6 +25,8 @@ package org.duniter.elasticsearch.user.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableSet;
+import org.apache.commons.lang3.ArrayUtils;
 import org.duniter.core.client.model.elasticsearch.DeleteRecord;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
@@ -49,6 +51,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -58,9 +61,17 @@ public class HistoryService extends AbstractService {
     public static final String INDEX = "history";
     public static final String DELETE_TYPE = "delete";
 
+    private final String adminPubkey;
+    private final Set<String> moderatorPubkeys;
+
     @Inject
     public HistoryService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService) {
         super("duniter." + INDEX, client, settings, cryptoService);
+
+        this.adminPubkey = !pluginSettings.isRandomNodeKeypair()
+                && pluginSettings.allowDocumentDeletionByAdmin() ? pluginSettings.getNodePubkey() : null;
+        String[] moderatorPubkeys = settings.getUserModeratorsPubkeys();
+        this.moderatorPubkeys = ArrayUtils.isEmpty(moderatorPubkeys) ? ImmutableSet.of() : ImmutableSet.copyOf(moderatorPubkeys);
     }
 
     /**
@@ -169,12 +180,14 @@ public class HistoryService extends AbstractService {
             }
         }
         catch(AccessDeniedException | InvalidTimeException e) {
-            // Check if admin ask the deletion
-            // If deletion done by admin: continue if allow in settings
-            if (!pluginSettings.isRandomNodeKeypair()
-                    && pluginSettings.allowDocumentDeletionByAdmin()
-                    && Objects.equals(issuer, pluginSettings.getNodePubkey())) {
+            // Check if admin ask the deletion (if yes, continue)
+            if (Objects.equals(issuer, this.adminPubkey)) {
                 logger.warn(String.format("[%s/%s] Deletion forced by admin, on doc [%s]", index, type, id));
+            }
+
+            // Allow deletion by moderators (if yes, continue)
+            else if (this.moderatorPubkeys.contains(issuer)) {
+                logger.warn(String.format("[%s/%s] Deletion forced by moderator {%s}, on doc [%s]", index, type, issuer.substring(0, 8), id));
             }
             else {
                 throw e;

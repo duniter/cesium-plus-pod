@@ -39,6 +39,7 @@ import org.duniter.elasticsearch.dao.SaveResult;
 import org.duniter.elasticsearch.service.AbstractBlockchainListenerService;
 import org.duniter.elasticsearch.service.BlockchainService;
 import org.duniter.elasticsearch.service.changes.ChangeEvent;
+import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.model.DocumentReference;
@@ -77,10 +78,13 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
                                       UserService userService,
                                       UserEventService userEventService) {
         super("duniter.user.event.blockchain", client, pluginSettings.getDelegate(), cryptoService, threadPool,
-                new TimeValue(500, TimeUnit.MILLISECONDS),
-                pluginSettings.enableBlockchainUserEventIndexation());
+                new TimeValue(500, TimeUnit.MILLISECONDS));
         this.userService = userService;
         this.userEventService = userEventService;
+
+        if (pluginSettings.enableBlockchainUserEventIndexation()) {
+            ChangeService.registerListener(this);
+        }
     }
 
     @Override
@@ -253,6 +257,13 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             }
         }
 
+        // Certifications
+        if (CollectionUtils.isNotEmpty(block.getCertifications())) {
+            for (BlockchainBlock.Certification cert: block.getCertifications()) {
+                processCertification(block, cert);
+            }
+        }
+
         // Tx
         if (CollectionUtils.isNotEmpty(block.getTransactions())) {
             for (BlockchainBlock.Transaction tx: block.getTransactions()) {
@@ -260,12 +271,6 @@ public class BlockchainUserEventService extends AbstractBlockchainListenerServic
             }
         }
 
-        // Certifications
-        if (CollectionUtils.isNotEmpty(block.getCertifications())) {
-            for (BlockchainBlock.Certification cert: block.getCertifications()) {
-                processCertification(block, cert);
-            }
-        }
 
         flushBulkRequestOrSchedule();
     }

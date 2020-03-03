@@ -107,8 +107,8 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
             this.sources = null;
         }
 
-        // Wait 10s that sources
-        threadPool.schedule(() -> checkHasSourceOrClose(), 30, TimeUnit.SECONDS);
+        // Wait 30s for sources, else focre close
+        checkHasSourceOrClose(30, TimeUnit.SECONDS);
     }
 
     @Override
@@ -154,19 +154,22 @@ public class NettyWebSocketChangesHandler extends NettyBaseWebSocketEndpoint imp
 
     /* -- internal methods -- */
 
-    private void checkHasSourceOrClose() {
-        synchronized (this) {
-            if (session != null && MapUtils.isEmpty(sources)) {
-                CloseReason reason = new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, "Missing source filter (must be send < 20s after connection)");
-                try {
-                    session.close(reason);
-                }
-                catch (IOException e) {
-                    logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
-                    onClose(reason);
+    private void checkHasSourceOrClose(long timeout, TimeUnit timeoutUnit) {
+        String reasonMessage = String.format("Missing source filter (must be send < %s %s after connection)", timeout, timeoutUnit.toString().toLowerCase());
+
+        threadPool.schedule(() -> {
+            synchronized (this) {
+                if (session != null && MapUtils.isEmpty(sources)) {
+                    CloseReason reason = new CloseReason(CloseReason.CloseCodes.PROTOCOL_ERROR, reasonMessage);
+                    try {
+                        session.close(reason);
+                    } catch (IOException e) {
+                        logger.error(String.format("Failed to close Web socket session, id {%s}", sessionId), e);
+                        onClose(reason);
+                    }
                 }
             }
-        }
+        }, timeout, timeoutUnit);
     }
 
     private void addSourceFilter(String filter) {

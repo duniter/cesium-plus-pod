@@ -135,9 +135,19 @@ security.manager.enabled: false
 #
 duniter.string.analyzer: french
 #
-# Enabling blockchain synchronization (default: false)
+# Enabling blockchain synchronization (default: true)
 #
-duniter.blockchain.enable: true
+# duniter.blockchain.enable: true
+#
+# Enabling blockchain movement indexation ? (default: ${duniter.blockchain.enable})
+#
+# duniter.blockchain.movement.enable: false
+#
+# Include/exclude blockchain movement, using regexp on `TX.comment` (default: <empty>)
+#
+# duniter.blockchain.movement.includes.comment: ["REMU:*", "GANNONCE:*", "GCHANGE:*"]
+#
+# duniter.blockchain.movement.excludes.comment: ["GANNONCE:CROWDF:*"]
 #
 # Enabling blockchain peers indexation ? (default: ${duniter.blockchain.enable})
 #
@@ -311,9 +321,17 @@ duniter.mail.enable: false
 #
 # duniter.user.enable: false
 #
-# Endpoint API for user data (use by P2P synchronization) (default: ES_USER_API)
+# Endpoint API for user data (use by P2P synchronization) (default: 'ES_USER_API')
 #
 # duniter.user.api: MY_CUSTOM_API
+#
+# Public keys of user moderator. Moderators can delete any user documents (profile, etc.) (default: <empty>)
+#
+duniter.user.moderators.pubkeys: [
+   '38MEAZN68Pz1DTvT3tqgxx4yQP6snJCQhPqEFxbDk4aE', # Benoit Lavenier
+   '47JpfrGkoHJWtumeu7f67fbAxkvaHYVQBNo5GszNs61Z',  # Bertrand Presles
+   'HmH5beJqKGMeotcQUrSW7Wo5tKvAksHmfYXfiSQ9EbWz'   # Le Sou Mayennais
+]
 #
 # ---------------------------------- Cesium+ Pod > Subscription module -------------------
 #

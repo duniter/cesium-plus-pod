@@ -337,6 +337,18 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.blockchain.enable", false);
     }
 
+    public boolean enableMovementIndexation()  {
+        return enableBlockchainIndexation() && settings.getAsBoolean("duniter.blockchain.movement.enable", true);
+    }
+
+    public String[] getMovementIncludesComment()  {
+        return settings.getAsArray("duniter.blockchain.movement.includes.comment", null/*no inclusion*/);
+    }
+
+    public String[] getMovementExcludesComment()  {
+        return settings.getAsArray("duniter.blockchain.movement.excludes.comment", null/*no exclusion*/);
+    }
+
     public boolean enableBlockchainPeerIndexation()  {
         return settings.getAsBoolean("duniter.blockchain.peer.enable", enableBlockchainIndexation());
     }
