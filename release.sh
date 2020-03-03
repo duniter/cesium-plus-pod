@@ -30,7 +30,7 @@ echo "Prepare release [OK]"
 echo "**********************************"
 echo "* Performing release..."
 echo "**********************************"
-mvn release:perform --quiet -Darguments="-DskipTests -Denv=hsqldb"
+mvn release:perform --quiet -Darguments="${RELEASE_OPTS}"
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
