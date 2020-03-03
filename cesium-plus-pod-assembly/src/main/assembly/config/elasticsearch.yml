@@ -197,7 +197,8 @@ duniter.port: 10901
 # duniter.keyring.salt:
 # duniter.keyring.password:
 #
-# Enable security - will restrict HTTP access to only Cesium+ known indices - /!\ WARNING: should be enable for production use
+# Enable security - will restrict HTTP access to only ES known indices
+# /!\ WARNING: should be enable for production use
 #
 duniter.security.enable: true
 #
@@ -309,11 +310,6 @@ duniter.mail.enable: false
 #
 # duniter.mail.subject.prefix: '[Cesium+]'
 #
-# ---------------------------------- Cesium+ Pod > Websocket server ----------------------
-#
-# Websocket port (default: ${http.port})
-#
-# duniter.ws.port: 9400-9410
 #
 # ---------------------------------- Cesium+ Pod > User module ---------------------------
 #
@@ -388,9 +384,9 @@ duniter.user.moderators.pubkeys: [
 #
 # Requirements to send abuse report, on `profile` or `page`.  (default: ['member'])
 #
-#duniter.abuse.issuer.requirements: ['wasMember', 'member', 'profile']
+# duniter.abuse.issuer.requirements: ['wasMember', 'member', 'profile']
 #
-# Requirements to send likes, on `profile` or `page`.  (default: [])
+# Requirements to send likes, on `profile` or `page`.  (default: empty)
 #
-#duniter.like.issuer.requirements: ['wasMember', 'member', 'profile']
+# duniter.like.issuer.requirements: ['wasMember', 'member', 'profile']
 #
