@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.user.rest.node;
+package org.duniter.elasticsearch.user.rest.user;
 
 /*
  * #%L
@@ -41,14 +41,14 @@ import java.util.Set;
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestNodeModeratorsGetAction extends BaseRestHandler {
+public class RestUserModeratorsGetAction extends BaseRestHandler {
 
     private final PluginSettings pluginSettings;
 
     private final Set<String> moderatorsPubkeys;
 
     @Inject
-    public RestNodeModeratorsGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
+    public RestUserModeratorsGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
         super(settings, controller, client);
 
         this.pluginSettings = pluginSettings;
@@ -59,8 +59,8 @@ public class RestNodeModeratorsGetAction extends BaseRestHandler {
         }
         this.moderatorsPubkeys = builder.add(pluginSettings.getUserModeratorsPubkeys()).build();
 
-        securityController.allow(RestRequest.Method.GET, "/node/user/moderators");
-        controller.registerHandler(RestRequest.Method.GET, "/node/user/moderators", this);
+        securityController.allow(RestRequest.Method.GET, "/user/moderators");
+        controller.registerHandler(RestRequest.Method.GET, "/user/moderators", this);
     }
 
     @Override
@@ -79,7 +79,7 @@ public class RestNodeModeratorsGetAction extends BaseRestHandler {
             return mapping;
         }
         catch(IOException ioe) {
-            throw new TechnicalException(String.format("Error while generating JSON for [/node/user/moderators]: %s", ioe.getMessage()), ioe);
+            throw new TechnicalException(String.format("Error while generating JSON for [/user/moderators]: %s", ioe.getMessage()), ioe);
         }
     }
 

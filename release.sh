@@ -1,4 +1,5 @@
 #!/bin/bash
+
 mkdir -p .local
 
 RELEASE_OPTS="-DskipTests -DperformFullRelease"

@@ -17,6 +17,7 @@
       * [user/event](#userevent)
       * [user/profile](#userprofile)
       * [user/settings](#usersettings)
+      * [user/moderators](#user-moderators)
    * [message](#message)
       * [message/inbox](#messageinbox)
       * [message/oubox](#messageoutbox)
@@ -194,6 +195,17 @@ Some additional fields are `content` (the settings content, but encrypted) and `
     "time" : 1516311640,
     "content" : "4bW4cL075bLWuTrHRuo69P0glmZJiVKF/AOtRt1e3trcm+Es/E77cYdAL00TCQw8N1kVU6fznCmZyVxtD8gfxpZwcoipWjWeTZTu21SxtPDxTxEvAV4gxbmOk/Li9oMy04WOmpkbsKawmdYW2oaKzz3psJXn4C4/jFQZIL/X863R9sQDGWPHm8MRvCaP7xQT+MMSpb8/1lIgf5443PKBixQbcY4fcqDRK3365xG2jDZEJ/uVZ/bRPJyjclKgBEd8xariJUV+zdh31f/qHhnQlcg/kLmdQ4sja2L/BWE5kTFlajRqOJDGrtuRafWTFamoUKZDE8C9YeivvFR7oGwY0zPE0uFnuZCGAvm3xC13ekpsqDv9YtBmZhou7AZAtw9JV81QuHoorWrka7C3LW12YuOSBKxkZNCi0tPHmF2ArI5WJl7W",
     "version" : 2
+}
+```
+#### `user/moderators`
+
+ - Get pubkeys of moderators. Moderators can delete document (profiles, etc.) on pod;
+
+```json
+{
+  "moderators": [
+    "38MEAZN68Pz1DTvT3tqgxx4yQP6snJCQhPqEFxbDk4aE"
+  ]
 }
 ```
 
