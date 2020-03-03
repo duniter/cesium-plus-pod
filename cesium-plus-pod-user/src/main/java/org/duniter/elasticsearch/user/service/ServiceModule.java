@@ -31,20 +31,22 @@ public class ServiceModule extends AbstractModule implements Module {
         bind(HistoryService.class).asEagerSingleton();
 
         bind(MessageService.class).asEagerSingleton();
-
+        bind(UserEventService.class).asEagerSingleton();
         bind(UserService.class).asEagerSingleton();
         bind(GroupService.class).asEagerSingleton();
         bind(PageService.class).asEagerSingleton();
 
         bind(AdminService.class).asEagerSingleton();
         bind(MailService.class).asEagerSingleton();
-        bind(UserEventService.class).asEagerSingleton();
-
         bind(UserInvitationService.class).asEagerSingleton();
-
-        bind(BlockchainMonitoringService.class).asEagerSingleton();
-        bind(BlockchainUserEventService.class).asEagerSingleton();
         bind(LikeService.class).asEagerSingleton();
+
+        // User events
+        bind(BlockchainUserEventService.class).asEagerSingleton();
+        bind(PageCommentUserEventService.class).asEagerSingleton();
+
+        // Monitor BMA node
+        bind(BlockchainMonitoringService.class).asEagerSingleton();
     }
 
     /* protected methods */

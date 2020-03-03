@@ -178,6 +178,13 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.get("duniter.mail.subject.prefix", "[Cesium+]");
     }
 
+    public String[] getReportAbuseIssuerRequirements()  {
+        return settings.getAsArray("duniter.abuse.issuer.requirements", new String[]{"member"});
+    }
+    public String[] getLikeIssuerRequirements()  {
+        return settings.getAsArray("duniter.like.issuer.requirements", new String[]{});
+    }
+
     /* -- delegate methods -- */
 
     public String getClusterName() {

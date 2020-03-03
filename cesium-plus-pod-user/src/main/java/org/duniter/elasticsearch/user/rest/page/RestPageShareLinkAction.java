@@ -10,7 +10,7 @@ import org.duniter.elasticsearch.rest.share.AbstractRestShareLinkAction;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.page.PageIndexDao;
 import org.duniter.elasticsearch.user.dao.page.PageRecordDao;
-import org.duniter.elasticsearch.user.model.page.RegistryRecord;
+import org.duniter.elasticsearch.user.model.page.PageRecord;
 import org.duniter.elasticsearch.user.service.PageService;
 import org.duniter.elasticsearch.util.opengraph.OGData;
 import org.elasticsearch.client.Client;
@@ -39,7 +39,7 @@ public class RestPageShareLinkAction extends AbstractRestShareLinkAction impleme
     @Override
     public OGData resolve(final String id) throws DuniterElasticsearchException, BusinessException {
         try {
-            RegistryRecord record = service.getPageForSharing(id);
+            PageRecord record = service.getPageForSharing(id);
 
             OGData data = new OGData();
 
@@ -60,7 +60,7 @@ public class RestPageShareLinkAction extends AbstractRestShareLinkAction impleme
                 if (record.getThumbnail() != null && StringUtils.isNotBlank(record.getThumbnail().get("_content_type"))) {
                     String baseUrl = pluginSettings.getClusterRemoteUrlOrNull();
                     data.image = StringUtils.isBlank(baseUrl) ? "" : baseUrl;
-                    data.image += RestImageAttachmentAction.computeImageUrl(PageIndexDao.INDEX, PageRecordDao.TYPE, id, RegistryRecord.PROPERTY_THUMBNAIL, record.getThumbnail().get("_content_type"));
+                    data.image += RestImageAttachmentAction.computeImageUrl(PageIndexDao.INDEX, PageRecordDao.TYPE, id, PageRecord.PROPERTY_THUMBNAIL, record.getThumbnail().get("_content_type"));
                     data.imageHeight = 200;
                     data.imageWidth = 200;
                 }

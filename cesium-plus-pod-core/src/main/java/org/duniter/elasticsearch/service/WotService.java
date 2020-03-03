@@ -28,7 +28,6 @@ import com.google.common.collect.Maps;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
-import org.duniter.core.client.model.bma.WotPendingMembership;
 import org.duniter.core.client.model.local.Member;
 import org.duniter.core.client.service.bma.WotRemoteService;
 import org.duniter.core.util.CollectionUtils;
@@ -45,7 +44,10 @@ import org.duniter.elasticsearch.service.changes.ChangeEvent;
 import org.duniter.elasticsearch.service.changes.ChangeService;
 import org.duniter.elasticsearch.service.changes.ChangeSource;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 
 import java.io.Closeable;
 import java.util.Collection;
@@ -214,6 +216,43 @@ public class WotService extends AbstractService {
 
         // Return the tear down logic
         return () -> this.stopListenAndIndexMembers(currency);
+    }
+
+    public boolean isOrWasMember(String pubkey) {
+
+        Set<String> currencyIds =  currencyDao.getAllIds();
+        if (CollectionUtils.isEmpty(currencyIds)) return false;
+
+        SearchResponse response = client.prepareSearch()
+                .setIndices(currencyIds.toArray(new String[currencyIds.size()]))
+                .setSize(0) // only need the total
+                .setTypes(MemberDao.TYPE)
+                .setQuery(QueryBuilders.idsQuery().ids(pubkey))
+                .setRequestCache(true)
+                .execute().actionGet();
+
+        return response.getHits() != null && response.getHits().getTotalHits() > 0;
+    }
+
+    public boolean isMember(String pubkey) {
+
+        Set<String> currencyIds =  currencyDao.getAllIds();
+        if (CollectionUtils.isEmpty(currencyIds)) return false;
+
+        QueryBuilder query = QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
+                .filter(QueryBuilders.idsQuery().addIds(pubkey))
+                .filter(QueryBuilders.termQuery(Member.PROPERTY_IS_MEMBER, true))
+        );
+
+        SearchResponse response = client.prepareSearch()
+                .setIndices(currencyIds.toArray(new String[currencyIds.size()]))
+                .setSize(0) // only need the total
+                .setTypes(MemberDao.TYPE)
+                .setQuery(query)
+                .setRequestCache(true)
+                .execute().actionGet();
+
+        return response.getHits() != null && response.getHits().getTotalHits() > 0;
     }
 
     /* -- protected methods -- */

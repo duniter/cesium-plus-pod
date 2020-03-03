@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.user.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.duniter.core.client.model.ModelUtils;
 import org.duniter.core.client.model.elasticsearch.Record;
@@ -33,9 +34,11 @@ import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.client.Duniter4jClient;
+import org.duniter.elasticsearch.exception.AccessDeniedException;
 import org.duniter.elasticsearch.exception.DuplicatedDocumentException;
 import org.duniter.elasticsearch.exception.InvalidFormatException;
 import org.duniter.elasticsearch.exception.NotFoundException;
+import org.duniter.elasticsearch.service.WotService;
 import org.duniter.elasticsearch.user.PluginSettings;
 import org.duniter.elasticsearch.user.dao.profile.UserProfileDao;
 import org.duniter.elasticsearch.user.model.*;
@@ -51,7 +54,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ConstantScoreQueryBuilder;
-import org.elasticsearch.index.query.NestedQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
@@ -61,6 +63,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Created by Benoit on 30/03/2015.
@@ -80,14 +83,26 @@ public class LikeService extends AbstractService {
     }
     private final AdminService adminService;
     private final UserEventService userEventService;
+    private final WotService wotService;
+
+    private final Set<String> reportAbuseIssuerRequirements;
+    private final Set<String> likeIssuerRequirements;
 
     @Inject
     public LikeService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService,
                        AdminService adminService,
-                       UserEventService userEventService) {
+                       UserEventService userEventService,
+                       WotService wotService) {
         super("duniter." + INDEX, client, settings, cryptoService);
         this.adminService = adminService;
         this.userEventService = userEventService;
+        this.wotService = wotService;
+        this.reportAbuseIssuerRequirements = ImmutableSet.copyOf(pluginSettings.getReportAbuseIssuerRequirements()).stream()
+                .filter(StringUtils::isNotBlank)
+                .map(String::toLowerCase).collect(Collectors.toSet());
+        this.likeIssuerRequirements =  ImmutableSet.copyOf(pluginSettings.getLikeIssuerRequirements()).stream()
+                .filter(StringUtils::isNotBlank)
+                .map(String::toLowerCase).collect(Collectors.toSet());;
     }
 
     /**
@@ -216,12 +231,18 @@ public class LikeService extends AbstractService {
             }
         }
 
-        // Check abuse's comment
         if (kindEnum == LikeRecord.Kind.ABUSE) {
+            // Check abuse is not anonymous
+            if (isAnonymous) {
+                throw new AccessDeniedException("Anonymous abuse report are not allowed");
+            }
+
+            // Check abuse's comment
             String comment = getMandatoryField(actualObj, LikeRecord.PROPERTY_COMMENT).asText();
             if (StringUtils.isBlank(comment.trim())) {
                 throw new InvalidFormatException(String.format("Missing required and not blank 'comment', when reporting an abuse"));
             }
+
         }
 
         // Check time is valid - fix #27
@@ -236,9 +257,27 @@ public class LikeService extends AbstractService {
         }
 
         if (!isAnonymous) {
-            // Make sure user has a profile
+
+            // Check issuer requirements
             if (!allowOldDocuments) {
-                client.checkDocumentExists(UserService.INDEX, UserProfileDao.TYPE, issuer);
+                Set<String> requirements = kindEnum == LikeRecord.Kind.ABUSE ? reportAbuseIssuerRequirements : likeIssuerRequirements;
+                // Check if issuer was a member
+                if (requirements.contains("wasMember") && !wotService.isOrWasMember(issuer)) {
+                    throw new AccessDeniedException(String.format("Issuer %s not authorized to send %s data.", issuer, kindEnum.name().toLowerCase()));
+                }
+                // Check if issuer is a member
+                else if (requirements.contains("member") && !wotService.isMember(issuer)) {
+                    throw new AccessDeniedException(String.format("Issuer %s not authorized to send %s data.", issuer, kindEnum.name().toLowerCase()));
+                }
+                // Check if issuer has a profile
+                if (requirements.contains("profile")) {
+                    try {
+                        client.checkDocumentExists(UserService.INDEX, UserProfileDao.TYPE, issuer);
+                    }
+                    catch(NotFoundException e) {
+                        throw new AccessDeniedException(String.format("Issuer %s not authorized to send %s (missing a profile).", issuer,  kindEnum.name().toLowerCase()));
+                    }
+                }
             }
 
             // Check user NOT already like this document

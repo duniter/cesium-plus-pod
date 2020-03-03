@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * Created by blavenie on 01/12/16.
  */
-public class RegistryRecord extends Record {
+public class PageRecord extends Record {
 
     public static final String PROPERTY_TITLE="title";
     public static final String PROPERTY_DESCRIPTION="description";
