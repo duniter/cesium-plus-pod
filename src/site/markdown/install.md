@@ -35,57 +35,62 @@ sudo make && sudo make check
 sudo make install        
 ```
 
-### Install bundle (ElasticSearch + Cesium+ Pod)  
+### Install bundle (ElasticSearch and Cesium+ Pod)  
 
-   - Download [lastest release](https://github.com/duniter/cesium-plus-pod/releases) of file cesium-plus-pod-X.Y-standalone.zip
+ - Download [lastest release](https://github.com/duniter/cesium-plus-pod/releases) of file cesium-plus-pod-X.Y-standalone.zip
  
- - Unzip
+ - Unzip the archive:
  
-```bash
-unzip cesium-plus-pod-X.Y-standalone.zip
-cd cesium-plus-pod-X.Y/config
-```
+    ```bash
+    unzip cesium-plus-pod-X.Y-standalone.zip
+    cd cesium-plus-pod-X.Y
+    ```
 
  - Edit the configuration file `config/elasticsearch.yml`, in particular this properties:
-
-```yml
-# Your ES cluster name
-cluster.name: cesium-plus-pod-g1-TEST
-
-# Your ES cluster public host name (optional - required for publishing peering document)
-cluster.remote.host: cesium-plus-pod.domain.com
-cluster.remote.port: cesium-plus-pod.domain.com
-
-# Use a descriptive name for the node:
-node.name: ES-NODE-1
-
-# Set the bind address to a specific IP (IPv4 or IPv6):
-network.host: 192.168.0.28
-
-# Set a custom port for HTTP:
-http.port: 9200
-
-# Duniter node to connect with
-duniter.host: g1-test.duniter.org
-duniter.port: 10900
-
-# Initial list of hosts to perform synchronization
-duniter.p2p.includes.endpoints: [
-   "ES_CORE_API g1-test.data.duniter.fr 443",
-   "ES_USER_API g1-test.data.duniter.fr 443",
-   "ES_SUBSCRIPTION_API g1-test.data.duniter.fr 443"
-]
-
-```
  
- - Launch the node
+    ```yml
+    # Your ES cluster name
+    cluster.name: cesium-plus-pod-g1-TEST
+    
+    # Your ES cluster public host name (optional - required for publishing peering document)
+    cluster.remote.host: cesium-plus-pod.domain.com
+    cluster.remote.port: cesium-plus-pod.domain.com
+    
+    # Use a descriptive name for the node:
+    node.name: ES-NODE-1
+    
+    # Set the bind address to a specific IP (IPv4 or IPv6):
+    network.host: 192.168.0.28
+    
+    # Set a custom port for HTTP:
+    http.port: 9200
+    
+    # Duniter node to connect with
+    duniter.host: g1-test.duniter.org
+    duniter.port: 10900
+    
+    # Initial list of hosts to perform synchronization
+    duniter.p2p.includes.endpoints: [
+       "ES_CORE_API g1-test.data.duniter.fr 443",
+       "ES_USER_API g1-test.data.duniter.fr 443",
+       "ES_SUBSCRIPTION_API g1-test.data.duniter.fr 443"
+    ]    
+    ```
  
-```bash
-cd cesium-plus-pod-X.Y/bin
-./elasticsearch
-```
+ - Launch the Pod:
+ 
+    ```bash
+    cd cesium-plus-pod-X.Y/bin
+    ./elasticsearch
+    ```
+   
+   Alternatively, to run as daemon:
 
-Output example (on [G1-test](http://g1-test.duniter.fr) currency):
+    ```bash
+    ./elasticsearch -d
+    ```
+
+You should see in console something like (example on the [G1-test](http://g1-test.duniter.fr) currency):
 
 ```bash
 $ ./elasticsearch
@@ -120,11 +125,11 @@ The following web address should works: http://localhost:9200/node/summary
 
 ### Using Cesium
 
-You should also be able to use your node in the [Cesium](https://git.duniter.org/clients/cesium-grp/cesium) application:
+You should also be able to use your Pod in the [Cesium](https://git.duniter.org/clients/cesium-grp/cesium) application:
  
- - in the Cesium+ extension settings, replace the data node address;
- - check if graph and profile avatar are display correctly.  
-
+ - In settings, enable to Cesium+ extension;
+ - Replace the Pod address (e.g. `localhost:9200`) ;
+ - check if profile's avatar, grapĥ, etc. are displayed correctly. 
 
 ### Request the ES node
 
@@ -132,9 +137,9 @@ When a blockchain currency has been indexed, you can test some fun queries :
 
  - get a block by number (e.g the block #0):
     
-    http://localhost:9200/blockchain/block/0 -> the original block
+    [/blockchain/block/0](http://localhost:9200/blockchain/block/0) -> the original block
     
-    http://localhost:9200/g1-test/block/0 -> the block with additional fields from ElastiSearch    
+    [/g1-test/block/0](http://localhost:9200/g1-test/block/0) -> Same, with more fields    
         
  - Block #125 with only hash, dividend and memberCount:
  
@@ -147,18 +152,18 @@ When a blockchain currency has been indexed, you can test some fun queries :
  - All blocks with a dividend, with only some selected fields (like dividend, number, hahs).
    Note : Query executed in command line, using CURL:
 
-```bash
-curl -XGET 'http://localhost:9200/g1-test/block/_search' -d '{
-"query": {
-        "filtered" : {
-            "filter": {
-                "exists" : { "field" : "dividend" }
+    ```bash
+    curl -XGET 'http://localhost:9200/g1-test/block/_search' -d '{
+    "query": {
+            "filtered" : {
+                "filter": {
+                    "exists" : { "field" : "dividend" }
+                }
             }
-        }
-    },
-    "_source": ["number", "dividend", "hash", "membersCount"]
- }'
-```
+        },
+        "_source": ["number", "dividend", "hash", "membersCount"]
+     }'
+    ```
 
 ## More documentation
 
@@ -175,28 +180,70 @@ More documentation can be found here :
 
 ## Troubleshooting
 
-### Could not find an implementation class.
+### Error `Refused GET request to [/ws/event/user/…`
 
-Message:
+- Message:
+    ```bash
+    Refused GET request to [/ws/event/user/<pubkey>…
+    ```
 
-```bash
-java.lang.RuntimeException: java.lang.RuntimeException: Could not find an implementation class.
-        at org.duniter.core.util.websocket.WebsocketClientEndpoint.<init>(WebsocketClientEndpoint.java:56)
-        at org.duniter.core.client.service.bma.BlockchainRemoteServiceImpl.addNewBlockListener(BlockchainRemoteServiceImpl.java:545)
-        at org.duniter.elasticsearch.service.BlockchainService.listenAndIndexNewBlock(BlockchainService.java:106)
-```
+- Cause:
 
-Cause:
+  Cesium try to open a WebSocket on your pod throw HTTP v1.0, and not throw HTTP v1.1.
 
-Plugin use Websocket to get notification from a Duniter nodes. The current library ([Tyrus](https://tyrus.java.net/)) is loaded throw java Service Loader, that need access to file `META-INF/services/javax.websocket.ContainerProvider` contains by Tyrus.
-ElasticSearch use separated classloader, for each plugin, that disable access to META-INF resource.
+- Solution: 
 
-Solution :
+  Configure your web server to force HTTP 1.1 connection.
 
-Move Tyrus libraries into elasticsearch `lib/` directory :
+  On a Nginx server: 
+  
+   * Edit the web site configuration (usually at `/etc/nginx/site-available/<site-name>`);
+   * Add this lines:
+   
+  ```  
+    server {
 
-```bash
-cd <INSTALL_DIR>
-mv plugins/cesium-plus-pod-core/tyrus-*.jar lib
-mv plugins/cesium-plus-pod-core/javax.websocket-api-*.jar lib
-```
+        server_name pod.domain.org;
+  
+        (...)
+
+        location /ws/ {
+            # Replace by your Pod local address:
+            proxy_pass http://127.0.0.1:9200;
+  
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+  }
+  ```
+    * Restart Nginx service;
+
+### Error `Could not find an implementation class`
+
+- Message:
+    ```bash
+    java.lang.RuntimeException: java.lang.RuntimeException: Could not find an implementation class.
+            at org.duniter.core.util.websocket.WebsocketClientEndpoint.<init>(WebsocketClientEndpoint.java:56)
+            at org.duniter.core.client.service.bma.BlockchainRemoteServiceImpl.addNewBlockListener(BlockchainRemoteServiceImpl.java:545)
+            at org.duniter.elasticsearch.service.BlockchainService.listenAndIndexNewBlock(BlockchainService.java:106)
+    ```
+
+- Cause:
+
+  Plugin use Websocket to get notification from a Duniter nodes. The current library ([Tyrus](https://tyrus.java.net/)) is loaded throw java Service Loader, that need access to file `META-INF/services/javax.websocket.ContainerProvider` contains by Tyrus.
+  ElasticSearch use separated classloader, for each plugin, that disable access to META-INF resource.
+
+- Solution :
+
+  Move Tyrus libraries into elasticsearch `lib/` directory :
+
+    ```bash
+    cd <INSTALL_DIR>
+    mv plugins/cesium-plus-pod-core/tyrus-*.jar lib
+    mv plugins/cesium-plus-pod-core/javax.websocket-api-*.jar lib
+    ```
