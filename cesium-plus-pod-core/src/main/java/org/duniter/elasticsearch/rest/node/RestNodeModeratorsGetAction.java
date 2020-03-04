@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.user.rest.user;
+package org.duniter.elasticsearch.rest.node;
 
 /*
  * #%L
@@ -22,9 +22,8 @@ package org.duniter.elasticsearch.user.rest.user;
  * #L%
  */
 
-import com.google.common.collect.ImmutableSet;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.elasticsearch.user.PluginSettings;
+import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.RestXContentBuilder;
 import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
@@ -35,24 +34,23 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.*;
 
 import java.io.IOException;
-import java.util.Set;
 
 /**
  * A rest to post a request to process a new currency/peer.
  *
  */
-public class RestUserModeratorsGetAction extends BaseRestHandler {
+public class RestNodeModeratorsGetAction extends BaseRestHandler {
 
     private final PluginSettings pluginSettings;
 
     @Inject
-    public RestUserModeratorsGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
+    public RestNodeModeratorsGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
         super(settings, controller, client);
 
         this.pluginSettings = pluginSettings;
 
-        securityController.allow(RestRequest.Method.GET, "/user/moderators");
-        controller.registerHandler(RestRequest.Method.GET, "/user/moderators", this);
+        securityController.allow(RestRequest.Method.GET, "/node/moderators");
+        controller.registerHandler(RestRequest.Method.GET, "/node/moderators", this);
     }
 
     @Override
@@ -65,13 +63,13 @@ public class RestUserModeratorsGetAction extends BaseRestHandler {
     public XContentBuilder createSummary(RestRequest request) {
         try {
             XContentBuilder mapping = RestXContentBuilder.restContentBuilder(request).startObject()
-                    .field("moderators", pluginSettings.getAdminAndModeratorsPubkeys())
+                    .field("moderators", pluginSettings.getDocumentAdminAndModeratorsPubkeys())
                     .endObject();
 
             return mapping;
         }
         catch(IOException ioe) {
-            throw new TechnicalException(String.format("Error while generating JSON for [/user/moderators]: %s", ioe.getMessage()), ioe);
+            throw new TechnicalException(String.format("Error while generating JSON for [/node/moderators]: %s", ioe.getMessage()), ioe);
         }
     }
 

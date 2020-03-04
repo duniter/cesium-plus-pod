@@ -25,7 +25,6 @@ package org.duniter.elasticsearch.user.service;
 import org.duniter.core.client.config.Configuration;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
-import org.duniter.core.client.model.local.Peers;
 import org.duniter.elasticsearch.model.SynchroResult;
 import org.duniter.elasticsearch.service.CurrencyService;
 import org.duniter.elasticsearch.service.ServiceLocator;
@@ -71,7 +70,7 @@ public class SynchroServiceTest {
 
         // Init data indices
         ServiceLocator.instance().getBean(UserService.class).createIndexIfNotExists();
-        ServiceLocator.instance().getBean(HistoryService.class).createIndexIfNotExists();
+        ServiceLocator.instance().getBean(DeleteHistoryService.class).createIndexIfNotExists();
         ServiceLocator.instance().getBean(PageService.class).createIndexIfNotExists();
         ServiceLocator.instance().getBean(GroupService.class).createIndexIfNotExists();
 

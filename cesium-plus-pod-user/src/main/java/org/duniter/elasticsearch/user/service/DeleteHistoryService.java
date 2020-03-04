@@ -53,7 +53,7 @@ import java.util.Set;
 /**
  * Created by Benoit on 30/03/2015.
  */
-public class HistoryService extends AbstractService {
+public class DeleteHistoryService extends AbstractService {
 
     public static final String INDEX = "history";
     public static final String DELETE_TYPE = "delete";
@@ -61,17 +61,17 @@ public class HistoryService extends AbstractService {
     private final Set<String> adminAndModeratorPubkeys;
 
     @Inject
-    public HistoryService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService) {
+    public DeleteHistoryService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService) {
         super("duniter." + INDEX, client, settings, cryptoService);
 
-        this.adminAndModeratorPubkeys = pluginSettings.getAdminAndModeratorsPubkeys();
+        this.adminAndModeratorPubkeys = pluginSettings.getDocumentAdminAndModeratorsPubkeys();
     }
 
     /**
      * Delete blockchain index, and all data
      * @throws JsonProcessingException
      */
-    public HistoryService deleteIndex() {
+    public DeleteHistoryService deleteIndex() {
         client.deleteIndexIfExists(INDEX);
         return this;
     }
@@ -84,7 +84,7 @@ public class HistoryService extends AbstractService {
     /**
      * Create index need for blockchain mail, if need
      */
-    public HistoryService createIndexIfNotExists() {
+    public DeleteHistoryService createIndexIfNotExists() {
         try {
             if (!client.existsIndex(INDEX)) {
                 createIndex();
@@ -101,7 +101,7 @@ public class HistoryService extends AbstractService {
      * Create index need for category mail
      * @throws JsonProcessingException
      */
-    public HistoryService createIndex() throws JsonProcessingException {
+    public DeleteHistoryService createIndex() throws JsonProcessingException {
         logger.info(String.format("Creating index [%s/%s]", INDEX, DELETE_TYPE));
 
         CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(INDEX);

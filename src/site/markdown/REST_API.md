@@ -6,6 +6,10 @@
 - [Contents](#contents)
 - [Overview](#overview)
 - [ES CORE API](#ES_CORE_API)
+   * [node](#node)
+      * [node/summary](#nodesummary)
+      * [node/stats](#nodestats)
+      * [node/moderators](#nodemoderators)
    * [currency](#acurrency)
       * [currency/block](#currencyblock)
       * [currency/blockstat](#currencyblockstat)
@@ -17,7 +21,6 @@
       * [user/event](#userevent)
       * [user/profile](#userprofile)
       * [user/settings](#usersettings)
-      * [user/moderators](#user-moderators)
    * [message](#message)
       * [message/inbox](#messageinbox)
       * [message/oubox](#messageoutbox)
@@ -97,6 +100,76 @@ For instance, a deletion on `message/inbox` should send this document:
           
 ## ES CORE API
 
+### `node/*`
+
+#### `node/summary`
+
+ - Get software version of the pod (using the format defined by Duniter BMA API);
+
+    ```json
+    {
+      "duniter" : {
+        "software" : "cesium-plus-pod",
+        "version" : "1.6.1",
+        "status" : 200
+      }
+    }
+    ```
+
+#### `node/stats`
+
+ - Get statistics on the pod:
+   * Number of listeners open by WebSocket sessions;
+   * Status of the embedded ES cluster ; 
+   * etc.  
+
+    ```json
+    { 
+       "stats" : {
+            "listeners" : [ {
+              "source" : "subscription/execution,record",
+              "count" : 1
+            }, {
+              "source" : "user/event",
+              "count" : 1
+            }, {
+              "source" : "group/comment",
+              "count" : 1
+            },{
+              "source" : "page/comment",
+              "count" : 1
+            }, {
+              "source" : "*/block",
+              "count" : 2
+            }, {
+              "source" : "g1/block/current",
+              "count" : 1
+            } ],
+            "cluster" : {
+              "timestamp" : 1583310606941,
+              "cluster_name" : "g1-es-data",
+              "status" : "yellow",
+              "indices" : {
+                 "count" : 12             
+             }
+           }
+        }
+    }
+    ```
+#### `node/moderators`
+
+ - Get pubkeys of node moderators. Moderators can delete document (profiles, etc.) on pod;
+
+    ```json
+    {
+      "moderators": [
+        "38MEAZN68Pz1DTvT3tqgxx4yQP6snJCQhPqEFxbDk4aE",
+        "47JpfrGkoHJWtumeu7f67fbAxkvaHYVQBNo5GszNs61Z",
+        "HmH5beJqKGMeotcQUrSW7Wo5tKvAksHmfYXfiSQ9EbWz"
+      ]
+    }
+    ```
+
 ### currency/*
 
 #### currency/block
@@ -107,11 +180,179 @@ For instance, a deletion on `message/inbox` should send this document:
 
 #### `<currency>/blockstat`
 
+ - Search on blocks, with count of each parts of a block: `certCount`, `memberCount`, `txCount`, `txAmount`, etc.
+   (using the ElasticSearch search API): `<currency>/blockstat/_search` (POST or GET)
+
+   ```json
+    {
+      "took" : 3,
+      "timed_out" : false,
+      "_shards" : {
+        "total" : 3,
+        "successful" : 3,
+        "failed" : 0
+      },
+      "hits" : {
+        "total" : 302494,
+        "max_score" : 1.0,
+        "hits" : [ {
+          "_index" : "g1",
+          "_type" : "blockstat",
+          "_id" : "29003",
+          "_score" : 1.0,
+          "_source" : {
+            "version" : 10,
+            "currency" : "g1",
+            "number" : 29003,
+            "issuer" : "H1yTj77m946f52u64FvR36o9SmD38Ye2j1H4XCvwBFXK",
+            "hash" : "0000024FD141E2DA5E3BCAC15CD558EF47BD9CB38DE022F2E0E8727AA885FCD4",
+            "medianTime" : 1498016342,
+            "membersCount" : 161,
+            "monetaryMass" : 10533000,
+            "unitbase" : 0,
+            "dividend" : null,
+            "txCount" : 1,
+            "txAmount" : 2500,
+            "txChangeCount" : 0,
+            "certCount" : 0
+          }
+        }
+     }
+   }
+   ```
+   
 #### `<currency>/peer`
 
- - List all peers by endpoint and API, with a status (UP, DOWN) and other stats on blockchain (main consensus, ...)
+ - Search on peers by endpoint and API, with a status (UP, DOWN) and other stats on blockchain (main consensus, ...)
+ 
+   (using the ElasticSearch search API): `<currency>/peer/_search` (POST or GET)
 
+    ```json
+    {
+      "took" : 7,
+      "timed_out" : false,
+      "_shards" : {
+        "total" : 3,
+        "successful" : 3,
+        "failed" : 0
+      },
+      "hits" : {
+        "total" : 691,
+        "max_score" : 1.0,
+        "hits" : [ {
+          "_index" : "g1",
+          "_type" : "peer",
+          "_id" : "54F93B092CAA3A4B287F39517C7B446A2D010BE4DD0E2FDBC76E0920B3714532",
+          "_score" : 1.0,
+          "_source" : {
+            "api" : "BASIC_MERKLED_API",
+            "dns" : null,
+            "ipv4" : "91.160.74.131",
+            "ipv6" : "2a01:e0a:12:a0c0:4951:28fb:745a:9ec9",
+            "epId" : null,
+            "pubkey" : "8dyDUH4KCMgpHkzAS9uu4NWPSf2xBmrp6D6S7d37A8M7",
+            "hash" : "54F93B092CAA3A4B287F39517C7B446A2D010BE4DD0E2FDBC76E0920B3714532",
+            "currency" : "g1",
+            "stats" : {
+              "version" : "1.5.9",
+              "status" : "DOWN",
+              "blockNumber" : 76834,
+              "blockHash" : "000005D2162A8ECDC3A1268FC76D1F42AC3DEAE0479640D56D877796EB6F4968",
+              "error" : null,
+              "medianTime" : 1512998820,
+              "hardshipLevel" : null,
+              "consensusPct" : 77.77777777777777,
+              "uid" : null,
+              "lastUpTime" : 1513002789,
+              "mainConsensus" : true,
+              "forkConsensus" : false,
+              "firstDownTime" : 1564882432
+            },
+            "port" : 10901,
+            "useSsl" : false
+          }
+        }
+     }
+   }
+   ```
+ 
 #### `<currency>/movement`
+
+ - Allow to search on all blockchain transactions, but split by issuer.
+ 
+   (using the ElasticSearch search API): `<currency>/movement/_search` (POST or GET):
+ 
+    ```json
+    {
+     "took" : 7,
+     "timed_out" : false,
+     "_shards" : {
+       "total" : 3,
+       "successful" : 3,
+       "failed" : 0
+     },
+     "hits" : {
+       "total" : 67237,
+       "max_score" : 1.0,
+       "hits" : [ {
+         "_index" : "g1",
+         "_type" : "movement",
+         "_id" : "AWAsh08ZeZsmCDV2GYit",
+         "_score" : 1.0,
+         "_source" : {
+           "currency" : "g1",
+           "medianTime" : 1498016342,
+           "version" : 10,
+           "issuer" : "TENGx7WtzFsTXwnbrPEvb6odX2WnqYcnnrjiiLvp1mS",
+           "recipient" : "D9D2zaJoWYWveii1JRYLVK3J4Z7ZH3QczoKrnQeiM6mx",
+           "amount" : 320,
+           "unitbase" : 0,
+           "comment" : "REMU:28501:29000",
+           "reference" : {
+             "index" : "g1",
+             "type" : "block",
+             "id" : "29003",
+             "anchor" : null,
+             "hash" : "0000024FD141E2DA5E3BCAC15CD558EF47BD9CB38DE022F2E0E8727AA885FCD4"
+           },
+           "ud" : false
+         }
+       }
+       }
+    ```
+
+
+#### `<currency>/pending`
+
+ - All pending membership, collected from Duniter peers (selected randomly, each hour);
+
+   * Allow to search on pending memberships (including old memberships), using `<currency>/pending/_search` (using ES search API);
+ 
+   * Output as Duniter BMA format, using `<currency>/pending`:
+ 
+    ```json
+    {
+      "memberships" : [ {
+        "pubkey" : "C59xaJfBXLpn9YhKet64KS3geTV9UQjvkLqpcTDy6dcK",
+        "uid" : "JacquesDupond",
+        "version" : "10",
+        "currency" : "g1",
+        "membership" : "IN",
+        "blockNumber" : 302423,
+        "blockHash" : "0000038FD71F131B76FF76F3E1D0CBA08901DD350551867CE5611DDAA1C1E057",
+        "written" : null
+      }, {
+        "pubkey" : "GhicsNYYPrMvp1inmgxKUjww1s9PLnuzSV8CGtHrjUbq",
+        "uid" : "MikeHorn",
+        "version" : "10",
+        "currency" : "g1",
+        "membership" : "IN",
+        "blockNumber" : 302376,
+        "blockHash" : "000000F466B3BE9E93B1C19FF7A6A5556D9CD750D84458B660FEA1B81BA406B2",
+        "written" : null
+     }]
+   }
+    ```
 
 ## ES USER API
 
@@ -197,17 +438,7 @@ Some additional fields are `content` (the settings content, but encrypted) and `
     "version" : 2
 }
 ```
-#### `user/moderators`
 
- - Get pubkeys of moderators. Moderators can delete document (profiles, etc.) on pod;
-
-```json
-{
-  "moderators": [
-    "38MEAZN68Pz1DTvT3tqgxx4yQP6snJCQhPqEFxbDk4aE"
-  ]
-}
-```
 
 ### `message/*`
 
@@ -249,19 +480,25 @@ Some additional fields are `recipient` (the message recipient), `title` (the enc
 
 #### `like/record`
 
-All documents stored in the index have a mandatory type:
+All documents stored in this index have a mandatory `kind` attribute, with one of the following values:
+ - VIEW
  - LIKE
  - DISLIKE
  - STAR
  - ABUSE
- - VIEW
+
+Only record with VIEW kind can be anonymous (no `issuer` and `signature` attributes).
 
 This index allow you to:
 
- - Count record of a type, on any pod's document (e.g. number of stars on a profile)
- - Add or delete a record
+ - Count like records by `kind`, on any document (e.g. number of stars on a profile): `/<doc_index>/<doc_type>/_likes`, `<doc_index>/<doc_type>/_abuses`, etc.
  
-On VIEW type can be anonymous (without `issuer` and `signature` fields in the document).
+   * Example: number of likes of a user profile: `/user/profile/<pubkey>/_likes`
+      
+ - Add a new like record: `like/record` (POST)
+
+ - To delete a existing like record, use: `history/delete` (POST)
+
 
 ## ES SUBSCRIPTION API
 

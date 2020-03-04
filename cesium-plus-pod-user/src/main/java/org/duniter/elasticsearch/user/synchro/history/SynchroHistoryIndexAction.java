@@ -32,7 +32,7 @@ import org.duniter.elasticsearch.synchro.SynchroActionResult;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.duniter.elasticsearch.user.PluginSettings;
-import org.duniter.elasticsearch.user.service.HistoryService;
+import org.duniter.elasticsearch.user.service.DeleteHistoryService;
 import org.duniter.elasticsearch.user.synchro.AbstractSynchroUserAction;
 import org.elasticsearch.common.inject.Inject;
 
@@ -41,14 +41,14 @@ public class SynchroHistoryIndexAction extends AbstractSynchroUserAction {
     // Execute at beginning (because can have delete THEN recreate the same document's id)
     public static final int EXECUTION_ORDER = SynchroAction.EXECUTION_ORDER_FIRST;
 
-    private HistoryService service;
+    private DeleteHistoryService service;
     @Inject
     public SynchroHistoryIndexAction(final Duniter4jClient client,
                                      PluginSettings pluginSettings,
                                      CryptoService cryptoService,
                                      ThreadPool threadPool,
                                      SynchroService synchroService,
-                                     HistoryService service) {
+                                     DeleteHistoryService service) {
         super(service.INDEX, service.DELETE_TYPE, client, pluginSettings, cryptoService, threadPool);
         this.service = service;
 

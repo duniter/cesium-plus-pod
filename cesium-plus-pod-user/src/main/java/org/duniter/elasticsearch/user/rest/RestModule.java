@@ -36,7 +36,6 @@ import org.duniter.elasticsearch.user.rest.message.compat.RestMessageRecordIndex
 import org.duniter.elasticsearch.user.rest.message.compat.RestMessageRecordMarkAsReadAction;
 import org.duniter.elasticsearch.user.rest.message.compat.RestMessageRecordSearchAction;
 import org.duniter.elasticsearch.user.rest.mixed.RestMixedSearchAction;
-import org.duniter.elasticsearch.user.rest.user.RestUserModeratorsGetAction;
 import org.duniter.elasticsearch.user.rest.page.*;
 import org.duniter.elasticsearch.user.rest.user.*;
 import org.elasticsearch.common.inject.AbstractModule;
@@ -55,7 +54,6 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestUserEventSearchAction.class).asEagerSingleton();
         bind(RestUserAvatarAction.class).asEagerSingleton();
         bind(RestUserShareLinkAction.class).asEagerSingleton();
-        bind(RestUserModeratorsGetAction.class).asEagerSingleton();
 
         // Group
         bind(RestGroupIndexAction.class).asEagerSingleton();

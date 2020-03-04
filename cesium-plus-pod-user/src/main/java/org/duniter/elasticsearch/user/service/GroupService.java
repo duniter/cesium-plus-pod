@@ -49,7 +49,7 @@ public class GroupService extends AbstractService {
     private GroupIndexDao indexDao;
     private GroupCommentDao commentDao;
     private GroupRecordDao recordDao;
-    private HistoryService historyService;
+    private DeleteHistoryService deleteHistoryService;
 
     @Inject
     public GroupService(Duniter4jClient client,
@@ -58,12 +58,12 @@ public class GroupService extends AbstractService {
                         GroupIndexDao indexDao,
                         GroupCommentDao commentDao,
                         GroupRecordDao recordDao,
-                        HistoryService historyService) {
+                        DeleteHistoryService deleteHistoryService) {
         super("duniter.group", client, settings, cryptoService);
         this.indexDao = indexDao;
         this.commentDao = commentDao;
         this.recordDao = recordDao;
-        this.historyService = historyService;
+        this.deleteHistoryService = deleteHistoryService;
     }
 
     /**
@@ -208,7 +208,7 @@ public class GroupService extends AbstractService {
             recordExists = recordDao.isExists(id);
         } catch (NotFoundException e) {
             // Check if exists in delete history
-            recordExists = historyService.existsInDeleteHistory(recordDao.getIndex(), recordDao.getType(), id);
+            recordExists = deleteHistoryService.existsInDeleteHistory(recordDao.getIndex(), recordDao.getType(), id);
         }
         if (!recordExists) {
             throw new NotFoundException(String.format("Comment refers a non-existent document [%s/%s/%s].", recordDao.getIndex(), recordDao.getType(), id));

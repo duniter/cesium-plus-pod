@@ -34,7 +34,6 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
 import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.CryptoUtils;
 import org.duniter.core.util.crypto.KeyPair;
@@ -71,11 +70,13 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private static Peer duniterPeer;
     private Optional<Peer> clusterPeer;
     private List<Peer> clusterPeerEndpoints;
+    private Set<String> adminAndModeratorPubkeys;
 
     private String softwareDefaultVersion;
 
     private final CryptoService cryptoService;
     private final EndpointApi coreEnpointApi;
+
     protected final Settings settings;
 
     /**
@@ -539,8 +540,25 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsInt("duniter.document.time.maxFutureDelta", 600); // in seconds = 10min
     }
 
-    public boolean allowDocumentDeletionByAdmin() {
-        return settings.getAsBoolean("duniter.document.allowAdminDeletion", true); //
+    public boolean allowDocumentModerationByAdmin() {
+        return settings.getAsBoolean("duniter.document.moderators.admin", true); //
+    }
+
+    public String[] getDocumentModeratorsPubkeys() {
+        return this.settings.getAsArray("duniter.document.moderators.pubkeys");
+    }
+
+    public Set<String> getDocumentAdminAndModeratorsPubkeys() {
+        if (adminAndModeratorPubkeys == null) {
+
+            ImmutableSet.Builder<String> moderators = ImmutableSet.builder();
+            if (!isRandomNodeKeypair() && allowDocumentModerationByAdmin()) {
+                moderators.add(getNodePubkey());
+            }
+            adminAndModeratorPubkeys = moderators.add(getDocumentModeratorsPubkeys()).build();
+        }
+
+        return adminAndModeratorPubkeys;
     }
 
     public String getWebSocketHost()  {

@@ -43,13 +43,13 @@ public class PageService extends AbstractService {
     private PageIndexDao indexDao;
     private PageRecordDao recordDao;
     private PageCommentDao commentDao;
-    private HistoryService historyService;
+    private DeleteHistoryService deleteHistoryService;
 
     @Inject
     public PageService(Duniter4jClient client,
                        PluginSettings settings,
                        CryptoService cryptoService,
-                       HistoryService historyService,
+                       DeleteHistoryService deleteHistoryService,
                        PageIndexDao indexDao,
                        PageCommentDao commentDao,
                        PageRecordDao recordDao) {
@@ -57,7 +57,7 @@ public class PageService extends AbstractService {
         this.indexDao = indexDao;
         this.commentDao = commentDao;
         this.recordDao = recordDao;
-        this.historyService = historyService;
+        this.deleteHistoryService = deleteHistoryService;
     }
 
     /**
@@ -156,7 +156,7 @@ public class PageService extends AbstractService {
             recordExists = recordDao.isExists(id);
         } catch (NotFoundException e) {
             // Check if exists in delete history
-            recordExists = historyService.existsInDeleteHistory(recordDao.getIndex(), recordDao.getType(), id);
+            recordExists = deleteHistoryService.existsInDeleteHistory(recordDao.getIndex(), recordDao.getType(), id);
         }
         if (!recordExists) {
             throw new NotFoundException(String.format("Comment refers a non-existent document [%s/%s/%s].", recordDao.getIndex(), recordDao.getType(), id));

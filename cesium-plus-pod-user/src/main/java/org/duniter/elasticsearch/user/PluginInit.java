@@ -129,7 +129,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                     .registerIndex(PageIndexDao.INDEX, PageCommentDao.TYPE)
                     .registerIndex(GroupIndexDao.INDEX, GroupRecordDao.TYPE)
                     .registerIndex(GroupIndexDao.INDEX, GroupCommentDao.TYPE)
-                    .registerIndex(HistoryService.INDEX, HistoryService.DELETE_TYPE)
+                    .registerIndex(DeleteHistoryService.INDEX, DeleteHistoryService.DELETE_TYPE)
                     .registerIndex(LikeService.INDEX, LikeService.RECORD_TYPE)
             ;
 
@@ -159,7 +159,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
             if (logger.isInfoEnabled()) {
                 logger.info("Reloading indices...");
             }
-            injector.getInstance(HistoryService.class)
+            injector.getInstance(DeleteHistoryService.class)
                     .deleteIndex()
                     .createIndexIfNotExists();
             injector.getInstance(MessageService.class)
@@ -193,7 +193,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
             boolean cleanBlockchainUserEvents = injector.getInstance(UserService.class).isIndexExists() && pluginSettings.reloadBlockchainIndices();
 
-            injector.getInstance(HistoryService.class).createIndexIfNotExists();
+            injector.getInstance(DeleteHistoryService.class).createIndexIfNotExists();
             injector.getInstance(UserService.class).createIndexIfNotExists();
             injector.getInstance(MessageService.class).createIndexIfNotExists();
             injector.getInstance(GroupService.class).createIndexIfNotExists();

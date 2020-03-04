@@ -46,8 +46,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private final EndpointApi userEndpointApi;
 
-    private Set<String> adminAndModeratorPubkeys;
-
     @Inject
     public PluginSettings(Settings settings,
                           org.duniter.elasticsearch.PluginSettings delegate) {
@@ -183,10 +181,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String[] getReportAbuseIssuerRequirements()  {
-        return settings.getAsArray("duniter.abuse.issuer.requirements", new String[]{"member"});
+        return settings.getAsArray("duniter.user.document.abuse.issuer.requirements", new String[]{"member"});
     }
+
     public String[] getLikeIssuerRequirements()  {
-        return settings.getAsArray("duniter.like.issuer.requirements", new String[]{});
+        return settings.getAsArray("duniter.user.document.like.issuer.requirements", new String[]{});
     }
 
     /* -- delegate methods -- */
@@ -243,25 +242,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.getKeyringSecretKey();
     }
 
-    public boolean allowDocumentDeletionByAdmin() {
-        return delegate.allowDocumentDeletionByAdmin();
-    }
-
-    public String[] getUserModeratorsPubkeys() {
-        return this.settings.getAsArray("duniter.user.moderators.pubkeys");
-    }
-
-    public Set<String> getAdminAndModeratorsPubkeys() {
-        if (adminAndModeratorPubkeys == null) {
-
-            ImmutableSet.Builder<String> moderators = ImmutableSet.builder();
-            if (!isRandomNodeKeypair() && allowDocumentDeletionByAdmin()) {
-                moderators.add(getNodePubkey());
-            }
-            adminAndModeratorPubkeys = moderators.add(getUserModeratorsPubkeys()).build();
-        }
-
-        return adminAndModeratorPubkeys;
+    public Set<String> getDocumentAdminAndModeratorsPubkeys() {
+        return delegate.getDocumentAdminAndModeratorsPubkeys();
     }
 
     public void addI18nBundleName(String bundleName) {
