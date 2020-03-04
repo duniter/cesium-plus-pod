@@ -45,19 +45,11 @@ public class RestUserModeratorsGetAction extends BaseRestHandler {
 
     private final PluginSettings pluginSettings;
 
-    private final Set<String> moderatorsPubkeys;
-
     @Inject
     public RestUserModeratorsGetAction(PluginSettings pluginSettings, Settings settings, RestController controller, Client client, RestSecurityController securityController) {
         super(settings, controller, client);
 
         this.pluginSettings = pluginSettings;
-
-        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-        if (!pluginSettings.isRandomNodeKeypair() && pluginSettings.allowDocumentDeletionByAdmin()) {
-            builder.add(pluginSettings.getNodePubkey());
-        }
-        this.moderatorsPubkeys = builder.add(pluginSettings.getUserModeratorsPubkeys()).build();
 
         securityController.allow(RestRequest.Method.GET, "/user/moderators");
         controller.registerHandler(RestRequest.Method.GET, "/user/moderators", this);
@@ -73,7 +65,7 @@ public class RestUserModeratorsGetAction extends BaseRestHandler {
     public XContentBuilder createSummary(RestRequest request) {
         try {
             XContentBuilder mapping = RestXContentBuilder.restContentBuilder(request).startObject()
-                    .field("moderators", moderatorsPubkeys)
+                    .field("moderators", pluginSettings.getAdminAndModeratorsPubkeys())
                     .endObject();
 
             return mapping;

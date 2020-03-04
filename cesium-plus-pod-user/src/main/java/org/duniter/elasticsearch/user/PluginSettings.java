@@ -23,6 +23,7 @@ package org.duniter.elasticsearch.user;
  */
 
 
+import com.google.common.collect.ImmutableSet;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.KeyPair;
@@ -32,6 +33,7 @@ import org.elasticsearch.common.settings.Settings;
 
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Access to configuration options
@@ -43,6 +45,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private org.duniter.elasticsearch.PluginSettings delegate;
 
     private final EndpointApi userEndpointApi;
+
+    private Set<String> adminAndModeratorPubkeys;
 
     @Inject
     public PluginSettings(Settings settings,
@@ -245,6 +249,19 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     public String[] getUserModeratorsPubkeys() {
         return this.settings.getAsArray("duniter.user.moderators.pubkeys");
+    }
+
+    public Set<String> getAdminAndModeratorsPubkeys() {
+        if (adminAndModeratorPubkeys == null) {
+
+            ImmutableSet.Builder<String> moderators = ImmutableSet.builder();
+            if (!isRandomNodeKeypair() && allowDocumentDeletionByAdmin()) {
+                moderators.add(getNodePubkey());
+            }
+            adminAndModeratorPubkeys = moderators.add(getUserModeratorsPubkeys()).build();
+        }
+
+        return adminAndModeratorPubkeys;
     }
 
     public void addI18nBundleName(String bundleName) {
