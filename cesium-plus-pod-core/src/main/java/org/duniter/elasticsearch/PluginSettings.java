@@ -335,7 +335,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public boolean enableBlockchainIndexation()  {
-        return settings.getAsBoolean("duniter.blockchain.enable", false);
+        return settings.getAsBoolean("duniter.blockchain.enable", true);
     }
 
     public boolean enableMovementIndexation()  {

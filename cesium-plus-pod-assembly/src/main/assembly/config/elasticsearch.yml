@@ -269,7 +269,7 @@ duniter.p2p.includes.endpoints: [
 #
 # duniter.document.time.maxPastDelta: 7200
 #
-# Filter document in the futur, if time greater that 'maxFutureDelta' (in seconds). (default: 600 =10min)
+# Filter document in the future, if time greater that 'maxFutureDelta' (in seconds). (default: 600 =10min)
 #
 # duniter.document.time.maxFutureDelta: 600
 #
