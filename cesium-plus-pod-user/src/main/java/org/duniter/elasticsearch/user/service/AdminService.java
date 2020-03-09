@@ -62,40 +62,54 @@ public class AdminService extends AbstractService {
     }
 
     /**
-     * Notify cluster admin
+     * Notify the cluster admin
      */
     public void notifyAdmin(UserEvent event) {
-        Preconditions.checkNotNull(event);
+        notifyAdmin(event, false);
+    }
 
-        String nodePubkey = pluginSettings.getNodePubkey();
+    /**
+     * Notify the cluster admin, with option to force email
+     * @param event the event to send
+     * @param forceSendEmail if false, will send email only if WARN or INFO event)
+     */
+    public void notifyAdmin(UserEvent event, boolean forceSendEmail) {
+        Preconditions.checkNotNull(event);
+        Preconditions.checkNotNull(event.getType());
+
+        String adminPubkey = !pluginSettings.isRandomNodeKeypair() ? pluginSettings.getNodePubkey() : null;
 
         UserProfile adminProfile;
-        if (StringUtils.isNotBlank(nodePubkey) && !pluginSettings.isRandomNodeKeypair()) {
-            adminProfile = getUserProfile(nodePubkey, UserProfile.PROPERTY_EMAIL, UserProfile.PROPERTY_LOCALE);
-        }
-        else {
+        if (StringUtils.isNotBlank(adminPubkey)) {
+            adminProfile = getUserProfile(adminPubkey, UserProfile.PROPERTY_EMAIL, UserProfile.PROPERTY_LOCALE);
+        } else {
             adminProfile = new UserProfile();
         }
 
-        // Add new event to index
+        // Add new user event (for notification)
         Locale locale = StringUtils.isNotBlank(adminProfile.getLocale()) ?
                 new Locale(adminProfile.getLocale()) :
                 I18n.getDefaultLocale();
-        if (StringUtils.isNotBlank(nodePubkey)) {
-            event.setRecipient(nodePubkey);
+        if (StringUtils.isNotBlank(adminPubkey)) {
+            event.setRecipient(adminPubkey);
             userEventService.notifyUser(locale, event);
         }
 
-        // Send email to admin
-        String adminEmail = StringUtils.isNotBlank(adminProfile.getEmail()) ?
-                adminProfile.getEmail() :
-                pluginSettings.getMailAdmin();
-        if (StringUtils.isNotBlank(adminEmail)) {
-            String subjectPrefix = pluginSettings.getMailSubjectPrefix();
-            mailService.sendTextEmail(
-                    I18n.l(locale, "duniter.admin.event.subject."+event.getType().name(), subjectPrefix),
-                    event.getLocalizedMessage(locale),
-                    adminEmail);
+        // Send email (only if WARN or ERROR message)
+        if (forceSendEmail || (event.getType() == UserEvent.EventType.WARN
+                || event.getType() == UserEvent.EventType.ERROR)) {
+
+            String adminEmail = StringUtils.isNotBlank(adminProfile.getEmail()) ?
+                    adminProfile.getEmail() :
+                    pluginSettings.getMailAdmin();
+
+            if (StringUtils.isNotBlank(adminEmail)) {
+                String subjectPrefix = pluginSettings.getMailSubjectPrefix();
+                mailService.sendTextEmail(
+                        I18n.l(locale, "duniter.admin.event.subject." + event.getType().name(), subjectPrefix),
+                        event.getLocalizedMessage(locale),
+                        adminEmail);
+            }
         }
     }
 

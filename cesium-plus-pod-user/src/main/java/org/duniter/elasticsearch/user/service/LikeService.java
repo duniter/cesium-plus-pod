@@ -80,6 +80,9 @@ public class LikeService extends AbstractService {
         I18n.n("duniter.user.event.ABUSE_RECEIVED");
         I18n.n("duniter.user.event.STAR_RECEIVED");
         I18n.n("duniter.user.event.FOLLOW_RECEIVED");
+
+        // Document description (with 'the' before)
+        I18n.n("duniter.user.profile.the");
     }
     private final AdminService adminService;
     private final UserEventService userEventService;
@@ -87,6 +90,7 @@ public class LikeService extends AbstractService {
 
     private final Set<String> reportAbuseIssuerRequirements;
     private final Set<String> likeIssuerRequirements;
+    private final Set<String> adminAndModeratorPubkeys;
 
     @Inject
     public LikeService(Duniter4jClient client, PluginSettings settings, CryptoService cryptoService,
@@ -102,7 +106,8 @@ public class LikeService extends AbstractService {
                 .map(String::toLowerCase).collect(Collectors.toSet());
         this.likeIssuerRequirements =  ImmutableSet.copyOf(pluginSettings.getLikeIssuerRequirements()).stream()
                 .filter(StringUtils::isNotBlank)
-                .map(String::toLowerCase).collect(Collectors.toSet());;
+                .map(String::toLowerCase).collect(Collectors.toSet());
+        this.adminAndModeratorPubkeys = pluginSettings.getDocumentAdminAndModeratorsPubkeys();
     }
 
     /**
@@ -392,27 +397,33 @@ public class LikeService extends AbstractService {
         String docIssuer = String.valueOf(docFields.get(Record.PROPERTY_ISSUER));
         String docTitle = Optional.ofNullable(docFields.get(UserProfile.PROPERTY_TITLE)).orElse("?").toString();
 
-        // Notify admin if abuse
+        // If abuse, notify all moderators
         if (kindEnum == LikeRecord.Kind.ABUSE) {
+
+            // Get the abuse report comment
             String comment = getMandatoryField(actualObj,LikeRecord.PROPERTY_COMMENT).asText();
-            UserEvent adminEvent = UserEvent.newBuilder(eventType, UserEventCodes.MODERATION_RECEIVED.toString())
-                    .setMessage(I18n.n("duniter.user.event.MODERATION_RECEIVED"),
+
+            // Notify all moderators (including the node admin)
+            String docType = I18n.n(String.format("duniter.%s.%s.the", index, type));
+            final UserEvent.Builder moderatorEventBuilder = UserEvent.newBuilder(eventType, UserEventCodes.MODERATION_RECEIVED.toString())
+                    .setMessage(I18n.n("duniter.user.event.MODERATION_RECEIVED",
+                            docType,
+                            docTitle),
                             // Message params
-                            issuer, ModelUtils.minifyPubkey(issuer), docTitle, comment, level
-                    )
+                            issuer, ModelUtils.minifyPubkey(issuer), docTitle, comment, level)
                     .setTime(time)
                     .setReference(index, type, id)
-                    .setReferenceAnchor(anchor)
-                    .build();
-
-            adminService.notifyAdmin(adminEvent);
+                    .setReferenceAnchor(anchor);
+            adminAndModeratorPubkeys.forEach(moderator -> userEventService.notifyUser(moderatorEventBuilder
+                        .setRecipient(moderator)
+                        .build()));
         }
 
         // Notify the issuer of the document
         String eventCode = kindEnum.toString() + "_RECEIVED";
         UserEvent userEvent = UserEvent.newBuilder(eventType,eventCode )
                 .setRecipient(docIssuer)
-                .setMessage(I18n.n("duniter.user.event." + eventCode, ModelUtils.minifyPubkey(issuer)),
+                .setMessage(I18n.n(String.format("duniter.%s.event.%s", index, eventCode), ModelUtils.minifyPubkey(issuer)),
                         // Message params
                         issuer, ModelUtils.minifyPubkey(issuer), docTitle, level)
                 .setTime(time)

@@ -52,6 +52,14 @@ public class PageCommentUserEventService extends AbstractCommentUserEventService
         I18n.n("duniter.page.event.UPDATE_REPLY_COMMENT");
         I18n.n("duniter.page.event.FOLLOW_NEW_COMMENT");
         I18n.n("duniter.page.event.FOLLOW_UPDATE_COMMENT");
+
+        I18n.n("duniter.page.event.LIKE_RECEIVED");
+        I18n.n("duniter.page.event.ABUSE_RECEIVED");
+        I18n.n("duniter.page.event.STAR_RECEIVED");
+        I18n.n("duniter.page.event.FOLLOW_RECEIVED");
+
+        I18n.n("duniter.page.record.the");
+        I18n.n("duniter.page.comment.the");
     }
     private final List<ChangeSource> changeListenSources;
 

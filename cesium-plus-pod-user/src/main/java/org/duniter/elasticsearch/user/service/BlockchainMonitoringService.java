@@ -73,7 +73,7 @@ public class BlockchainMonitoringService extends AbstractService  {
                                     pluginSettings.getDuniterNodeHost(),
                                     String.valueOf(pluginSettings.getDuniterNodePort()),
                                     pluginSettings.getClusterName())
-                            .build());
+                            .build(), true);
                 }
             }
 

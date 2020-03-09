@@ -231,7 +231,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                         UserEvent.EventType.INFO,
                         UserEventCodes.NODE_STARTED.name(),
                         I18n.n("duniter.user.event.NODE_STARTED"),
-                        clusterName));
+                        clusterName), true);
     }
 
     protected void fixMissingMembershipEvents() {
