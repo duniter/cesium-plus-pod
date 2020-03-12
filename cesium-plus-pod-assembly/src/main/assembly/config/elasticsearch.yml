@@ -328,7 +328,6 @@ duniter.mail.enable: false
 #
 # duniter.user.api: MY_CUSTOM_API
 #
-#
 # Requirements to send abuse report on document (profile, page, etc.)  (default: ['member'])
 #
 # duniter.user.document.abuse.issuer.requirements: ['wasMember', 'member', 'profile']
