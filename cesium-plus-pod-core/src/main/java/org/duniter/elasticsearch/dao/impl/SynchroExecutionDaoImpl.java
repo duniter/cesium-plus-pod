@@ -90,8 +90,17 @@ public class SynchroExecutionDaoImpl extends AbstractDao implements SynchroExecu
         Preconditions.checkNotNull(peer.getId());
         Preconditions.checkNotNull(peer.getApi());
 
+        String hash = peer.getHash();
+        if (StringUtils.isBlank(hash)) {
+            hash = cryptoService.hash(peer.computeKey());
+            peer.setHash(hash);
+            if (logger.isDebugEnabled()) {
+                logger.debug(String.format("[%s] [%s] Computing missing hash for {%s}: %s", peer.getCurrency(), peer.getApi(), peer, hash));
+            }
+        }
+
         BoolQueryBuilder query = QueryBuilders.boolQuery()
-                .filter(QueryBuilders.termQuery(SynchroExecution.PROPERTY_PEER, peer.getId()))
+                .filter(QueryBuilders.termQuery(SynchroExecution.PROPERTY_PEER, peer.getHash()))
                 .filter(QueryBuilders.termQuery(SynchroExecution.PROPERTY_API, peer.getApi()));
 
         SearchResponse response = client.prepareSearch(peer.getCurrency())

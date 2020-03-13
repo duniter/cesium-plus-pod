@@ -127,7 +127,7 @@ public class SynchroService extends AbstractService {
 
                 forceFullResync = pluginSettings.fullResyncAtStartup();
 
-                // Apply a safe synchro, to be sure newt scheduleAtFixedRate() will be called, if failed
+                // Apply a safe synchro, to be sure new scheduleAtFixedRate() will be called, if failed
                 safeSynchronize();
 
                 forceFullResync = false;
@@ -372,7 +372,7 @@ public class SynchroService extends AbstractService {
         Preconditions.checkNotNull(result);
 
         // Compute hash, when missing
-        String hash = peer.getUrl();
+        String hash = peer.getHash();
         if (StringUtils.isBlank(hash)) {
             hash = cryptoService.hash(peer.computeKey());
             peer.setHash(hash);
