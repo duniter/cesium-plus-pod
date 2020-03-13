@@ -72,7 +72,9 @@ public class WotService extends AbstractService {
     private BlockchainService blockchainService;
     private ThreadPool threadPool;
     private final LockManager lockManager = new LockManager(1, 4);
-    private Map<String, ChangeService.ChangeListener> currentBlockListeners = Maps.newConcurrentMap();
+    private final Map<String, ChangeService.ChangeListener> currentBlockListeners = Maps.newConcurrentMap();
+
+    private final Map<String, Boolean> isBlockchainIndexationReady = Maps.newConcurrentMap();
 
     @Inject
     public WotService(Duniter4jClient client,
@@ -102,8 +104,8 @@ public class WotService extends AbstractService {
 
         final String currencyId = safeGetCurrency(currency);
 
-        // Index is enable: use dao
-        if (pluginSettings.enableBlockchainIndexation()) {
+        // Blockchain indexation is enable: use it!
+        if (isBlockchainReady(currencyId)) {
 
             List<Member> members = memberDao.getMembers(currencyId);
 
@@ -115,6 +117,8 @@ public class WotService extends AbstractService {
 
             return members;
         }
+
+        // Else, fallback to the Duniter node
         else {
             return wotRemoteService.getMembers(currencyId);
         }
@@ -330,5 +334,37 @@ public class WotService extends AbstractService {
     protected String safeGetCurrency(String currency) {
         if (StringUtils.isNotBlank(currency)) return currency;
         return currencyDao.getDefaultId();
+    }
+
+    protected boolean isBlockchainReady(String currency) {
+        if (!this.isReady()) return false;
+
+        Boolean isReady = isBlockchainIndexationReady.get(currency);
+        if (isReady != null) return isReady.booleanValue();
+
+        // Blockchain indexation was disable in settings
+        if (!pluginSettings.enableBlockchainIndexation()) {
+            isBlockchainIndexationReady.put(currency, Boolean.FALSE);
+            return false;
+        }
+
+        // Check if there is a current block
+        else {
+            try {
+                boolean hasCurrentBlock = blockchainService.getCurrentBlock(currency) != null;
+                if (hasCurrentBlock) {
+
+                    // OK. Remember that indexation is ready
+                    isBlockchainIndexationReady.put(currency, Boolean.TRUE);
+                    return true;
+                }
+            }
+            catch(Throwable t) {
+            }
+
+            // No current block => indexation is still processing
+            // do NOT set the map, to force new check later
+            return false;
+        }
     }
 }
