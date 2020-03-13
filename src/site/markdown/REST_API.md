@@ -5,7 +5,7 @@
 
 - [Contents](#contents)
 - [Overview](#overview)
-- [ES CORE API](#ES_CORE_API)
+- [ES CORE API](#ES_CORE_API) Data on the G1 blockchain
    * [node](#node)
       * [node/summary](#nodesummary)
       * [node/stats](#nodestats)

@@ -173,9 +173,9 @@ More documentation can be found here :
 
 - Cesium+ Pod [RESTfull HTTP API](./REST_API.md);
   
-- [ElasticSearch official web site](http://www.elastic.co/guide/en/elasticsearch/reference/1.3/docs-get.html#get-source-filtering)
+- [ElasticSearch official web site](http://www.elastic.co/guide/en/elasticsearch/reference/2.4/docs-get.html#get-source-filtering)
   
-- [a good tutorial on ES query](http://okfnlabs.org/blog/2013/07/01/elasticsearch-query-tutorial.html) 
+- [a good tutorial on ElasticSearch request API](http://okfnlabs.org/blog/2013/07/01/elasticsearch-query-tutorial.html) 
 
 
 ## Troubleshooting
