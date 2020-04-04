@@ -165,6 +165,34 @@ When a blockchain currency has been indexed, you can test some fun queries :
      }'
     ```
 
+## Update to latest version
+
+- Download [latest stable version](https://github.com/duniter/cesium-plus-pod/releases)
+
+- Unzip into a new directory (e.g. `/opt/cesium-plus-vX.Y.Z`)
+
+- Stop existing pod, if running: `/bin/cesium-plus-pod stop` 
+  or, if running as a `systemd` service: `sudo service cesium-plus-pod stop`
+  
+- From the old Pod directory: 
+  * Copy the directory `data`, that contains all indexed data, into the new installation directory
+  * Merge the old file `config/elasiticsearch.yml` with the new configuration file (using `diff` to compare options).
+    ```bash
+    cd path/to/old/cesium-plus-pod
+    cp -r data /path/to/new/cesium-plus-pod
+    diff config/elasticsearch.yml   /path/to/new/cesium-plus-pod/config/elasticsearch.yml
+    ```
+
+- Start the new pod: `/bin/cesium-plus-pod start`
+  If was running as systemd service, __don't forget__ to update the service file, to make sure it use the new 
+  installation directory;
+   
+- Check everething is fine, in logs:
+```
+tail -f /path/to/new/cesium-plus-pod/logs/<pod_cluster_name>.log
+```
+
+
 ## More documentation
 
 More documentation can be found here :
