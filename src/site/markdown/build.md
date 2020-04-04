@@ -1,7 +1,12 @@
-
 # Build from source
 
-## Get source and compile
+Contents:
+
+- [Prerequisites](#prerequisites)
+- [Compilation](#compilation) 
+- [Build a new release](#build-a-new-release)
+
+## Prerequisites
 
 ### Install Java JDK
 
@@ -41,7 +46,9 @@ Install [Apache Maven 3](http://maven.apache.org):
 
 - Install [Maven 3](http://maven.apache.org/): `sudo apt-get install maven`
 
-### Get source the compile
+## Compilation
+
+### Get source and compile 
 
 - Get the source code, then compile using Maven:
 
@@ -60,6 +67,8 @@ mvn install -DskipTests
 ```bash
 mvn install -DskipTests -DperformRelease
 ```
+
+## Build a new release
 
 ## Deploy binaries
 

@@ -1,5 +1,13 @@
-# Install
+# Installation guide
 
+Contents:
+
+- [Prerequisites](#prerequisites)
+- [Install bundle](#install-bundle-elasticsearch-and-cesium-pod) (ElasticSearch and Cesium+ Pod) 
+- [Test](#test-your-node) your node
+- [Update](#update-to-latest-version)  to latest version
+- [Troubleshooting](#troubleshooting)
+   
 ## Prerequisites
 
 ### Install Java 
@@ -35,7 +43,7 @@ sudo make && sudo make check
 sudo make install        
 ```
 
-### Install bundle (ElasticSearch and Cesium+ Pod)  
+## Install bundle (ElasticSearch and Cesium+ Pod)  
 
  - Download [lastest release](https://github.com/duniter/cesium-plus-pod/releases) of file cesium-plus-pod-X.Y-standalone.zip
  
