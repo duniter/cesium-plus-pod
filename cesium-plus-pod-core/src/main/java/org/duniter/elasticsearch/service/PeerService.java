@@ -132,37 +132,37 @@ public class PeerService extends AbstractService  {
 
             indexPeers(currency, peer, filterDef);
         } catch(Exception e) {
-            logger.error("Error during indexPeers: " + e.getMessage(), e);
+            logger.error(String.format("[%s] Error during peers indexation: %s", peer, e.getMessage()), e);
         }
 
         return this;
     }
 
 
-    public PeerService indexPeers(String currency, Peer firstPeer, NetworkService.Filter filterDef) {
+    public PeerService indexPeers(String currency, Peer mainPeer, NetworkService.Filter filterDef) {
         Preconditions.checkNotNull(currency);
-        Preconditions.checkNotNull(firstPeer);
+        Preconditions.checkNotNull(mainPeer);
         Preconditions.checkNotNull(filterDef);
 
         long timeStart = System.currentTimeMillis();
 
         try {
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, firstPeer));
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, mainPeer));
 
             // Default sort
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
             sortDef.sortType = null;
 
-            List<Peer> peers = networkService.getPeers(firstPeer, filterDef, sortDef, threadPool.scheduler());
+            List<Peer> peers = networkService.getPeers(mainPeer, filterDef, sortDef, threadPool.scheduler());
 
             // Save list
             delegate.save(currency, peers);
 
             // Set olf peers as Down
             delegate.updatePeersAsDown(currency, filterDef.filterEndpoints);
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, mainPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
         } catch(Exception e) {
-            logger.error("Error during indexPeers: " + e.getMessage(), e);
+            logger.error(String.format("[%s] [%s] Error during peers indexation: %s", mainPeer, currency, e.getMessage()), e);
         }
 
         return this;
