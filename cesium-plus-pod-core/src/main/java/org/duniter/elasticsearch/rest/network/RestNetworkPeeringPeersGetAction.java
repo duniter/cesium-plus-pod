@@ -115,7 +115,7 @@ public class RestNetworkPeeringPeersGetAction extends BaseRestHandler {
                             .field("ucode", 2012)
                             .field("message", "Peer not found")
                             .endObject();
-                    channel.sendResponse(new XContentRestResponse(request, RestStatus.NOT_FOUND, builder));
+                    channel.sendResponse(new XContentRestResponse(request, RestStatus.BAD_REQUEST, builder));
                 }
                 // Serialize the leaf
                 else {
@@ -129,7 +129,7 @@ public class RestNetworkPeeringPeersGetAction extends BaseRestHandler {
                             .startObject("leaf")
                             .field("hash", leaf)
                             // TODO: need to serialize 'raw' field also, but it excluded using a @JsonIgnore ...
-                            .field("value", new JsonNodeBytesReference(peer, mapper))
+                            .rawField("value", new JsonNodeBytesReference(peer, mapper))
                             .endObject().endObject();
                     channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
                 }

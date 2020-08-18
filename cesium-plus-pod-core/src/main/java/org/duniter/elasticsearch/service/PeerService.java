@@ -122,7 +122,15 @@ public class PeerService extends AbstractService  {
 
         try {
             String currency = getCurrency(peer);
-            indexPeers(currency, peer, getDefaultFilter(currency));
+            NetworkService.Filter filterDef = getDefaultFilter(currency);
+
+            // Add min block number
+            Number currentNumber = client.getTypedFieldById(currency, BlockDao.TYPE, "current", BlockchainBlock.PROPERTY_NUMBER);
+            if (currentNumber != null) {
+                filterDef.minBlockNumber = currentNumber.intValue() - 100;
+            }
+
+            indexPeers(currency, peer, filterDef);
         } catch(Exception e) {
             logger.error("Error during indexPeers: " + e.getMessage(), e);
         }
@@ -131,33 +139,28 @@ public class PeerService extends AbstractService  {
     }
 
 
-    public PeerService indexPeers(String currency, Peer mainPeer, NetworkService.Filter filterDef) {
+    public PeerService indexPeers(String currency, Peer firstPeer, NetworkService.Filter filterDef) {
         Preconditions.checkNotNull(currency);
-        Preconditions.checkNotNull(mainPeer);
+        Preconditions.checkNotNull(firstPeer);
         Preconditions.checkNotNull(filterDef);
 
         long timeStart = System.currentTimeMillis();
 
         try {
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, mainPeer));
-
-            Number currentNumber = client.getTypedFieldById(currency, BlockDao.TYPE, "current", BlockchainBlock.PROPERTY_NUMBER);
-            if (currentNumber != null) {
-                filterDef.minBlockNumber = currentNumber.intValue() - 100;
-            }
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, firstPeer));
 
             // Default sort
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
             sortDef.sortType = null;
 
-            List<Peer> peers = networkService.getPeers(mainPeer, filterDef, sortDef, threadPool.scheduler());
+            List<Peer> peers = networkService.getPeers(firstPeer, filterDef, sortDef, threadPool.scheduler());
 
             // Save list
             delegate.save(currency, peers);
 
             // Set olf peers as Down
             delegate.updatePeersAsDown(currency, filterDef.filterEndpoints);
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, mainPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
         } catch(Exception e) {
             logger.error("Error during indexPeers: " + e.getMessage(), e);
         }

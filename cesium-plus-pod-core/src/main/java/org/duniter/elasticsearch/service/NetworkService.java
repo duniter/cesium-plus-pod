@@ -636,22 +636,18 @@ public class NetworkService extends AbstractService {
 
     public void checkSignature(NetworkPeering peering) {
         Preconditions.checkNotNull(peering);
-        Preconditions.checkNotNull(peering.getSignature());
+        Preconditions.checkNotNull(peering.getRaw());
+        Preconditions.checkNotNull(peering.getPubkey());
 
-        String signature = peering.getSignature();
-
-        try {
-            // Generate raw document
-            peering.setSignature(null);
-            String raw = peering.toString();
-
-            // Check signature
-            if (!cryptoService.verify(raw, signature, peering.getPubkey())) {
-                throw new TechnicalException("Invalid document signature");
-            }
+        // Get unsigned raw document
+        String unsignedRaw = peering.getRaw();
+        if (unsignedRaw == null) {
+            unsignedRaw = peering.toUnsignedRaw();
         }
-        finally {
-            peering.setSignature(signature); // Restore the signature
+
+        // Check signature
+        if (!cryptoService.verify(unsignedRaw, peering.getSignature(), peering.getPubkey())) {
+            throw new TechnicalException("Invalid document signature");
         }
     }
 

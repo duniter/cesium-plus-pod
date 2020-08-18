@@ -34,12 +34,15 @@ import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.JacksonJsonRestResponse;
+import org.duniter.elasticsearch.rest.RestXContentBuilder;
+import org.duniter.elasticsearch.rest.XContentRestResponse;
 import org.duniter.elasticsearch.rest.XContentThrowableRestResponse;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.NetworkService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.*;
 import org.yaml.snakeyaml.util.UriEncoder;
 
@@ -89,16 +92,26 @@ public class RestNetworkPeeringPeersPostAction extends BaseRestHandler {
 
             String peerDocument = content.getProperty("peer");
             if (StringUtils.isBlank(peerDocument)) {
-                throw new TechnicalException("Invalid request: 'peer' property not found");
+                XContentBuilder builder = RestXContentBuilder.restContentBuilder(request).startObject()
+                        .field("ucode", 1103)
+                        .field("message", "Requires a peer")
+                        .endObject();
+                channel.sendResponse(new XContentRestResponse(request, RestStatus.BAD_REQUEST, builder));
             }
+            else {
 
-            // Decode content
-            peerDocument = UriEncoder.decode(peerDocument);
-            if (logger.isDebugEnabled()) logger.debug("Received peer document:\n" + peerDocument);
+                // Decode content, if need
+                //logger.debug("Converting peer document:\n" + peerDocument);
+                //peerDocument = UriEncoder.decode(peerDocument);
 
-            NetworkPeering peering = networkService.checkAndSavePeering(currency, peerDocument);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Received peer document:\n" + peerDocument);
+                }
 
-            channel.sendResponse(new JacksonJsonRestResponse(request, RestStatus.OK, peering));
+                NetworkPeering peering = networkService.checkAndSavePeering(currency, peerDocument);
+
+                channel.sendResponse(new JacksonJsonRestResponse(request, RestStatus.OK, peering));
+            }
         }
         catch(Exception e) {
             logger.debug("Error while parsing peer document: " + e.getMessage());
