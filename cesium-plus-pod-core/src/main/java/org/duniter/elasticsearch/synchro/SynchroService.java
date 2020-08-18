@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
 public class SynchroService extends AbstractService {
 
     private static final String WS_CHANGES_URL = "/ws/_changes";
-    private final static Set<EndpointApi> includeEndpointApis = Sets.newHashSet();
+    private final static Set<String> includeEndpointApis = Sets.newHashSet();
     private static List<WebsocketClientEndpoint> wsClientEndpoints = Lists.newCopyOnWriteArrayList();
     private static List<SynchroAction> actions = Lists.newCopyOnWriteArrayList();
 
@@ -207,7 +207,7 @@ public class SynchroService extends AbstractService {
 
         currencyIds.forEach(currencyId -> includeEndpointApis.forEach(endpointApi -> {
 
-            String logPrefix = String.format("[%s] [%s]", currencyId, endpointApi.name());
+            String logPrefix = String.format("[%s] [%s]", currencyId, endpointApi);
             long now = System.currentTimeMillis();
 
             logger.info(String.format("%s Synchronization... {peers discovery: %s}", logPrefix, pluginSettings.enableSynchroDiscovery()));
@@ -314,7 +314,7 @@ public class SynchroService extends AbstractService {
         MutableInt failureCounter = new MutableInt(0);
         List<SynchroAction> executedActions = actions.stream()
                 // Filter on the expected api
-                .filter(a -> a.getEndPointApi().name().equals(peer.getApi()))
+                .filter(a -> a.getEndPointApi() != null && a.getEndPointApi().equals(peer.getApi()))
                 // Sort by execution order
                 .sorted(SynchroAction.EXECUTION_ORDER_COMPARATOR)
                 .map(a -> {

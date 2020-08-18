@@ -46,7 +46,7 @@ public interface SynchroAction {
         void accept(String id, JsonNode source, SynchroActionResult result) throws Exception;
     }
 
-    EndpointApi getEndPointApi();
+    String getEndPointApi();
 
     ChangeSource getChangeSource();
 

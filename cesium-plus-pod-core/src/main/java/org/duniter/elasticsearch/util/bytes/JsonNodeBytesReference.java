@@ -25,6 +25,7 @@ package org.duniter.elasticsearch.util.bytes;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import org.apache.lucene.util.BytesRef;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
 import org.elasticsearch.ElasticsearchException;
@@ -98,7 +99,11 @@ public class JsonNodeBytesReference implements BytesReference {
 
     public <T> JsonNodeBytesReference(T object, ObjectMapper objectMapper) throws IOException{
         this.objectMapper = objectMapper;
-        this.delegate = new BytesArray(this.objectMapper.writeValueAsBytes(object));
+        this.delegate = new BytesArray(this.objectMapper.writer().writeValueAsBytes(object));
+    }
+    public <T> JsonNodeBytesReference(T object, ObjectWriter writer) throws IOException{
+        this.objectMapper = new ObjectMapper();
+        this.delegate = new BytesArray(writer.writeValueAsBytes(object));
     }
 
     public byte get(int index) {

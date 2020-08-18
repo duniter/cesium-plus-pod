@@ -135,7 +135,7 @@ public abstract class AbstractSynchroAction extends AbstractService implements S
 
 
     @Override
-    public abstract EndpointApi getEndPointApi();
+    public abstract String getEndPointApi();
 
     @Override
     public ChangeSource getChangeSource() {

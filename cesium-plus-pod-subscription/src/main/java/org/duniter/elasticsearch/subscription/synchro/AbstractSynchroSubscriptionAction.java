@@ -9,7 +9,7 @@ import org.duniter.elasticsearch.threadpool.ThreadPool;
 
 public abstract class AbstractSynchroSubscriptionAction extends AbstractSynchroAction {
 
-    private EndpointApi endpointApi;
+    private String endpointApi;
 
     public AbstractSynchroSubscriptionAction(String index, String type,
                                              Duniter4jClient client,
@@ -36,7 +36,7 @@ public abstract class AbstractSynchroSubscriptionAction extends AbstractSynchroA
     }
 
     @Override
-    public EndpointApi getEndPointApi() {
+    public String getEndPointApi() {
         return endpointApi;
     }
 }

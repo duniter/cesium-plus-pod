@@ -23,9 +23,11 @@ package org.duniter.elasticsearch.service;
  */
 
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.collections4.CollectionUtils;
 import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainParameters;
@@ -34,8 +36,6 @@ import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.local.NetworkService;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
@@ -79,7 +79,7 @@ public class PeerService extends AbstractService  {
         });
 
         // If filtered API defined in settings, use it
-        Collection<EndpointApi> peerIndexedApis = pluginSettings.getPeerIndexedApis();
+        Set<String> peerIndexedApis = pluginSettings.getPeerIndexedApis();
         if (CollectionUtils.isNotEmpty(peerIndexedApis)) {
             addAllPeerIndexedEndpointApis(peerIndexedApis);
         }
@@ -121,7 +121,8 @@ public class PeerService extends AbstractService  {
         Preconditions.checkNotNull(peer);
 
         try {
-            indexPeers(getCurrency(peer), peer);
+            String currency = getCurrency(peer);
+            indexPeers(currency, peer, getDefaultFilter(currency));
         } catch(Exception e) {
             logger.error("Error during indexPeers: " + e.getMessage(), e);
         }
@@ -129,15 +130,16 @@ public class PeerService extends AbstractService  {
         return this;
     }
 
-    public PeerService indexPeers(String currency, Peer firstPeer) {
+
+    public PeerService indexPeers(String currency, Peer mainPeer, NetworkService.Filter filterDef) {
+        Preconditions.checkNotNull(currency);
+        Preconditions.checkNotNull(mainPeer);
+        Preconditions.checkNotNull(filterDef);
+
         long timeStart = System.currentTimeMillis();
 
         try {
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, firstPeer));
-
-
-            // Default filter
-            NetworkService.Filter filterDef = getDefaultFilter(currency);
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.task", currency, mainPeer));
 
             Number currentNumber = client.getTypedFieldById(currency, BlockDao.TYPE, "current", BlockchainBlock.PROPERTY_NUMBER);
             if (currentNumber != null) {
@@ -148,20 +150,21 @@ public class PeerService extends AbstractService  {
             org.duniter.core.client.service.local.NetworkService.Sort sortDef = new org.duniter.core.client.service.local.NetworkService.Sort();
             sortDef.sortType = null;
 
-            List<Peer> peers = networkService.getPeers(firstPeer, filterDef, sortDef, threadPool.scheduler());
+            List<Peer> peers = networkService.getPeers(mainPeer, filterDef, sortDef, threadPool.scheduler());
 
             // Save list
             delegate.save(currency, peers);
 
             // Set olf peers as Down
             delegate.updatePeersAsDown(currency, filterDef.filterEndpoints);
-            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, firstPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
+            logger.info(I18n.t("duniter4j.es.networkService.indexPeers.succeed", currency, mainPeer, peers.size(), (System.currentTimeMillis() - timeStart)));
         } catch(Exception e) {
             logger.error("Error during indexPeers: " + e.getMessage(), e);
         }
 
         return this;
     }
+
 
     public void save(final Peer peer) {
         delegate.save(peer);
@@ -202,16 +205,18 @@ public class PeerService extends AbstractService  {
         delegate.save(currencyId, peers);
     }
 
-    public Closeable listenAndIndexPeers(final Peer mainPeer) {
-        Preconditions.checkNotNull(mainPeer);
-        String currency = getCurrency(mainPeer);
+    public Closeable listenAndIndexPeers(final Peer peer) {
+        Preconditions.checkNotNull(peer);
 
-        // Default filter
-        NetworkService.Filter filterDef = new NetworkService.Filter();
-        filterDef.filterType = null;
-        filterDef.filterStatus = Peer.PeerStatus.UP;
-        filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);
-        filterDef.currency = currency;
+        String currency = getCurrency(peer);
+
+        return listenAndIndexPeers(currency, peer, getDefaultFilter(currency));
+    }
+
+    public Closeable listenAndIndexPeers(String currency, final Peer mainPeer, NetworkService.Filter filterDef) {
+        Preconditions.checkNotNull(currency);
+        Preconditions.checkNotNull(mainPeer);
+        Preconditions.checkNotNull(filterDef);
 
         // Default sort
         NetworkService.Sort sortDef = new NetworkService.Sort();
@@ -254,13 +259,13 @@ public class PeerService extends AbstractService  {
 
     /* -- Internal methods -- */
 
-    protected void addAllPeerIndexedEndpointApis(Collection<EndpointApi> apis) {
+    protected void addAllPeerIndexedEndpointApis(Collection<String> apis) {
         Preconditions.checkNotNull(apis);
         apis.forEach(this::addIndexedEndpointApi);
     }
 
     protected NetworkService.Filter getDefaultFilter(String currency) {
-        org.duniter.core.client.service.local.NetworkService.Filter filterDef = new org.duniter.core.client.service.local.NetworkService.Filter();
+        NetworkService.Filter filterDef = new NetworkService.Filter();
         filterDef.filterType = null;
         filterDef.filterStatus = Peer.PeerStatus.UP;
         filterDef.filterEndpoints = ImmutableList.copyOf(indexedEndpointApis);

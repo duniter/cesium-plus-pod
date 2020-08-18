@@ -776,7 +776,7 @@ public class BlockchainService extends AbstractService {
         // TODO : a activer quand les peers seront bien mis à jour (UP/DOWN, block, hash...)
         //List<Peer> otherPeers = networkRemoteService.findPeers(peer, "UP", EndpointApi.BASIC_MERKLED_API,
         //        currentBlock.getNumber(), currentBlock.getHash());
-        List<Peer> otherPeers = networkRemoteService.findPeers(peer, null, EndpointApi.BASIC_MERKLED_API,
+        List<Peer> otherPeers = networkRemoteService.findPeers(peer, null, EndpointApi.BASIC_MERKLED_API.name(),
                 null, null);
 
         for(Peer childPeer: otherPeers) {

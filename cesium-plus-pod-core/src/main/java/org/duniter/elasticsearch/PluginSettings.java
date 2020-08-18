@@ -25,7 +25,10 @@ package org.duniter.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.duniter.core.client.config.Configuration;
 import org.duniter.core.client.config.ConfigurationOption;
 import org.duniter.core.client.config.ConfigurationProvider;
@@ -33,8 +36,6 @@ import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.CryptoUtils;
 import org.duniter.core.util.crypto.KeyPair;
 import org.duniter.elasticsearch.i18n.I18nInitializer;
@@ -261,7 +262,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     public List<Peer> getClusterPeerEndpoints() {
         if (this.clusterPeerEndpoints != null) return clusterPeerEndpoints;
 
-        Set<EndpointApi> endpointApis = getPeeringPublishedApis();
+        Set<String> endpointApis = getPeeringPublishedApis();
         if (StringUtils.isBlank(getClusterRemoteHost()) || CollectionUtils.isEmpty(endpointApis)) {
             this.clusterPeerEndpoints = ImmutableList.of();
         }
@@ -275,7 +276,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
                         .setPort(getClusterRemotePort())
                         .setUseSsl(getClusterRemoteUseSsl())
                         .setPubkey(getNodePubkey())
-                        .setApi(api.name())
+                        .setApi(api)
                         .build();
                 String hash = cryptoService.hash(p.computeKey());
                 p.setHash(hash);
@@ -401,35 +402,36 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * Peer endpoint API to index (into the '_currency_/peer')
      * @return
      */
-    public Collection<EndpointApi> getPeerIndexedApis() {
+    public Set<String> getPeerIndexedApis() {
         String[] includeApis = settings.getAsArray("duniter.p2p.peer.indexedApis");
         // By default: getPeeringPublishedApis + getPeeringTargetedApis
-        if (CollectionUtils.isEmpty(includeApis)) {
-            return CollectionUtils.union(
+        if (ArrayUtils.isEmpty(includeApis)) {
+            return ImmutableSet.copyOf(CollectionUtils.union(
                     ImmutableList.of(
-                            EndpointApi.BASIC_MERKLED_API,
-                            EndpointApi.BMAS,
-                            EndpointApi.WS2P
+                            EndpointApi.BASIC_MERKLED_API.name(),
+                            EndpointApi.BMAS.name(),
+                            EndpointApi.WS2P.name()
                     ),
                     CollectionUtils.union(
                         getPeeringTargetedApis(),
                         getPeeringPublishedApis()
                     )
+                 )
             );
         }
 
-        return Arrays.stream(includeApis).map(EndpointApi::valueOf).collect(Collectors.toList());
+        return ImmutableSet.copyOf(includeApis);
     }
 
     /**
      * Endpoint API to publish, in the emitted peer document. By default, plugins will defined their own API
      * @return
      */
-    public Set<EndpointApi> getPeeringPublishedApis() {
+    public Set<String> getPeeringPublishedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.publishedApis");
-        if (CollectionUtils.isEmpty(targetedApis)) return null;
+        if (ArrayUtils.isEmpty(targetedApis)) return null;
 
-        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toSet());
+        return ImmutableSet.copyOf(targetedApis);
     }
 
     /**
@@ -437,13 +439,13 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * This API should accept a POST request to '/network/peering' (like Duniter node, but can also be a pod)
      * @return
      */
-    public Set<EndpointApi> getPeeringTargetedApis() {
+    public Set<String> getPeeringTargetedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
                 EndpointApi.ES_CORE_API.name()
         });
-        if (CollectionUtils.isEmpty(targetedApis)) return null;
+        if (ArrayUtils.isEmpty(targetedApis)) return null;
 
-        return Arrays.stream(targetedApis).map(EndpointApi::valueOf).collect(Collectors.toSet());
+        return ImmutableSet.copyOf(targetedApis);
     }
 
     /**

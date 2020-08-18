@@ -23,14 +23,15 @@ package org.duniter.elasticsearch.dao.impl;
  */
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.bma.NetworkWs2pHeads;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.model.local.Peers;
 import org.duniter.core.exception.TechnicalException;
-import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.AbstractDao;
 import org.duniter.elasticsearch.dao.PeerDao;
@@ -172,7 +173,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery()
                 .filter(QueryBuilders.termQuery(Peer.PROPERTY_API, endpointApi));
-        if (CollectionUtils.isNotEmpty(pubkeys)) {
+        if (ArrayUtils.isNotEmpty(pubkeys)) {
             boolQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
         }
         boolQuery.must(statusQuery);
@@ -199,7 +200,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         query.must(statusQuery);
 
         // Filter on pubkeys
-        if (CollectionUtils.isNotEmpty(includePubkeys)) {
+        if (ArrayUtils.isNotEmpty(includePubkeys)) {
             BoolQueryBuilder pubkeysQuery = QueryBuilders.boolQuery();
             pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, includePubkeys));
             query.must(pubkeysQuery);
@@ -227,14 +228,14 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
         query.must(statusQuery);
 
         // Filter on pubkeys
-        if (CollectionUtils.isNotEmpty(pubkeys)) {
+        if (ArrayUtils.isNotEmpty(pubkeys)) {
             BoolQueryBuilder pubkeysQuery = QueryBuilders.boolQuery();
             pubkeysQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_PUBKEY, pubkeys));
             query.must(pubkeysQuery);
         }
 
         // Filter on WS2P api
-        if (CollectionUtils.isNotEmpty(pubkeys)) {
+        if (ArrayUtils.isNotEmpty(pubkeys)) {
             BoolQueryBuilder apiQuery = QueryBuilders.boolQuery();
             apiQuery.filter(QueryBuilders.termsQuery(Peer.PROPERTY_API, EndpointApi.WS2P.name()));
             query.must(apiQuery);
@@ -387,7 +388,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
     }
 
     @Override
-    public boolean hasPeersUpWithApi(String currencyId, Set<EndpointApi> api) {
+    public boolean hasPeersUpWithApi(String currencyId, Set<String> api) {
         SearchRequestBuilder searchRequest = client.prepareSearch(currencyId)
                 .setFetchSource(false)
                 .setTypes(TYPE)
@@ -398,7 +399,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
 
         if (CollectionUtils.isNotEmpty(api)) {
             query.minimumNumberShouldMatch(api.size());
-            api.forEach(a -> query.should(QueryBuilders.termQuery(Peer.PROPERTY_API, a.name())));
+            api.forEach(a -> query.should(QueryBuilders.termQuery(Peer.PROPERTY_API, a)));
         }
 
         query.must(QueryBuilders.nestedQuery(Peer.PROPERTY_STATS, QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()

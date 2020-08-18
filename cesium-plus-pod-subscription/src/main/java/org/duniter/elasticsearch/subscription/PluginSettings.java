@@ -26,10 +26,10 @@ package org.duniter.elasticsearch.subscription;
 import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.crypto.KeyPair;
-import org.elasticsearch.common.component.*;
+import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 
-import java.util.Collection;
+import java.util.Set;
 
 /**
  * Access to configuration options
@@ -46,7 +46,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.user.PluginSettings delegate;
 
-    private EndpointApi subscriptionEndpointApi;
+    private String subscriptionEndpointApi;
 
     @Inject
     public PluginSettings(org.elasticsearch.common.settings.Settings settings,
@@ -59,11 +59,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
 
         // Allow to redefine user api
-        EndpointApi endpointApi = EndpointApi.ES_SUBSCRIPTION_API; // default value
+        String endpointApi = EndpointApi.ES_SUBSCRIPTION_API.name(); // default value
         String apiName = settings.get("duniter.subscription.api");
         if (StringUtils.isNotBlank(apiName)) {
             try {
-                endpointApi  = EndpointApi.valueOf(apiName);
+                endpointApi  = EndpointApi.valueOf(apiName).name();
             } catch (Exception e) {
                 logger.warn(String.format("Invalid subscription endpoint API define ni settings {duniter.subscription.api: %s}. Will use default value {%s}", apiName, endpointApi));
             }
@@ -110,7 +110,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return this.settings.get("duniter.subscription.email.cesium.url", "https://g1.duniter.fr");
     }
 
-    public EndpointApi getSubscriptionEndpointApi() {
+    public String getSubscriptionEndpointApi() {
         return subscriptionEndpointApi;
     }
 
@@ -170,11 +170,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return delegate.enablePeering();
     }
 
-    public Collection<EndpointApi> getPeeringTargetedApis() {
+    public Set<String> getPeeringTargetedApis() {
         return this.delegate.getPeeringTargetedApis();
     }
 
-    public Collection<EndpointApi> getPeeringPublishedApis() {
+    public Set<String> getPeeringPublishedApis() {
         return this.delegate.getPeeringPublishedApis();
     }
 

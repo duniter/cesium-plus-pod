@@ -25,10 +25,7 @@ package org.duniter.elasticsearch.rest;
 import org.duniter.elasticsearch.rest.attachment.RestImageAttachmentAction;
 import org.duniter.elasticsearch.rest.blockchain.*;
 import org.duniter.elasticsearch.rest.docstat.RestDocStatSearchAction;
-import org.duniter.elasticsearch.rest.network.RestNetworkPeeringGetAction;
-import org.duniter.elasticsearch.rest.network.RestNetworkPeeringPeersPostAction;
-import org.duniter.elasticsearch.rest.network.RestNetworkPeersGetAction;
-import org.duniter.elasticsearch.rest.network.RestNetworkWs2pHeadsGetAction;
+import org.duniter.elasticsearch.rest.network.*;
 import org.duniter.elasticsearch.rest.node.RestNodeModeratorsGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeStatsGetAction;
@@ -68,6 +65,7 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestNetworkPeeringPeersPostAction.class).asEagerSingleton();
         bind(RestNetworkPeersGetAction.class).asEagerSingleton();
         bind(RestNetworkWs2pHeadsGetAction.class).asEagerSingleton();
+        bind(RestNetworkPeeringPeersGetAction.class).asEagerSingleton();
 
         // Blockchain
         bind(RestBlockchainParametersGetAction.class).asEagerSingleton();

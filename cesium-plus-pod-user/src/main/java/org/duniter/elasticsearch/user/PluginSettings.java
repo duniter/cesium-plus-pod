@@ -44,7 +44,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.PluginSettings delegate;
 
-    private final EndpointApi userEndpointApi;
+    private final String userEndpointApi;
 
     @Inject
     public PluginSettings(Settings settings,
@@ -66,7 +66,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
                 logger.warn(String.format("Invalid user endpoint API define ni settings {duniter.user.api: %s}. Will use default value {%s}", apiName, endpointApi));
             }
         }
-        this.userEndpointApi = endpointApi;
+        this.userEndpointApi = endpointApi.name();
     }
 
     @Override
@@ -120,11 +120,11 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return this.delegate.enablePeering();
     }
 
-    public Collection<EndpointApi> getPeeringTargetedApis() {
+    public Set<String> getPeeringTargetedApis() {
         return this.delegate.getPeeringTargetedApis();
     }
 
-    public Collection<EndpointApi> getPeeringPublishedApis() {
+    public Set<String> getPeeringPublishedApis() {
         return this.delegate.getPeeringPublishedApis();
     }
 
@@ -132,7 +132,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsInt("duniter.synchro.timeOffsetInSec", 60*60 /*1 hour*/ );
     }
 
-    public EndpointApi getUserEndpointApi() {
+    public String getUserEndpointApi() {
         return userEndpointApi;
     }
 

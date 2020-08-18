@@ -10,7 +10,7 @@ import org.duniter.elasticsearch.user.service.UserService;
 
 public abstract class AbstractSynchroUserAction extends AbstractSynchroAction {
 
-    private EndpointApi endpointApi;
+    private String endpointApi;
 
     public AbstractSynchroUserAction(String index, String type,
                                  Duniter4jClient client,
@@ -37,7 +37,7 @@ public abstract class AbstractSynchroUserAction extends AbstractSynchroAction {
     }
 
     @Override
-    public EndpointApi getEndPointApi() {
+    public String getEndPointApi() {
         return endpointApi;
     }
 

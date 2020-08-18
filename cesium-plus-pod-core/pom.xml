@@ -59,6 +59,22 @@
       </exclusions>
     </dependency>
 
+    <dependency>
+      <groupId>org.duniter</groupId>
+      <artifactId>duniter4j-core-shared</artifactId>
+      <version>${duniter4j.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>javax.websocket</groupId>
+          <artifactId>javax.websocket-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <!-- LOGGING DEPENDENCIES - SLF4J -->
     <dependency>
       <groupId>org.slf4j</groupId>

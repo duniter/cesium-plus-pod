@@ -23,10 +23,15 @@ package org.duniter.elasticsearch.service;
  */
 
 
+import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.dao.PeerDao;
 import org.duniter.core.client.model.bma.*;
@@ -40,9 +45,6 @@ import org.duniter.core.client.util.KnownBlocks;
 import org.duniter.core.client.util.KnownCurrencies;
 import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.service.CryptoService;
-import org.duniter.core.util.CollectionUtils;
-import org.duniter.core.util.Preconditions;
-import org.duniter.core.util.StringUtils;
 import org.duniter.core.util.http.InetAddressUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.client.Duniter4jClient;
@@ -51,9 +53,9 @@ import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.common.inject.Inject;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,9 +72,9 @@ public class NetworkService extends AbstractService {
     private Map<String, NetworkPeering> peeringByCurrencyCache = Maps.newHashMap();
 
     // API where to sendBlock the peer document
-    private final static Set<EndpointApi> registeredPeeringTargetedApis = Sets.newHashSet();
+    private final static Set<String> registeredPeeringTargetedApis = Sets.newHashSet();
     // API to include inside the peer document
-    private final static Set<EndpointApi> registeredPeeringPublishedApis = Sets.newHashSet();
+    private final static Set<String> registeredPeeringPublishedApis = Sets.newHashSet();
 
     private final ThreadPool threadPool;
     private final PeerDao peerDao;
@@ -80,6 +82,7 @@ public class NetworkService extends AbstractService {
     private NetworkRemoteService networkRemoteService;
     private PeerService peerService;
     private final boolean debug;
+    private Cache<String, List<NetworkPeers.Peer>> peerAsBmaFormatCache;
 
     @Inject
     public NetworkService(Duniter4jClient client,
@@ -98,6 +101,9 @@ public class NetworkService extends AbstractService {
         this.blockchainService = blockchainService;
         this.peerService = peerService;
         this.threadPool = threadPool;
+        this.peerAsBmaFormatCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(pluginSettings.getPeeringInterval() / 2, TimeUnit.SECONDS)
+                .build();
         this.debug = logger.isDebugEnabled();
         threadPool.scheduleOnStarted(() -> {
             this.httpService = serviceLocator.getHttpService();
@@ -112,11 +118,11 @@ public class NetworkService extends AbstractService {
         registerPeeringTargetApi(pluginSettings.getCoreEnpointApi());
     }
 
-    protected List<Peer> getConfigIncludesPeers(final String currencyId) {
+    public List<Peer> getConfigIncludesPeers(final String currencyId) {
         return getConfigIncludesPeers(currencyId, null);
     }
 
-    protected List<Peer> getConfigIncludesPeers(final String currencyId, final EndpointApi api) {
+    public List<Peer> getConfigIncludesPeers(final String currencyId, final String api) {
         Preconditions.checkNotNull(currencyId);
         String[] endpoints = pluginSettings.getSynchroIncludesEndpoints();
         if (ArrayUtils.isEmpty(endpoints)) return null;
@@ -133,7 +139,7 @@ public class NetworkService extends AbstractService {
                 NetworkPeering.Endpoint ep = (endpointPart.length == 2) ?
                         Endpoints.parse(endpointPart[1]).orElse(null) :
                         Endpoints.parse(endpoint).orElse(null);
-                if (ep != null && (api == null || ep.api == api) && (epCurrencyId == null || currencyId.equals(epCurrencyId))) {
+                if (ep != null && (api == null || api.equals(ep.api)) && (epCurrencyId == null || epCurrencyId.equals(currencyId))) {
                     Peer peer = Peer.newBuilder()
                             .setEndpoint(ep)
                             .setCurrency(currencyId)
@@ -158,7 +164,7 @@ public class NetworkService extends AbstractService {
         return peers;
     }
 
-    public boolean hasSomePeers(Set<EndpointApi> peerApiFilters) {
+    public boolean hasSomePeers(Set<String> peerApiFilters) {
 
         Set<String> currencyIds = currencyDao.getAllIds();
         if (CollectionUtils.isEmpty(currencyIds)) return false;
@@ -171,7 +177,7 @@ public class NetworkService extends AbstractService {
         return false;
     }
 
-    public boolean waitPeersReady(Set<EndpointApi> peerApiFilters) throws InterruptedException{
+    public boolean waitPeersReady(Set<String> peerApiFilters) throws InterruptedException{
 
         waitReady();
 
@@ -195,12 +201,12 @@ public class NetworkService extends AbstractService {
         return true;
     }
 
-    public Collection<Peer> getPeersFromApis(final String currencyId, final Collection<EndpointApi> apis) {
+    public Collection<Peer> getPeersFromApis(final String currencyId, final Collection<String> apis) {
 
         return apis.stream().flatMap(api -> getPeersFromApi(currencyId, api).stream()).collect(Collectors.toList());
     }
 
-    public Collection<Peer> getPeersFromApi(final String currencyId, final EndpointApi api) {
+    public Collection<Peer> getPeersFromApi(final String currencyId, final String api) {
         Preconditions.checkNotNull(api);
         Preconditions.checkArgument(StringUtils.isNotBlank(currencyId));
 
@@ -220,7 +226,7 @@ public class NetworkService extends AbstractService {
             if (ArrayUtils.isNotEmpty(includePubkeys)) {
 
                 // Get from DAO, by API and pubkeys
-                List<Peer> pubkeysPeers = peerDao.getPeersByCurrencyIdAndApiAndPubkeys(currencyId, api.name(), includePubkeys);
+                List<Peer> pubkeysPeers = peerDao.getPeersByCurrencyIdAndApiAndPubkeys(currencyId, api, includePubkeys);
                 if (CollectionUtils.isNotEmpty(pubkeysPeers)) {
                     pubkeysPeers.stream()
                             .filter(Objects::nonNull)
@@ -230,7 +236,7 @@ public class NetworkService extends AbstractService {
 
             // Add discovered peers
             if (pluginSettings.enableSynchroDiscovery()) {
-                List<Peer> discoveredPeers = peerDao.getPeersByCurrencyIdAndApi(currencyId, api.name());
+                List<Peer> discoveredPeers = peerDao.getPeersByCurrencyIdAndApi(currencyId, api);
                 if (CollectionUtils.isNotEmpty(discoveredPeers)) {
                     discoveredPeers.stream()
                             .filter(Objects::nonNull)
@@ -241,9 +247,15 @@ public class NetworkService extends AbstractService {
             return peersByUrls.values();
         }
         catch (Exception e) {
-            logger.error(String.format("Could not get peers for Api [%s]", api.name()), e);
+            logger.error(String.format("Could not get peers for Api [%s]", api), e);
             return null;
         }
+    }
+
+
+    public List<NetworkPeers.Peer> getPeersAsBmaFormatWithCache(String currency) throws ExecutionException {
+        final String safeCurrency = this.blockchainService.safeGetCurrency(currency);
+        return peerAsBmaFormatCache.get(safeCurrency, () -> this.getPeersAsBmaFormat(safeCurrency));
     }
 
     public List<NetworkPeers.Peer> getPeersAsBmaFormat(String currency) {
@@ -388,17 +400,22 @@ public class NetworkService extends AbstractService {
 
     public void registerPeeringTargetApi(EndpointApi api) {
         Preconditions.checkNotNull(api);
+        registerPeeringTargetApi(api.name());
+    }
+
+    public void registerPeeringTargetApi(String api) {
+        Preconditions.checkNotNull(api);
 
         if (!registeredPeeringTargetedApis.contains(api)) {
             if (pluginSettings.enablePeering() && CollectionUtils.isEmpty(pluginSettings.getPeeringTargetedApis())) {
-                logger.info(String.format("Adding {%s} as target endpoint for the peering document.", api.name()));
+                logger.info(String.format("Adding {%s} as target endpoint for the peering document.", api));
             }
             registeredPeeringTargetedApis.add(api);
         }
     }
 
-    public Set<EndpointApi> getPeeringTargetedApis() {
-        Set<EndpointApi> configOverride = pluginSettings.getPeeringTargetedApis();
+    public Set<String> getPeeringTargetedApis() {
+        Set<String> configOverride = pluginSettings.getPeeringTargetedApis();
         if (CollectionUtils.isNotEmpty(configOverride)) {
             return configOverride;
         }
@@ -406,19 +423,24 @@ public class NetworkService extends AbstractService {
         return registeredPeeringTargetedApis;
     }
 
-    public void registerPeeringPublishApi(EndpointApi api) {
+    public void registerPeeringPublishApi(String api) {
         Preconditions.checkNotNull(api);
 
         if (!registeredPeeringPublishedApis.contains(api)) {
             if (pluginSettings.enablePeering() && CollectionUtils.isEmpty(pluginSettings.getPeeringPublishedApis())) {
-                logger.info(String.format("Adding {%s} as published endpoint, inside the peering document.", api.name()));
+                logger.info(String.format("Adding {%s} as published endpoint, inside the peering document.", api));
             }
             registeredPeeringPublishedApis.add(api);
         }
     }
 
-    public Set<EndpointApi> getPeeringPublishedApis() {
-        Set<EndpointApi> configOverride = pluginSettings.getPeeringPublishedApis();
+    public void registerPeeringPublishApi(EndpointApi api) {
+        Preconditions.checkNotNull(api);
+        registerPeeringPublishApi(api.name());
+    }
+
+    public Set<String> getPeeringPublishedApis() {
+        Set<String> configOverride = pluginSettings.getPeeringPublishedApis();
         if (CollectionUtils.isNotEmpty(configOverride)) {
             return configOverride;
         }
@@ -456,7 +478,7 @@ public class NetworkService extends AbstractService {
         result.setStatus("UP");
 
         // Add endpoints
-        Collection<EndpointApi> publishedApis = getPeeringPublishedApis();
+        Collection<String> publishedApis = getPeeringPublishedApis();
         if (CollectionUtils.isNotEmpty(publishedApis)) {
             List<NetworkPeering.Endpoint> endpoints = publishedApis.stream()
                     .map(endpointApi -> {
@@ -561,7 +583,7 @@ public class NetworkService extends AbstractService {
         }
 
         // Skip if no endpoints
-        if (CollectionUtils.isEmpty(peering.getEndpoints())) {
+        if (ArrayUtils.isEmpty(peering.getEndpoints())) {
             logger.debug("Ignoring peer document (no endpoint to process)");
             return peering;
         }
@@ -647,8 +669,8 @@ public class NetworkService extends AbstractService {
             return;
         }
 
-        Set<EndpointApi> targetedApis = getPeeringTargetedApis();
-        Set<EndpointApi> publishedApis = getPeeringTargetedApis();
+        Set<String> targetedApis = getPeeringTargetedApis();
+        Set<String> publishedApis = getPeeringTargetedApis();
 
         if (CollectionUtils.isEmpty(targetedApis) ||
             CollectionUtils.isEmpty(publishedApis)) {
