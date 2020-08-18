@@ -36,6 +36,7 @@ import org.duniter.elasticsearch.rest.security.RestSecurityGetChallengeAction;
 import org.duniter.elasticsearch.rest.wot.RestWotLookupGetAction;
 import org.duniter.elasticsearch.rest.wot.RestWotMembersGetAction;
 import org.duniter.elasticsearch.rest.wot.RestWotPendingGetAction;
+import org.duniter.elasticsearch.rest.wot.RestWotRequirementsGetAction;
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.inject.Module;
 
@@ -79,6 +80,7 @@ public class RestModule extends AbstractModule implements Module {
         bind(RestWotLookupGetAction.class).asEagerSingleton();
         bind(RestWotMembersGetAction.class).asEagerSingleton();
         bind(RestWotPendingGetAction.class).asEagerSingleton();
+        bind(RestWotRequirementsGetAction.class).asEagerSingleton();
 
         // Doc stats backward compatibility
         bind(RestDocStatSearchAction.class).asEagerSingleton();

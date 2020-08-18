@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainParameters;
+import org.duniter.core.client.model.bma.WotRequirements;
 import org.duniter.core.client.model.local.Member;
 import org.duniter.core.client.service.bma.WotRemoteService;
 import org.duniter.core.util.CollectionUtils;
@@ -257,6 +258,14 @@ public class WotService extends AbstractService {
                 .execute().actionGet();
 
         return response.getHits() != null && response.getHits().getTotalHits() > 0;
+    }
+
+    public List<WotRequirements> getRequirements(String currency, String pubkey) {
+        waitReady();
+
+        final String currencyId = safeGetCurrency(currency);
+
+        return this.wotRemoteService.getRequirements(currencyId, pubkey);
     }
 
     /* -- protected methods -- */
