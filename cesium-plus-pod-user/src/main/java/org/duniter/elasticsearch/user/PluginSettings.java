@@ -44,7 +44,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.PluginSettings delegate;
 
-    private final String userEndpointApi;
 
     @Inject
     public PluginSettings(Settings settings,
@@ -57,16 +56,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         delegate.addI18nBundleName(getI18nBundleName());
 
         // Allow to redefine user api
-        EndpointApi endpointApi = EndpointApi.ES_USER_API; // Default value
-        String apiName = settings.get("duniter.user.api");
-        if (StringUtils.isNotBlank(apiName)) {
-            try {
-                endpointApi  = EndpointApi.valueOf(apiName);
-            } catch (Exception e) {
-                logger.warn(String.format("Invalid user endpoint API define ni settings {duniter.user.api: %s}. Will use default value {%s}", apiName, endpointApi));
-            }
+        String apiLabel = settings.get("duniter.user.api");
+        if (StringUtils.isNotBlank(apiLabel)) {
+            EndpointApi.ES_USER_API.setLabel(apiLabel);
         }
-        this.userEndpointApi = endpointApi.name();
     }
 
     @Override
@@ -133,7 +126,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getUserEndpointApi() {
-        return userEndpointApi;
+        return EndpointApi.ES_USER_API.label();
     }
 
     public boolean enableUserModule() {

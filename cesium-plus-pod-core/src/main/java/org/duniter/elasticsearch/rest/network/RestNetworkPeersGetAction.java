@@ -72,7 +72,7 @@ public class RestNetworkPeersGetAction extends BaseRestHandler {
 
         try {
             NetworkPeers result = new NetworkPeers();
-            List<NetworkPeers.Peer> peers = networkService.getPeersAsBmaFormatWithCache(currency);
+            List<NetworkPeers.Peer> peers = networkService.getBmaPeers(currency);
             if (CollectionUtils.isNotEmpty(peers)) {
                 result.peers = peers.toArray(new NetworkPeers.Peer[peers.size()]);
             }

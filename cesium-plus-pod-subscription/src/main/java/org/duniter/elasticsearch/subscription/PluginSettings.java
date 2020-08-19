@@ -46,8 +46,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     private org.duniter.elasticsearch.user.PluginSettings delegate;
 
-    private String subscriptionEndpointApi;
-
     @Inject
     public PluginSettings(org.elasticsearch.common.settings.Settings settings,
                           org.duniter.elasticsearch.user.PluginSettings delegate) {
@@ -59,16 +57,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
 
         // Allow to redefine user api
-        String endpointApi = EndpointApi.ES_SUBSCRIPTION_API.name(); // default value
-        String apiName = settings.get("duniter.subscription.api");
-        if (StringUtils.isNotBlank(apiName)) {
-            try {
-                endpointApi  = EndpointApi.valueOf(apiName).name();
-            } catch (Exception e) {
-                logger.warn(String.format("Invalid subscription endpoint API define ni settings {duniter.subscription.api: %s}. Will use default value {%s}", apiName, endpointApi));
-            }
+        String apiLabel = settings.get("duniter.subscription.api");
+        if (StringUtils.isNotBlank(apiLabel)) {
+            EndpointApi.ES_SUBSCRIPTION_API.setLabel(apiLabel);
         }
-        this.subscriptionEndpointApi = endpointApi;
 
         instance = this;
     }
@@ -111,7 +103,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     }
 
     public String getSubscriptionEndpointApi() {
-        return subscriptionEndpointApi;
+        return EndpointApi.ES_SUBSCRIPTION_API.label();
     }
 
     public String getEmailLinkUrl() {

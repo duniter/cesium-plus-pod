@@ -76,7 +76,6 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
     private String softwareDefaultVersion;
 
     private final CryptoService cryptoService;
-    private final EndpointApi coreEnpointApi;
 
     protected final Settings settings;
 
@@ -103,16 +102,10 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         addI18nBundleName(getI18nBundleName());
 
         // Allow to redefine user api
-        EndpointApi endpointApi = EndpointApi.ES_CORE_API; // default value
-        String apiName = settings.get("duniter.core.api");
-        if (StringUtils.isNotBlank(apiName)) {
-            try {
-                endpointApi  = EndpointApi.valueOf(apiName);
-            } catch (Exception e) {
-                logger.warn(String.format("Invalid subscription endpoint API define ni settings {duniter.core.api: %s}. Will use default value {%s}", apiName, endpointApi));
-            }
+        String apiLabel = settings.get("duniter.core.api");
+        if (StringUtils.isNotBlank(apiLabel)) {
+            EndpointApi.ES_CORE_API.setLabel(apiLabel);
         }
-        this.coreEnpointApi = endpointApi;
 
         // Init the version
         softwareDefaultVersion = getPackageVersion();
@@ -307,8 +300,8 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
 
     /* -- Other settings -- */
 
-    public EndpointApi getCoreEnpointApi() {
-        return coreEnpointApi;
+    public String getCoreEnpointApi() {
+        return EndpointApi.ES_CORE_API.label();
     }
 
     public boolean isIndexBulkEnable() {
@@ -441,7 +434,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     public Set<String> getPeeringTargetedApis() {
         String[] targetedApis = settings.getAsArray("duniter.p2p.peering.targetedApis", new String[]{
-                EndpointApi.ES_CORE_API.name()
+                getCoreEnpointApi()
         });
         if (ArrayUtils.isEmpty(targetedApis)) return null;
 
@@ -454,6 +447,14 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     public int getPeeringInterval() {
         return this.settings.getAsInt("duniter.p2p.peering.interval", 7200 /*=2h*/);
+    }
+
+    /**
+     * Interval (in seconds) between publications of the peer document
+     * @return
+     */
+    public int getPeersCacheTimeToLive() {
+        return this.settings.getAsInt("duniter.p2p.peers.cache.timeToLive", 600 /*=10min*/);
     }
 
     public boolean fullResyncAtStartup()  {

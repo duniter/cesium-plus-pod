@@ -23,14 +23,8 @@ package org.duniter.elasticsearch.rest.network;
  */
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
-import org.apache.http.entity.ContentType;
 import org.duniter.core.client.model.bma.NetworkPeering;
-import org.duniter.core.client.model.bma.NetworkPeerings;
 import org.duniter.core.client.model.bma.jackson.JacksonUtils;
-import org.duniter.core.client.model.local.Peer;
-import org.duniter.core.exception.TechnicalException;
-
 import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.PluginSettings;
 import org.duniter.elasticsearch.rest.JacksonJsonRestResponse;
@@ -44,13 +38,8 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.*;
-import org.yaml.snakeyaml.util.UriEncoder;
 
-import java.io.IOException;
 import java.io.StringReader;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
 import java.util.Properties;
 
 /**

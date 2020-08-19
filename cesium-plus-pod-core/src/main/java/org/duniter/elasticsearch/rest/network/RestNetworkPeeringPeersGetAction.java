@@ -145,7 +145,7 @@ public class RestNetworkPeeringPeersGetAction extends BaseRestHandler {
     }
 
     protected Map<String, NetworkPeers.Peer> getBmaPeersByHash(final String currency) throws ExecutionException {
-        Collection<NetworkPeers.Peer> peers = networkService.getPeersAsBmaFormatWithCache(currency);
+        Collection<NetworkPeers.Peer> peers = networkService.getBmaPeers(currency);
         return peers.stream()
                 .map(p -> {
                     // Compute the peer's hash, is notalready done

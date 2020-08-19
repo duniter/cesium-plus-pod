@@ -82,7 +82,7 @@ public class NetworkService extends AbstractService {
     private NetworkRemoteService networkRemoteService;
     private PeerService peerService;
     private final boolean debug;
-    private Cache<String, List<NetworkPeers.Peer>> peerAsBmaFormatCache;
+    private Cache<String, List<NetworkPeers.Peer>> bmaPeersCache;
 
     @Inject
     public NetworkService(Duniter4jClient client,
@@ -101,9 +101,10 @@ public class NetworkService extends AbstractService {
         this.blockchainService = blockchainService;
         this.peerService = peerService;
         this.threadPool = threadPool;
-        this.peerAsBmaFormatCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(pluginSettings.getPeeringInterval() / 2, TimeUnit.SECONDS)
-                .build();
+        this.bmaPeersCache = pluginSettings.getPeersCacheTimeToLive() > 0 ?
+                CacheBuilder.newBuilder()
+                    .expireAfterWrite(pluginSettings.getPeersCacheTimeToLive(), TimeUnit.SECONDS)
+                    .build() : null;
         this.debug = logger.isDebugEnabled();
         threadPool.scheduleOnStarted(() -> {
             this.httpService = serviceLocator.getHttpService();
@@ -252,16 +253,28 @@ public class NetworkService extends AbstractService {
         }
     }
 
+    /**
+     * Get peers, as BMA format. A cache can be used, depending of a config option.
+     * This will read the index "currency/peer"
+     *
+     * @param currency
+     * @return a list of peers
+     * @throws ExecutionException
+     */
+    public List<NetworkPeers.Peer> getBmaPeers(String currency) throws ExecutionException {
+        // Retrieve the currency to use
+        final String safeCurrency = blockchainService.safeGetCurrency(currency);
 
-    public List<NetworkPeers.Peer> getPeersAsBmaFormatWithCache(String currency) throws ExecutionException {
-        final String safeCurrency = this.blockchainService.safeGetCurrency(currency);
-        return peerAsBmaFormatCache.get(safeCurrency, () -> this.getPeersAsBmaFormat(safeCurrency));
+        return bmaPeersCache != null ? // null if timeToLive <= 0
+                // Use cache
+                bmaPeersCache.get(safeCurrency, () -> this.getBmaPeersNoCache(safeCurrency)) :
+                // No cache
+                getBmaPeersNoCache(safeCurrency);
     }
 
-    public List<NetworkPeers.Peer> getPeersAsBmaFormat(String currency) {
+    public List<NetworkPeers.Peer> getBmaPeersNoCache(String currency) {
+        Preconditions.checkNotNull(currency);
 
-        // Retrieve the currency to use
-        currency = blockchainService.safeGetCurrency(currency);
 
         final List<Peer> endpointsAsPeer = Lists.newArrayList();
         try {
@@ -284,8 +297,9 @@ public class NetworkService extends AbstractService {
                 }
             }
 
-            // Add the pod itself
-            if (StringUtils.isNotBlank(pluginSettings.getClusterRemoteHost())) {
+            // Add the cluster itself (if has a routable host)
+            String clusterHost = pluginSettings.getClusterRemoteHost();
+            if (StringUtils.isNotBlank(clusterHost) && InetAddressUtils.isNotLocalAddress(clusterHost)) {
                 NetworkPeering peering = getPeering(currency, true);
                 if (peering != null) {
                     List<Peer> clusterEndpoints = Stream.of(peering.getEndpoints())
@@ -496,11 +510,10 @@ public class NetworkService extends AbstractService {
         }
 
         // Compute raw, then sign it
-        String raw = result.toString();
-        String signature = cryptoService.sign(raw, pluginSettings.getNodeKeypair().getSecKey());
-        raw += signature + "\n";
+        String unsignedRaw = result.toUnsignedRaw();
+        String signature = cryptoService.sign(unsignedRaw, pluginSettings.getNodeKeypair().getSecKey());
 
-        result.setRaw(raw);
+        result.setRaw(unsignedRaw);
         result.setSignature(signature);
 
         // Add result to cache
@@ -696,8 +709,9 @@ public class NetworkService extends AbstractService {
                 }
 
                 if (CollectionUtils.isNotEmpty(peers)) {
+                    String signedRaw = peeringDocument.toSignedRaw();
                     // Send document to every peers
-                    long count = peers.stream().map(p -> this.safePublishPeerDocumentToPeer(currencyId, p, peeringDocument.toString())).filter(Boolean.TRUE::equals).count();
+                    long count = peers.stream().map(p -> this.safePublishPeerDocumentToPeer(currencyId, p, signedRaw)).filter(Boolean.TRUE::equals).count();
 
                     logger.info(String.format("[%s] Peering document sent to %s/%s peers", currencyId, count, peers.size()));
                 } else {
