@@ -133,6 +133,15 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_MAX_CONNECTIONS.getKey(), String.valueOf(getNetworkMaxConnections()));
         applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_MAX_CONNECTIONS_PER_ROUTE.getKey(), String.valueOf(getNetworkMaxConnectionsPerRoute()));
 
+        // Make sure peerUpMaxAge (ms) >= 'duniter.p2p.peering.interval' (s)
+        {
+            int peerUpMaxAgeMs = Integer.parseInt(ConfigurationOption.NETWORK_PEER_UP_MAX_AGE.getDefaultValue());
+            int publishPeeringMs = getPeeringInterval() * 1000;
+            if (peerUpMaxAgeMs < publishPeeringMs) {
+                applicationConfig.setDefaultOption(ConfigurationOption.NETWORK_PEER_UP_MAX_AGE.getKey(), String.valueOf(publishPeeringMs));
+            }
+        }
+
         try {
             applicationConfig.parse(new String[]{});
 
@@ -446,7 +455,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      * @return
      */
     public int getPeeringInterval() {
-        return this.settings.getAsInt("duniter.p2p.peering.interval", 7200 /*=2h*/);
+        return this.settings.getAsInt("duniter.p2p.peering.interval", 3600 /*=1h*/);
     }
 
     /**

@@ -342,7 +342,7 @@ public class PeerDaoImpl extends AbstractDao implements PeerDao {
                 SearchHit[] searchHits = response.getHits().getHits();
                 for (SearchHit searchHit : searchHits) {
 
-                    // Add deletion to bulk
+                    // Add update operation to bulk
                     bulkRequest.add(
                             client.prepareUpdate(currencyName, TYPE, searchHit.getId())
                             .setDoc(String.format("{\"%s\": {\"%s\": \"%s\", \"%s\": %s}}", Peer.PROPERTY_STATS,
