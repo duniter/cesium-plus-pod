@@ -401,9 +401,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         if (ArrayUtils.isEmpty(includeApis)) {
             return ImmutableSet.copyOf(CollectionUtils.union(
                     ImmutableList.of(
-                            EndpointApi.BASIC_MERKLED_API.name(),
-                            EndpointApi.BMAS.name(),
-                            EndpointApi.WS2P.name()
+                            EndpointApi.BASIC_MERKLED_API.label(),
+                            EndpointApi.BMAS.label(),
+                            EndpointApi.WS2P.label()
                     ),
                     CollectionUtils.union(
                         getPeeringTargetedApis(),
