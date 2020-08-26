@@ -29,7 +29,7 @@
     <signatureVersion>1.0</signatureVersion>
 
     <!-- Commons versions -->
-    <duniter4j.version>1.3.6-SNAPSHOT</duniter4j.version>
+    <duniter4j.version>1.3.7</duniter4j.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.6</slf4j.version>
     <guava.version>22.0</guava.version>
@@ -161,7 +161,7 @@
       <dependency>
         <groupId>org.duniter</groupId>
         <artifactId>duniter4j-core-client</artifactId>
-        <version>1.3.6</version>
+        <version>${duniter4j.version}</version>
       </dependency>
 
       <dependency>

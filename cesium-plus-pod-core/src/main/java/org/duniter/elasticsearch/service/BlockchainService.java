@@ -26,6 +26,7 @@ package org.duniter.elasticsearch.service;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.ArrayUtils;
 import org.duniter.core.client.dao.CurrencyDao;
 import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.bma.BlockchainDifficulties;
@@ -87,6 +88,7 @@ public class BlockchainService extends AbstractService {
 
     private final JsonAttributeParser<Integer> blockNumberParser = new JsonAttributeParser<>("number", Integer.class);
     private final JsonAttributeParser<String> blockCurrencyParser = new JsonAttributeParser<>("currency", String.class);
+    private final JsonAttributeParser<Long> blockDividendParser = new JsonAttributeParser<>("dividend", Long.class);
     private final JsonAttributeParser<String> blockHashParser = new JsonAttributeParser<>("hash", String.class);
     private final JsonAttributeParser<String> blockPreviousHashParser = new JsonAttributeParser<>("previousHash", String.class);
 
@@ -262,10 +264,20 @@ public class BlockchainService extends AbstractService {
                     progressionModel.setStatus(ProgressionModel.Status.SUCCESS);
                 }
             }
+
+            // Update last UD (in the currency index)
+            if (progressionModel == nullProgressionModel ||
+                    progressionModel.getStatus() == ProgressionModel.Status.SUCCESS) {
+
+                updateCurrencyLastUD(currencyName);
+            }
+
         } catch(Exception e) {
             logger.error("Error during indexLastBlocks: " + e.getMessage(), e);
             progressionModel.setStatus(ProgressionModel.Status.FAILED);
         }
+
+
 
         return this;
     }
@@ -477,21 +489,29 @@ public class BlockchainService extends AbstractService {
     *
     * @param currencyName
     * @param json block as JSON
-    * @pram wait need to wait until block processed ?
+    * @param wait need to wait until block processed ?
     */
     public void indexCurrentBlockFromJson(final String currencyName, final String json, final boolean wait) {
         Preconditions.checkNotNull(json);
         Preconditions.checkArgument(json.length() > 0);
         Preconditions.checkArgument(StringUtils.isNotBlank(currencyName));
 
-        // Preparing indexBlocksFromNode
+        // Update exists current, or insert
         if (blockDao.isExists(currencyName, CURRENT_BLOCK_ID)) {
             blockDao.update(currencyName, CURRENT_BLOCK_ID, json.getBytes(), wait);
         }
         else {
             blockDao.create(currencyName, CURRENT_BLOCK_ID, json.getBytes(), wait);
         }
+
+        // Update lastUD value, if block has an UD
+        Long lastUD = blockDividendParser.getValue(json);
+        if (lastUD != null) {
+            currencyDao.updateLastUD(currencyName, lastUD);
+        }
     }
+
+
 
 
     public long[] getBlockNumberWithUd(String currency) {
@@ -954,5 +974,19 @@ public class BlockchainService extends AbstractService {
 
     protected void checkReady() throws IllegalStateException{
         if (!isReady()) throw new IllegalStateException("Service not started");
+    }
+
+    protected BlockchainService updateCurrencyLastUD(String currency) {
+        Preconditions.checkNotNull(currency);
+
+        long[] uds = getBlockNumberWithUd(currency);
+        if (ArrayUtils.isNotEmpty(uds)) {
+            long blockNumber = uds[uds.length - 1];
+            BlockchainBlock block = getBlockById(currency, (int)blockNumber);
+            if (block != null && block.getDividend() != null) {
+                currencyDao.updateLastUD(currency, block.getDividend().longValue());
+            }
+        }
+        return this;
     }
 }

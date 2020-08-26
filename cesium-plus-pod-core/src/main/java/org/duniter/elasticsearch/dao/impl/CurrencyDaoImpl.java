@@ -118,6 +118,14 @@ public class CurrencyDaoImpl extends AbstractIndexTypeDao<CurrencyExtendDao> imp
     }
 
     @Override
+    public void updateLastUD(final String currency, long lastUD) {
+        client.prepareUpdate(INDEX, RECORD_TYPE, currency)
+                .setDoc(String.format("{\"%s\": %s}", Currency.PROPERTY_LAST_UD,
+                        lastUD
+                ).getBytes()).execute().actionGet();
+    }
+
+    @Override
     public void remove(final Currency currency) {
         Preconditions.checkNotNull(currency);
         Preconditions.checkArgument(StringUtils.isNotBlank(currency.getId()));

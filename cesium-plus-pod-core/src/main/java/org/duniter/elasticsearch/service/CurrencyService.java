@@ -48,7 +48,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -179,8 +178,18 @@ public class CurrencyService extends AbstractService {
     }
 
     public void updateMemberCount(String currency, int memberCount){
-
+        Preconditions.checkNotNull(currency, "currency could not be null") ;
         this.currencyDao.updateMemberCount(currency, memberCount);
+    }
+
+    public void updateLastUD(String currency, long lastUD){
+        Preconditions.checkNotNull(currency, "currency could not be null") ;
+        this.currencyDao.updateLastUD(currency, lastUD);
+    }
+
+    public long getLastUD(String currency) {
+        Preconditions.checkNotNull(currency, "currency could not be null") ;
+        return this.currencyDao.getLastUD(currency);
     }
 
     /**

@@ -18,4 +18,8 @@ public class OGData {
     public Integer imageHeight;
     public Integer imageWidth;
 
+
+    public String author;
+    public String tag;
+
 }
