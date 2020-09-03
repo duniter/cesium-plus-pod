@@ -24,15 +24,15 @@ package org.duniter.elasticsearch.service;
 
 
 import org.duniter.core.client.config.Configuration;
-import org.duniter.core.client.model.bma.BlockchainBlock;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.client.service.bma.BlockchainRemoteService;
 import org.duniter.elasticsearch.TestResource;
-import org.junit.*;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 @Ignore
 public class CurrencyServiceTest {

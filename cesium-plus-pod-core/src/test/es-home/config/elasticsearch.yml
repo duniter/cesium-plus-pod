@@ -176,6 +176,6 @@ duniter.mail.admin: blavenie@EIS-DEV
 
 # ---------------------------------- Duniter4j Websocket server ----------------------
 #
-# Websocket port (usefull for listen changes)
+# Websocket port (useful for listen changes)
 #
-duniter.ws.port: 9400-9410
+#duniter.ws.port: 9400-9410

@@ -27,52 +27,10 @@
     <dependency>
       <groupId>org.duniter</groupId>
       <artifactId>duniter4j-core-shared</artifactId>
-      <version>${duniter4j.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>javax.websocket</groupId>
-          <artifactId>javax.websocket-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.duniter</groupId>
       <artifactId>duniter4j-core-client</artifactId>
-      <version>${duniter4j.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.glassfish.tyrus</groupId>
-          <artifactId>tyrus-client</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.glassfish.tyrus</groupId>
-          <artifactId>tyrus-container-grizzly-client</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>javax.websocket</groupId>
-          <artifactId>javax.websocket-api</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>org.duniter</groupId>
-      <artifactId>duniter4j-core-shared</artifactId>
-      <version>${duniter4j.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>javax.websocket</groupId>
-          <artifactId>javax.websocket-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- LOGGING DEPENDENCIES - SLF4J -->
@@ -107,11 +65,10 @@
       <artifactId>jackson-databind</artifactId>
     </dependency>
 
-
+    <!-- Antlr String template -->
     <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>ST4</artifactId>
-      <version>${stringtemplate.version}</version>
       <scope>compile</scope>
     </dependency>
 
@@ -152,8 +109,9 @@
 
     <!-- Unit test -->
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>${project.parent.artifactId}-test</artifactId>
+      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

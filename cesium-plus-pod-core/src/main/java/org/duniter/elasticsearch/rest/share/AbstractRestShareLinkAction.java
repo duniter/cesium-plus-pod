@@ -1,7 +1,6 @@
 package org.duniter.elasticsearch.rest.share;
 
 import org.apache.http.entity.ContentType;
-import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.exception.BusinessException;
 import org.duniter.core.util.Preconditions;
 import org.duniter.core.util.StringUtils;
@@ -13,7 +12,6 @@ import org.duniter.elasticsearch.util.springtemplate.STUtils;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.*;
 import org.nuiton.i18n.I18n;
 import org.stringtemplate.v4.ST;

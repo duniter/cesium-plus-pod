@@ -142,6 +142,7 @@
     <module>cesium-plus-pod-user</module>
     <module>cesium-plus-pod-subscription</module>
     <module>cesium-plus-pod-assembly</module>
+    <module>cesium-plus-pod-test</module>
   </modules>
 
   <scm>
@@ -160,8 +161,41 @@
     <dependencies>
       <dependency>
         <groupId>org.duniter</groupId>
+        <artifactId>duniter4j-core-shared</artifactId>
+        <version>${duniter4j.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>javax.websocket</groupId>
+            <artifactId>javax.websocket-api</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.duniter</groupId>
         <artifactId>duniter4j-core-client</artifactId>
         <version>${duniter4j.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.tyrus</groupId>
+            <artifactId>tyrus-client</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.tyrus</groupId>
+            <artifactId>tyrus-container-grizzly-client</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>javax.websocket</groupId>
+            <artifactId>javax.websocket-api</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
 
       <dependency>
@@ -183,11 +217,6 @@
         <groupId>org.slf4j</groupId>
         <artifactId>jcl-over-slf4j</artifactId>
         <version>${slf4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
-        <version>${junit.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
@@ -307,6 +336,17 @@
         <artifactId>elasticsearch</artifactId>
         <version>${elasticsearch.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.elasticsearch.plugin</groupId>
+        <artifactId>mapper-attachments</artifactId>
+        <version>${elasticsearch.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
       <!-- JNA (need for OS shutdown hook) -->
       <dependency>
         <groupId>net.java.dev.jna</groupId>
@@ -345,6 +385,20 @@
         <groupId>org.glassfish.tyrus</groupId>
         <artifactId>tyrus-container-grizzly-server</artifactId>
         <version>${tyrus.version}</version>
+      </dependency>
+
+      <!-- Unit test -->
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>${junit.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.duniter.cesium</groupId>
+        <artifactId>cesium-plus-pod-test</artifactId>
+        <version>${project.version}</version>
+        <scope>test</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -428,7 +482,6 @@
           <artifactId>wagon-maven-plugin</artifactId>
           <version>${wagonPluginVersion}</version>
         </plugin>
-
 
         <plugin>
           <groupId>org.codehaus.mojo</groupId>

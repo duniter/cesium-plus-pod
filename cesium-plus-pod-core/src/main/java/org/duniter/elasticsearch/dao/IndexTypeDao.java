@@ -24,6 +24,7 @@ package org.duniter.elasticsearch.dao;
 
 import org.duniter.elasticsearch.dao.handler.StringReaderHandler;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 
 import java.util.Map;
 
@@ -57,4 +58,6 @@ public interface IndexTypeDao<T extends IndexTypeDao> extends IndexDao<T> {
     void bulkFromClasspathFile(String classpathFile);
 
     void bulkFromClasspathFile(String classpathFile, StringReaderHandler handler);
+
+    long count(QueryBuilder query);
 }

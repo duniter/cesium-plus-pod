@@ -21,6 +21,6 @@ package org.duniter.elasticsearch.user;/*
  */
 
 
-public class TestFixtures extends org.duniter.core.test.TestFixtures {
+public class TestFixtures extends org.duniter.elasticsearch.test.TestFixtures {
 
 }

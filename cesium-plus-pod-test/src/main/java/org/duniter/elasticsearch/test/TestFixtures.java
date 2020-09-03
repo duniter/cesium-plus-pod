@@ -1,4 +1,4 @@
-package org.duniter.elasticsearch.subscription;
+package org.duniter.elasticsearch.test;
 
 /*
  * #%L
@@ -23,9 +23,6 @@ package org.duniter.elasticsearch.subscription;
  */
 
 
-public class TestFixtures extends org.duniter.elasticsearch.test.TestFixtures {
+public class TestFixtures extends org.duniter.core.test.TestFixtures {
 
-    public String getEmail() {
-        return "contact@e-is.pro";
-    }
 }

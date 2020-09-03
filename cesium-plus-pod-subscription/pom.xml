@@ -42,78 +42,17 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- Antlr String template -->
     <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>ST4</artifactId>
-      <version>${stringtemplate.version}</version>
       <scope>provided</scope>
     </dependency>
 
     <!-- Unit test -->
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <optional>true</optional>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna-platform</artifactId>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>net.java.dev.jna</groupId>
-          <artifactId>jna</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.elasticsearch.plugin</groupId>
-      <artifactId>mapper-attachments</artifactId>
-      <version>${elasticsearch.version}</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>commons-logging</groupId>
-          <artifactId>commons-logging</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <!-- Websocket (need for test) -->
-    <dependency>
-      <groupId>javax.websocket</groupId>
-      <artifactId>javax.websocket-api</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.tyrus</groupId>
-      <artifactId>tyrus-server</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.tyrus</groupId>
-      <artifactId>tyrus-container-grizzly-server</artifactId>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>${project.parent.artifactId}-test</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

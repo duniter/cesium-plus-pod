@@ -28,6 +28,11 @@ import org.duniter.core.exception.TechnicalException;
 import org.duniter.core.util.Preconditions;
 import org.duniter.elasticsearch.dao.handler.StringReaderHandler;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.search.SearchPhaseExecutionException;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.index.query.QueryBuilder;
 
 import java.io.File;
 import java.io.InputStream;
@@ -193,5 +198,31 @@ public abstract class AbstractIndexTypeDao<T extends IndexTypeDao> extends Abstr
         client.safeExecuteRequest(client.prepareUpdate(getIndex(), getType(), id)
                 .setRefresh(false) // let's see if this works
                 .setDoc(json), wait);
+    }
+
+    public long count(QueryBuilder query) {
+        // Prepare count request
+        SearchRequestBuilder searchRequest = client
+                .prepareSearch(getIndex())
+                .setTypes(getType())
+                .setFetchSource(false)
+                .setSearchType(SearchType.QUERY_AND_FETCH)
+                .setSize(0);
+
+        // Query
+        if (query != null) {
+            searchRequest.setQuery(query);
+        }
+
+        // Execute query
+        try {
+            SearchResponse response = searchRequest.execute().actionGet();
+            return response.getHits().getTotalHits();
+        }
+        catch(SearchPhaseExecutionException e) {
+            // Failed or no item on index
+            logger.error(String.format("Error while counting comment replies: %s", e.getMessage()), e);
+        }
+        return 1;
     }
 }

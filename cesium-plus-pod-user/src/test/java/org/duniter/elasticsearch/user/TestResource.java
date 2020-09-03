@@ -29,56 +29,35 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-public class TestResource extends org.duniter.core.test.TestResource {
+public class TestResource extends org.duniter.elasticsearch.test.TestResource<TestFixtures> {
 
     private static final Logger log = LoggerFactory.getLogger(TestResource.class);
 
     public static TestResource create() {
-        return new TestResource(null);
+        return new TestResource(null, true);
     }
     
     public static TestResource create(String configName) {
-        return new TestResource(configName);
+        return new TestResource(configName, true);
     }
-
-    private TestFixtures fixtures = new TestFixtures();
 
     private TestConfiguration testConfiguration;
-
-    protected TestResource(String configName) {
-        super(configName);
-    }
-    
-    protected void before(Description description) throws Throwable {
-        super.before(description);
-
-        // Prepare ES home
-        File esHomeDir = getResourceDirectory("es-home");
-
-        System.setProperty("es.path.home", esHomeDir.getCanonicalPath());
-
-        FileUtils.copyDirectory(new File("src/test/es-home"), esHomeDir);
-        FileUtils.copyDirectory(new File("target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-user"));
-
-        Elasticsearch.main(new String[]{"start"});
-
-        // Init a configuration
-        testConfiguration = new TestConfiguration(getConfigFileName());
-
-    }
-
-    public TestFixtures getFixtures() {
-        return fixtures;
-    }
 
     public TestConfiguration getConfiguration() {
         return testConfiguration;
     }
 
-    /* -- protected method -- */
-
-    protected String getConfigFilesPrefix() {
-        return "cesium-plus-pod-user-test";
+    protected TestResource(String configName, boolean startEsNode) {
+        super(configName, "cesium-plus-pod-user", startEsNode, new TestFixtures());
     }
+
+    @Override
+    protected void prepareEsHome(File esHomeDir) throws Throwable {
+        super.prepareEsHome(esHomeDir);
+
+        // Copy dependencies plugins
+        FileUtils.copyDirectory(new File("../cesium-plus-pod-core/target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-core"));
+    }
+
 
 }

@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-public class TestResource extends org.duniter.core.test.TestResource {
+public class TestResource extends org.duniter.elasticsearch.test.TestResource<TestFixtures> {
 
     private static final Logger log = LoggerFactory.getLogger(TestResource.class);
 
@@ -56,54 +56,22 @@ public class TestResource extends org.duniter.core.test.TestResource {
         return new TestResource(configName, startES);
     }
 
-    private TestFixtures fixtures = new TestFixtures();
-    private final boolean startESNode;
-
     protected TestResource(String configName, boolean startESNode) {
-        super(configName);
-        this.startESNode = startESNode;
-    }
-    
-    public TestFixtures getFixtures() {
-        return fixtures;
+        super(configName, "cesium-plus-pod-subscription", startESNode, new TestFixtures());
     }
 
     public PluginSettings getPluginSettings() {
         return PluginSettings.instance();
     }
 
-    protected void before(Description description) throws Throwable {
-        super.before(description);
-
-        // Prepare ES home
-        File esHomeDir = getResourceDirectory("es-home");
-
-        System.setProperty("es.path.home", esHomeDir.getCanonicalPath());
-
-        FileUtils.copyDirectory(new File("src/test/es-home"), esHomeDir);
-        FileUtils.copyDirectory(new File("target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-subscription"));
+    protected void prepareEsHome(File esHomeDir) throws Throwable {
+        super.prepareEsHome(esHomeDir);
 
         // Copy dependencies plugins
         FileUtils.copyDirectory(new File("../cesium-plus-pod-core/target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-core"));
         FileUtils.copyDirectory(new File("../cesium-plus-pod-user/target/classes"), new File(esHomeDir, "plugins/cesium-plus-pod-user"));
 
-        if (startESNode) {
-            Elasticsearch.main(new String[]{"start"});
-        }
-
-        /*while(true) {
-            Thread.sleep(10000);
-        }*/
     }
 
-    /**
-     * Return configuration files prefix (i.e. 'allegro-test')
-     * Could be override by external project
-     *
-     * @return the prefix to use to retrieve configuration files
-     */
-    protected String getConfigFilesPrefix() {
-        return "cesium-plus-pod-subscription-test";
-    }
 
 }

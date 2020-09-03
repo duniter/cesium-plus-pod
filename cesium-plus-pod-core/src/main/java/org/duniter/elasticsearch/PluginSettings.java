@@ -25,6 +25,7 @@ package org.duniter.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
@@ -406,23 +407,24 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     public Set<String> getPeerIndexedApis() {
         String[] includeApis = settings.getAsArray("duniter.p2p.peer.indexedApis");
-        // By default: getPeeringPublishedApis + getPeeringTargetedApis
-        if (ArrayUtils.isEmpty(includeApis)) {
-            return ImmutableSet.copyOf(CollectionUtils.union(
-                    ImmutableList.of(
-                            EndpointApi.BASIC_MERKLED_API.label(),
-                            EndpointApi.BMAS.label(),
-                            EndpointApi.WS2P.label()
-                    ),
-                    CollectionUtils.union(
-                        getPeeringTargetedApis(),
-                        getPeeringPublishedApis()
-                    )
-                 )
-            );
-        }
+        if (ArrayUtils.isNotEmpty(includeApis)) return ImmutableSet.copyOf(includeApis);
 
-        return ImmutableSet.copyOf(includeApis);
+        // By default: getPeeringPublishedApis + getPeeringTargetedApis
+        Set<String> defaults = Sets.newHashSet(
+                EndpointApi.BASIC_MERKLED_API.label(),
+                EndpointApi.BMAS.label(),
+                EndpointApi.WS2P.label()
+                );
+
+        // Add targeted APIs
+        Set<String> peeringTargetedApis = getPeeringTargetedApis();
+        if (peeringTargetedApis != null) defaults.addAll(peeringTargetedApis);
+
+        // Add published APIs
+        Set<String> peeringPublishedApis = getPeeringPublishedApis();
+        if (peeringPublishedApis != null) defaults.addAll(peeringPublishedApis);
+
+        return defaults;
     }
 
     /**

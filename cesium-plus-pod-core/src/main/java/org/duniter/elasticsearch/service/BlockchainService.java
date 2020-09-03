@@ -638,6 +638,11 @@ public class BlockchainService extends AbstractService {
 
             if (!isReady()) throw new IllegalStateException("Could not load blockchain parameters (service is not started)");
 
+            // Try to fill currency, using default
+            if (StringUtils.isBlank(currency)) {
+              currency =  currencyDao.getDefaultId();
+            }
+
             // Try to get from DAO
             if (StringUtils.isNotBlank(currency)) {
                 Currency localCurrencyModel = currencyDao.getById(currency);
