@@ -265,7 +265,8 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
     public long[] getBlockNumberWithUd(String currencyName) {
         return getBlockNumbersFromQuery(currencyName,
                 QueryBuilders.boolQuery()
-                    .filter(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_DIVIDEND)));
+                    .filter(QueryBuilders.existsQuery(BlockchainBlock.PROPERTY_DIVIDEND))
+        );
     }
 
     @Override
@@ -576,6 +577,8 @@ public class BlockDaoImpl extends AbstractDao implements BlockDao {
             offset += size;
         } while (offset < total);
 
-        return ids.stream().mapToLong(Long::parseLong).sorted().toArray();
+        return ids.stream()
+                .filter(id -> !BlockDao.CURRENT_BLOCK_ID.equals(id))
+                .mapToLong(Long::parseLong).sorted().toArray();
     }
 }

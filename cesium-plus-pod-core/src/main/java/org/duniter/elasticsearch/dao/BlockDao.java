@@ -39,6 +39,7 @@ import java.util.Set;
 public interface BlockDao extends Bean, TypeDao<BlockDao> {
 
     String TYPE = "block";
+    String CURRENT_BLOCK_ID = "current";
 
 
     void create(BlockchainBlock block, boolean wait);

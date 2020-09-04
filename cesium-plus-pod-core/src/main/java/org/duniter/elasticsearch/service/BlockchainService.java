@@ -74,9 +74,8 @@ import java.util.stream.Collectors;
  */
 public class BlockchainService extends AbstractService {
 
-    private static final BlockchainBlock DEFAULT_BLOCK = KnownBlocks.getFirstBlock(KnownCurrencies.G1);
     public static final String BLOCK_TYPE = BlockDao.TYPE;
-    public static final String CURRENT_BLOCK_ID = "current";
+    public static final String CURRENT_BLOCK_ID = BlockDao.CURRENT_BLOCK_ID;
 
     private static final int SYNC_MISSING_BLOCK_MAX_RETRY = 5;
 
