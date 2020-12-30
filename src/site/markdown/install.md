@@ -109,10 +109,10 @@ $ ./elasticsearch
 [2016-09-24 00:16:46,270][INFO ][env                      ] [ES-NODE-1] heap size [989.8mb], compressed ordinary object pointers [true]
 [2016-09-24 00:16:47,757][INFO ][node                     ] [ES-NODE-1] initialized
 [2016-09-24 00:16:47,757][INFO ][node                     ] [ES-NODE-1] starting ...
-[2016-09-24 00:16:47,920][INFO ][transport                ] [ES-NODE-1] publish_address {192.168.0.5:9300}, bound_addresses {192.168.0.5:9300}
+[2016-09-24 00:16:47,920][INFO ][transport                ] [ES-NODE-1] publish_address {127.0.0.1:9300}, bound_addresses {127.0.0.1:9300}
 [2016-09-24 00:16:47,924][INFO ][discovery                ] [ES-NODE-1] cesium-plus-pod-g1-TEST/jdzzh_jUTbuN26Enl-9whQ
-[2016-09-24 00:16:50,982][INFO ][cluster.service          ] [ES-NODE-1] detected_master {EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}, added {{EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300},}, reason: zen-disco-receive(from master [{EIS-DEV}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}])
-[2016-09-24 00:16:53,570][INFO ][http                     ] [ES-NODE-1] publish_address {192.168.0.5:9200}, bound_addresses {192.168.0.5:9200}
+[2016-09-24 00:16:50,982][INFO ][cluster.service          ] [ES-NODE-1] detected_master {SERVERNAME}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}, added {{SERVERNAME}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300},}, reason: zen-disco-receive(from master [{SERVERNAME}{FD0IzkxETM6tyOqzrKuVYw}{192.168.0.28}{192.168.0.28:9300}])
+[2016-09-24 00:16:53,570][INFO ][http                     ] [ES-NODE-1] publish_address {127.0.0.1:9200}, bound_addresses {127.0.0.1:9200}
 [2016-09-24 00:16:53,570][INFO ][node                     ] [ES-NODE-1] started
 [2016-09-24 00:16:57,850][INFO ][node                     ] Checking Duniter indices...
 [2016-09-24 00:16:57,859][INFO ][node                     ] Checking Duniter indices... [OK]

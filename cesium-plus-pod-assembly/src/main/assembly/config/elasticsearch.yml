@@ -359,7 +359,7 @@ duniter.mail.enable: false
 #
 # duniter.subscription.email.hourOfDay: 3
 #
-# Email subscription: URL to a web site, for links in the email content (default: https://g1.duniter.fr)
+# Email subscription: URL to a web site, for links in the email content (default: https://demo.cesium.app)
 #
 # duniter.subscription.email.link.url: 'https://domain.com/cesium'
 #
@@ -373,17 +373,17 @@ duniter.mail.enable: false
 #
 # duniter.share.site.name: 'Cesium - Ğ1'
 #
-# URL to a page (default: https://g1.duniter.fr/#/app/page/view/{id}/{title} )
+# URL to a page (default: https://demo.cesium.app/#/app/page/view/{id}/{title} )
 # Note: available variables are {id} and {title}
 #
 # duniter.share.page.link.url: 'https://domain.com/cesium/#/app/page/view/{id}/{title}'
 #
-# URL to a user profile (default: https://g1.duniter.fr/#/app/wot/{pubkey}/{title} )
+# URL to a user profile (default: https://demo.cesium.app/#/app/wot/{pubkey}/{title} )
 # Note: available variables are {pubkey} and {title}
 #
 # duniter.share.user.link.url: 'https://domain.com/cesium/#/app/wot/{pubkey}/{title}'
 #
-# Default image to share (min size of 200x200px) for `og:image` (default: https://g1.duniter.fr/img/logo_200px.png)
+# Default image to share (min size of 200x200px) for `og:image` (default: https://demo.cesium.app/img/logo_200px.png)
 #
 # duniter.share.image.default.url: 'https://domain.com/cesium/img/logo_200px.png'
 #

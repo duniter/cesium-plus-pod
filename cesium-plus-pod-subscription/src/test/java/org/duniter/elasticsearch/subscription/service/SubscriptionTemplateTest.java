@@ -59,7 +59,7 @@ public class SubscriptionTemplateTest {
             template.add("title", "Cesium+ notifications");
             template.add("issuerName", "MyIssuerName");
             template.add("issuerPubkey", "5ocqzyDMMWf1V8bsoNhWb1iNwax1e9M7VTUN6navs8of");
-            template.add("url", "https://g1.duniter.fr");
+            template.add("url", "https://demo.cesium.app");
             template.add("senderPubkey", "G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU");
             template.add("senderName", ModelUtils.minifyPubkey("G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU"));
             template.add("locale", locale.getLanguage());
@@ -87,7 +87,7 @@ public class SubscriptionTemplateTest {
             ST tpl = group.getInstanceOf("text_email");
             tpl.add("issuerPubkey", "5ocqzyDMMWf1V8bsoNhWb1iNwax1e9M7VTUN6navs8of");
             tpl.add("issuerName", "kimamila");
-            tpl.add("url", "https://g1.duniter.fr");
+            tpl.add("url", "https://demo.cesium.app");
             tpl.add("senderPubkey", "G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU");
             tpl.add("senderName", ModelUtils.minifyPubkey("G2CBgZBPLe6FSFUgpx2Jf1Aqsgta6iib3vmDRA1yLiqU"));
             tpl.addAggr("events.{description, time}", new Object[]{"My event description", new Date()});

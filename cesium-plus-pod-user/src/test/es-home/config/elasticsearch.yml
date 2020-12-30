@@ -221,6 +221,6 @@ duniter.subscription.enable: true
 #
 duniter.subscription.email.hourOfDay: 3
 #
-# Email subscription: URL to a Cesium site, for links in the email content (default: https://g1.duniter.fr)
+# Email subscription: URL to a Cesium site, for links in the email content (default: https://demo.cesium.app)
 #
 #duniter.subscription.email.cesium.url: 'https://domain.com/cesium'

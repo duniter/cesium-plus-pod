@@ -265,7 +265,7 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
      */
     @Deprecated
     public String getCesiumUrl() {
-        return this.settings.get("duniter.share.cesium.url", "https://g1.duniter.fr");
+        return this.settings.get("duniter.share.cesium.url", "https://demo.cesium.app");
     }
 
     public String getSharePageLinkUrl() {
