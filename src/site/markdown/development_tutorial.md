@@ -417,7 +417,7 @@ Duniter4j permet aussi de stocker et d'indexer les données hors BlockChain, com
 - `/user/profile` : les profiles utilisateurs (nom complet, réseaux sociaux, avatar, etc.)   
 - `/message/inbox` : les messages privées recus    
 - `/message/outbox` : les messages privées envoyés    
-- `/page/record` : les pages de l'[annuaire des pages Cesium+](https://demo.cesium.app/#/app/wot/page/lg);   
+- `/page/record` : les pages de l'[annuaire des pages Cesium+](https://demo.cesium.app/#/app/wot/page);   
 - `/page/comment` : les commentaires sur les annonces
 - `/subscription/record` : les abonnements aux services en ligne (par exemple les notifications par email)
 

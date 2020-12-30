@@ -219,7 +219,7 @@ public class PendingMembershipDaoImpl extends AbstractDao implements PendingMemb
                     .field("index", "not_analyzed")
                     .endObject()
 
-                    // isMember
+                    // written
                     .startObject(WotPendingMembership.PROPERTY_WRITTEN)
                     .field("type", "boolean")
                     .endObject()

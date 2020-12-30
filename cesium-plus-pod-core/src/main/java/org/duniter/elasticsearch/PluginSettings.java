@@ -413,7 +413,9 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         Set<String> defaults = Sets.newHashSet(
                 EndpointApi.BASIC_MERKLED_API.label(),
                 EndpointApi.BMAS.label(),
-                EndpointApi.WS2P.label()
+                EndpointApi.WS2P.label(),
+                EndpointApi.GVA.label(),
+                EndpointApi.GVASUB.label()
                 );
 
         // Add targeted APIs

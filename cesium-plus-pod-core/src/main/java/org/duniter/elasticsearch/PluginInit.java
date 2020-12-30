@@ -459,6 +459,12 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
+        // Register stats on indices
+        if (pluginSettings.enableDocStats()) {
+            injector.getInstance(DocStatService.class)
+                    .registerIndex(peer.getCurrency(), PendingMembershipDao.TYPE);
+        }
+
         try {
             // Index peers (and listen if new peer appear)
             ScheduledActionFuture<?> job = injector.getInstance(PendingMembershipService.class)
