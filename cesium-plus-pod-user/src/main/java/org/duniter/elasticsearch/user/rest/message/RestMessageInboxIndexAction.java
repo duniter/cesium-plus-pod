@@ -23,22 +23,35 @@ package org.duniter.elasticsearch.user.rest.message;
  */
 
 import org.duniter.elasticsearch.rest.AbstractRestPostIndexAction;
+import org.duniter.elasticsearch.rest.security.RestQuotaController;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.user.service.MessageService;
+import org.duniter.elasticsearch.user.service.UserService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestController;
+import org.elasticsearch.rest.RestRequest;
+
+import java.util.concurrent.TimeUnit;
 
 public class RestMessageInboxIndexAction extends AbstractRestPostIndexAction {
 
     @Inject
     public RestMessageInboxIndexAction(Settings settings, RestController controller, Client client,
                                        RestSecurityController securityController,
+                                       RestQuotaController quotaController,
                                        final MessageService service) {
         super(settings, controller, client, securityController,
                 MessageService.INDEX,
                 MessageService.INBOX_TYPE,
-                json -> service.indexInboxFromJson(json));
+                service::indexInboxFromJson);
+
+        quotaController.quota(RestRequest.Method.POST,
+                String.format("/%s/%s", MessageService.INDEX, MessageService.INBOX_TYPE),
+                50,
+                12,
+                TimeUnit.HOURS
+        );
     }
 }

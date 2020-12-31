@@ -446,6 +446,9 @@ Some additional fields are `content` (the settings content, but encrypted) and `
 
 #### `message/inbox`
 
+
+Limited to 50 messages every day, per IP address
+
 Some additional fields are `recipient` (the message recipient), `title` (the encrypted message's title), `content` (the encrypted message's body) and `nonce` (required for an optimal encryption security level) :
 
 ```json
@@ -465,6 +468,8 @@ Some additional fields are `recipient` (the message recipient), `title` (the enc
 **Only the message issuer** will be able to decrypt this fields.  
 
 #### `message/outbox`
+
+Limited to 50 messages every day, per IP address
 
 `content` and `title` are encrypted for the recipient _box_ public key.
 **Only the message recipient** will be able to decrypt this fields.
