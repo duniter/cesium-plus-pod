@@ -122,7 +122,19 @@ public class DocStatService extends AbstractService  {
 
     public DocStatService registerIndex(String index, String type, String queryName, QueryBuilder query, ComputeListener listener) {
         Preconditions.checkArgument(StringUtils.isNotBlank(index));
+
+        // Compute defaults query name
+        if (StringUtils.isBlank(queryName) && query == null) {
+            if (StringUtils.isNotBlank(type)) {
+                queryName = index + "_" + type;
+            }
+            else {
+                queryName = index;
+            }
+        }
+
         StatDef statDef = new StatDef(index, type, queryName, query);
+
         if (!statDefs.contains(statDef)) {
             if (queryName == null) {
                 logger.debug(String.format("Add stats on {%s/%s}", index, type));

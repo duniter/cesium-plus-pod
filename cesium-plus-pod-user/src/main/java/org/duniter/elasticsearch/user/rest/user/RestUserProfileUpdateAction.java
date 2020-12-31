@@ -23,23 +23,35 @@ package org.duniter.elasticsearch.user.rest.user;
  */
 
 import org.duniter.elasticsearch.rest.AbstractRestPostUpdateAction;
+import org.duniter.elasticsearch.rest.security.RestQuotaController;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.user.service.UserService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestController;
+import org.elasticsearch.rest.RestRequest;
+
+import java.util.concurrent.TimeUnit;
 
 public class RestUserProfileUpdateAction extends AbstractRestPostUpdateAction {
 
     @Inject
     public RestUserProfileUpdateAction(Settings settings, RestController controller, Client client,
                                        RestSecurityController securityController,
+                                       RestQuotaController quotaController,
                                        UserService service) {
         super(settings, controller, client, securityController,
                 UserService.INDEX,
                 UserService.PROFILE_TYPE,
-                (id, json) -> service.updateProfileFromJson(id, json));
+                service::updateProfileFromJson);
+
+        quotaController.quota(RestRequest.Method.POST,
+                String.format("/%s/%s/[^/]+/_update", UserService.INDEX, UserService.PROFILE_TYPE),
+                5,
+                1,
+                TimeUnit.MINUTES
+        );
     }
 
 }

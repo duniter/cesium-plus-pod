@@ -70,6 +70,11 @@ public class RestSecurityController extends AbstractLifecycleComponent<RestSecur
         return this;
     }
 
+    public RestSecurityController allowPostUpdateIndexType(String index, String type) {
+        allow(RestRequest.Method.POST, String.format("/%s/%s/[^/]+/_update", index, type));
+        return this;
+    }
+
     public RestSecurityController allowGetSearchIndexType(String index, String type) {
         allow(RestRequest.Method.GET, String.format("/%s/%s/_search", index, type));
         return this;
@@ -106,7 +111,7 @@ public class RestSecurityController extends AbstractLifecycleComponent<RestSecur
             else {
                 boolean found = false;
                 for (String allowRule : allowRules) {
-                    log.trace(String.format(" - Trying against rule [%s] for %s requests: not match", allowRule, method));
+                    log.trace(String.format(" - Trying against rule [%s] for %s requests", allowRule, method));
                     if (path.matches(allowRule)) {
                         log.trace(String.format("Find matching rule [%s] for %s request [%s]: allow", allowRule, method, path));
                         found = true;

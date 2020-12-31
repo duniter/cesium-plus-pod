@@ -548,6 +548,15 @@ public class PluginSettings extends AbstractLifecycleComponent<PluginSettings> {
         return settings.getAsBoolean("duniter.security.enable", true);
     }
 
+    public boolean enableQuota() {
+        return settings.getAsBoolean("duniter.security.quota.enable", enableSecurity());
+    }
+
+    public String[] getIpWhiteList() {
+        return settings.getAsArray("duniter.security.whitelist", new String[] {"127.0.0.1", "::1"});
+    }
+
+
     public int getDocumentTimeMaxPastDelta() {
         return settings.getAsInt("duniter.document.time.maxPastDelta", 7200); // in seconds = 2h
     }

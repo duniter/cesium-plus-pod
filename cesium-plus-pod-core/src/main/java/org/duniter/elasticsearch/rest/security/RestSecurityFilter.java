@@ -23,22 +23,27 @@ package org.duniter.elasticsearch.rest.security;
  */
 
 import org.duniter.elasticsearch.PluginSettings;
+import org.duniter.elasticsearch.util.RestUtils;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.rest.*;
 
 import static org.elasticsearch.rest.RestStatus.FORBIDDEN;
+import static org.elasticsearch.rest.RestStatus.TOO_MANY_REQUESTS;
 
 public class RestSecurityFilter extends RestFilter {
 
     private final ESLogger logger;
 
     private RestSecurityController securityController;
+    private RestQuotaController quotaController;
     private final boolean debug;
 
     @Inject
-    public RestSecurityFilter(PluginSettings pluginSettings, RestController controller, RestSecurityController securityController) {
+    public RestSecurityFilter(PluginSettings pluginSettings, RestController controller,
+                              RestSecurityController securityController,
+                              RestQuotaController quotaController) {
         super();
         logger = Loggers.getLogger("duniter.security", pluginSettings.getSettings(), new String[0]);
         if (pluginSettings.enableSecurity()) {
@@ -46,6 +51,7 @@ public class RestSecurityFilter extends RestFilter {
             controller.registerFilter(this);
         }
         this.securityController = securityController;
+        this.quotaController = quotaController;
         this.debug = logger.isDebugEnabled();
     }
 
@@ -60,11 +66,18 @@ public class RestSecurityFilter extends RestFilter {
         }
 
         if (securityController.isAllow(request)) {
-            if (debug) {
-                logger.debug(String.format("Allow %s request [%s]", request.method().name(), request.path()));
-            }
+            if (debug) logger.debug(String.format("Allow %s request [%s]", request.method().name(), request.path()));
 
-            filterChain.continueProcessing(request, channel);
+            if (quotaController.isAllow(request)) {
+                filterChain.continueProcessing(request, channel);
+            }
+            else if (logger.isWarnEnabled()){
+                logger.warn(String.format("Refused %s request to [%s] - Too many request {%s}",
+                        request.method().name(),
+                        request.path(),
+                        RestUtils.getIp(request)));
+                channel.sendResponse(new BytesRestResponse(TOO_MANY_REQUESTS));
+            }
         }
 
         else {

@@ -22,24 +22,33 @@ package org.duniter.elasticsearch;
  * #L%
  */
 
+import com.google.common.base.Joiner;
+import org.duniter.core.client.model.bma.EndpointApi;
 import org.duniter.core.client.model.elasticsearch.Currency;
+import org.duniter.core.client.model.local.Identity;
 import org.duniter.core.client.model.local.Peer;
 import org.duniter.core.util.Preconditions;
+import org.duniter.core.util.StringUtils;
 import org.duniter.elasticsearch.dao.*;
 import org.duniter.elasticsearch.rest.security.RestSecurityController;
 import org.duniter.elasticsearch.service.*;
 import org.duniter.elasticsearch.synchro.SynchroService;
 import org.duniter.elasticsearch.threadpool.ScheduledActionFuture;
 import org.duniter.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestRequest;
 
 import java.io.Closeable;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -198,7 +207,7 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
                 .allow(RestRequest.Method.POST, "^/_search/scroll$")
                 .allow(RestRequest.Method.DELETE, "^/_search/scroll$"); // WARN: should NEVER authorized URL likes /_search/scroll/all (= ALL scroll )
 
-        // Add access to docstat index
+        // Add access to document/stats index
         if (pluginSettings.enableDocStats()) {
 
             injector.getInstance(RestSecurityController.class)
@@ -416,14 +425,31 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
 
+        // Add stats on members
+        if (pluginSettings.enableDocStats()) {
+            DocStatService docStatService = injector.getInstance(DocStatService.class);
+
+            // Is member
+            {
+                QueryBuilder query = QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termQuery(Identity.PROPERTY_IS_MEMBER, true))
+                );
+                String queryName = Joiner.on('_').join(peer.getCurrency(), Strings.toUnderscoreCase(Identity.PROPERTY_IS_MEMBER));
+                docStatService.registerIndex(peer.getCurrency(), MemberDao.TYPE, queryName, query, null);
+            }
+        }
+
         try {
             // Index Wot members
             WotService wotService =  injector.getInstance(WotService.class)
                     .indexMembers(peer.getCurrency());
 
             // Listen new block, to update members
-            Closeable listener = wotService.listenAndIndexMembers(peer.getCurrency());
-            threadPool.scheduleOnMasterFirstStop(listener);
+            Closeable stop = wotService.listenAndIndexMembers(peer.getCurrency());
+
+            // Stop to listen, if master stop
+            threadPool.scheduleOnMasterFirstStop(stop);
+
 
         } catch (Throwable e) {
             logger.error(String.format("[%s] Indexing WoT members error: %s", peer.getCurrency(), e.getMessage()), e);
@@ -436,6 +462,35 @@ public class PluginInit extends AbstractLifecycleComponent<PluginInit> {
 
         Preconditions.checkNotNull(peer);
         Preconditions.checkNotNull(peer.getCurrency());
+
+        // Add stats on UP peers, per API
+        if (pluginSettings.enableDocStats()) {
+            DocStatService docStatService = injector.getInstance(DocStatService.class);
+
+            QueryBuilder statusQuery = QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.termQuery(Peer.PROPERTY_STATS + "." + Peer.Stats.PROPERTY_STATUS, Peer.PeerStatus.UP.name()));
+
+            // Peers UP
+            {
+                QueryBuilder query = QueryBuilders.constantScoreQuery(QueryBuilders.boolQuery()
+                        .must(QueryBuilders.nestedQuery(Peer.PROPERTY_STATS, statusQuery)));
+                String queryName = Joiner.on('_').join(peer.getCurrency(), PeerDao.TYPE, Peer.PeerStatus.UP.name()).toLowerCase();
+                docStatService.registerIndex(peer.getCurrency(), PeerDao.TYPE, queryName, query, null);
+            }
+
+            // Peers UP, per API
+            Arrays.stream(EndpointApi.values())
+                    .forEach(api -> {
+                        BoolQueryBuilder apiQuery = QueryBuilders.boolQuery()
+                                .filter(QueryBuilders.termQuery(Peer.PROPERTY_API, api.name()));
+
+                        QueryBuilder query = QueryBuilders.constantScoreQuery(apiQuery
+                                        .must(QueryBuilders.nestedQuery(Peer.PROPERTY_STATS, statusQuery)));
+
+                        String queryName = Joiner.on('_').join(peer.getCurrency(), PeerDao.TYPE, api.name()).toLowerCase();
+                        docStatService.registerIndex(peer.getCurrency(), PeerDao.TYPE, queryName, query, null);
+                    });
+        }
 
         try {
             // Index peers (and listen if new peer appear)

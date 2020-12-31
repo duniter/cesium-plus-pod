@@ -368,14 +368,16 @@ For instance, a deletion on `message/inbox` should send this document:
 
  - Get an profile, by public key: `user/profile/<pubkey>`
  - Add a new profile: `user/profile` (POST)
+    * Limited to 5 profiles every hour, per IP address 
  - Update an existing profile: `user/profile/_update` (POST)
+    * Limited to 5 updates per minutes, per IP address
  - Delete an existing invitation: `invitation/certification/_delete` (POST)
  - Search on profiles: `user/profile/_search` (POST or GET)
 
 A profile document is a JSON document. Mandatory fields are:
  
  - `title`: user name (Lastanem, firstname...)
- - `time`: submission time, in seconds
+ - `time`: submission time, in seconds (UTC unixtime)
  - `issuer`: user public key
  - `hash`: hash of the JSON document (without fields `hash` and `signature`)
  - `signature`: signature of the JSON document (without fields `hash` and `signature`)

@@ -54,7 +54,7 @@ public abstract class AbstractRestPostUpdateAction extends BaseRestHandler {
         controller.registerHandler(POST,
                 String.format("/%s/%s/{id}/_update", indexName, typeName),
                 this);
-        securityController.allowIndexType(POST, indexName, typeName);
+        securityController.allowPostUpdateIndexType(indexName, typeName);
         this.updater = updater;
     }
 

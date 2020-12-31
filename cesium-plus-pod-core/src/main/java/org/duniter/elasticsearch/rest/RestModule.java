@@ -29,10 +29,7 @@ import org.duniter.elasticsearch.rest.network.*;
 import org.duniter.elasticsearch.rest.node.RestNodeModeratorsGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeSummaryGetAction;
 import org.duniter.elasticsearch.rest.node.RestNodeStatsGetAction;
-import org.duniter.elasticsearch.rest.security.RestSecurityAuthAction;
-import org.duniter.elasticsearch.rest.security.RestSecurityController;
-import org.duniter.elasticsearch.rest.security.RestSecurityFilter;
-import org.duniter.elasticsearch.rest.security.RestSecurityGetChallengeAction;
+import org.duniter.elasticsearch.rest.security.*;
 import org.duniter.elasticsearch.rest.wot.RestWotLookupGetAction;
 import org.duniter.elasticsearch.rest.wot.RestWotMembersGetAction;
 import org.duniter.elasticsearch.rest.wot.RestWotPendingGetAction;
@@ -52,8 +49,9 @@ public class RestModule extends AbstractModule implements Module {
         // Authentication & Security
         bind(RestSecurityGetChallengeAction.class).asEagerSingleton();
         bind(RestSecurityAuthAction.class).asEagerSingleton();
-        bind(RestSecurityFilter.class).asEagerSingleton();
         bind(RestSecurityController.class).asEagerSingleton();
+        bind(RestQuotaController.class).asEagerSingleton();
+        bind(RestSecurityFilter.class).asEagerSingleton();
 
         // Attachment as image
         bind(RestImageAttachmentAction.class).asEagerSingleton();
