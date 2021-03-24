@@ -103,7 +103,7 @@ public class SaveResult implements Serializable {
     }
 
     public String toString() {
-        return String.format("%s insertions, %s updates, %s deletions,",
+        return String.format("%s insertions, %s updates, %s deletions",
                 insertTotal,
                 updateTotal,
                 deleteTotal);
